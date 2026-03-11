@@ -10,9 +10,12 @@
 </head>
 <body>
   <div id="auth-view" class="auth-container" style="display:none">
-    <div id="auth-monsters"></div>
+    <div class="auth-monsters-panel">
+      <div id="auth-monsters"></div>
+    </div>
+    <div class="auth-form-panel">
+    <a href="/" class="auth-back-btn" id="auth-back-global">&#8592; Back</a>
     <div class="auth-card">
-      <a href="/" class="auth-back-btn">&#8592; Back</a>
       <a href="/" class="logo">iWrite</a>
       <div id="login-form">
         <h2>Welcome back</h2>
@@ -61,6 +64,7 @@
         <p class="auth-switch">Already have an account? <a href="#" id="show-login">Sign in</a></p>
       </div>
     </div>
+    </div>
   </div>
 
   <div id="app-view" style="display:none">
@@ -80,7 +84,7 @@
           </button>
           <button class="sidebar-nav-item" data-view="documents">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-            Documents
+            Sessions
           </button>
           <button class="sidebar-nav-item" data-view="leaderboard">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 21h8M12 17v4"/><path d="M7 4h10l-1 9H8L7 4z"/><path d="M7 8H4l1 4h2M17 8h3l-1 4h-2"/></svg>
@@ -93,6 +97,7 @@
           <button class="sidebar-nav-item" data-view="friends">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
             Friends
+            <span class="nav-badge" id="friends-badge" style="display:none">0</span>
           </button>
           <button class="sidebar-nav-item" data-view="profile">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -168,7 +173,7 @@
               </div>
 
               <div class="docs-header">
-                <h2>&#x1F4C4; Recent Documents</h2>
+                <h2>&#x1F4C4; Recent Sessions</h2>
                 <button class="btn btn-primary btn-small" id="new-doc-btn-2">New Session</button>
               </div>
               <div id="recent-docs"></div>
@@ -184,11 +189,16 @@
           </div>
         </div>
 
-        <!-- DOCUMENTS VIEW -->
+        <!-- SESSIONS VIEW -->
         <div id="view-documents" class="view" style="display:none">
           <div class="docs-header">
-            <h2>&#x1F4DA; All Documents</h2>
-            <button class="btn btn-primary btn-small" id="new-doc-btn-3">New Session</button>
+            <h2>&#x1F4DA; All Sessions</h2>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="doc-action-btn" id="history-btn" title="Session History" style="width:32px;height:32px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+              </button>
+              <button class="btn btn-primary btn-small" id="new-doc-btn-3">New Session</button>
+            </div>
           </div>
           <div id="all-docs"></div>
         </div>
@@ -254,12 +264,23 @@
           </div>
           <div style="display:flex;gap:12px;margin-bottom:32px;max-width:480px">
             <input type="email" id="friend-email-input" placeholder="Enter friend's email" style="flex:1;padding:12px 16px;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-sm);font-family:var(--font-sans);font-size:14px;outline:none;background:rgba(255,255,255,0.06);color:inherit">
-            <button class="btn btn-primary btn-small" id="add-friend-btn">Add Friend</button>
+            <button class="btn btn-primary btn-small" id="add-friend-btn">Send Request</button>
           </div>
-          <div id="friends-list">
-            <div class="empty-state">
-              <h3>No friends yet</h3>
-              <p>Add friends by their email to start challenging them to duels.</p>
+          <div id="friend-requests-section" style="display:none;margin-bottom:32px">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">&#x1F514; Friend Requests</h3>
+            <div id="friend-requests-list"></div>
+          </div>
+          <div id="friend-suggestions-section" style="display:none;margin-bottom:32px">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-muted)">&#x1F4A1; People You May Know</h3>
+            <div id="friend-suggestions-list"></div>
+          </div>
+          <div>
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">&#x1F91D; Your Friends</h3>
+            <div id="friends-list">
+              <div class="empty-state">
+                <h3>No friends yet</h3>
+                <p>Add friends by their email to start challenging them to duels.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -528,7 +549,7 @@
       <h2>Session Failed</h2>
       <p id="sf-reason">Your writing is gone.</p>
       <div style="display:flex;gap:12px;margin-top:32px">
-        <button class="btn btn-ghost btn-large" id="sf-dashboard">View Documents</button>
+        <button class="btn btn-ghost btn-large" id="sf-dashboard">View Sessions</button>
         <button class="btn btn-primary btn-large" id="sf-retry">Try Again</button>
       </div>
     </div>
@@ -558,6 +579,28 @@
         <button class="btn btn-ghost btn-large" id="sc-dashboard">Back to Dashboard</button>
         <button class="btn btn-primary btn-large" id="sc-new-session">Write Again</button>
       </div>
+    </div>
+  </div>
+
+  <!-- HISTORY MODAL -->
+  <div class="modal-overlay" id="history-modal">
+    <div class="modal" style="max-width:560px">
+      <h2>&#x1F4CA; Session History</h2>
+      <p>Your writing stats across all sessions.</p>
+      <div id="history-stats" class="history-stats-grid"></div>
+      <div id="history-sessions" style="margin-top:24px;max-height:300px;overflow-y:auto"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-full" id="history-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DANGEROUS MODE COUNTDOWN -->
+  <div class="danger-countdown" id="danger-countdown">
+    <div class="danger-countdown-inner">
+      <p class="danger-countdown-label">&#x26A1; Dangerous Mode</p>
+      <div class="danger-countdown-num" id="danger-countdown-num">5</div>
+      <p class="danger-countdown-sub">Stop typing and your work disappears</p>
     </div>
   </div>
 

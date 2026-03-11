@@ -1434,6 +1434,7 @@ a {
   display: flex;
   gap: 8px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 .time-preset {
@@ -1520,33 +1521,6 @@ a {
 }
 
 /* ===== AUTH ===== */
-.auth-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: var(--bg-primary);
-  position: relative;
-}
-
-.auth-container::before {
-  content: '';
-  position: absolute;
-  top: 30%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(108,92,231,0.08) 0%, transparent 60%);
-  pointer-events: none;
-}
-
-.auth-card {
-  max-width: 360px;
-  width: 100%;
-  position: relative;
-}
 
 .auth-card .logo {
   display: block;
@@ -2690,8 +2664,11 @@ a {
   font-weight: 500;
   color: var(--text-muted);
   text-decoration: none;
-  margin-bottom: 20px;
   transition: color var(--transition);
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 10;
 }
 .auth-back-btn:hover {
   color: var(--text-primary);
@@ -2721,28 +2698,7 @@ a {
 .pw-eye-btn:hover { color: var(--text-primary); }
 .pw-eye-btn svg { width: 16px; height: 16px; }
 
-/* ===== MONSTERS ===== */
-#auth-monsters {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.auth-monster {
-  position: absolute;
-  opacity: 0.88;
-  transition: opacity 0.3s;
-}
-.auth-monster-1 { left: 10vw;  top: 28%; }
-.auth-monster-2 { right: 10vw; top: 28%; }
-.auth-monster-3 { left: 13vw;  top: 60%; }
-.auth-monster-4 { right: 13vw; top: 60%; }
-@media (max-width: 900px) {
-  .auth-monster-3, .auth-monster-4 { display: none; }
-}
-@media (max-width: 680px) {
-  #auth-monsters { display: none; }
-}
+/* ===== MONSTERS (positioned within auth-monsters-panel) ===== */
 
 /* ===== CUSTOM TIME INPUT ===== */
 .time-preset-add {
@@ -2859,4 +2815,211 @@ a {
 }
 @media (max-width: 768px) {
   .help-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== TREE CANVAS CENTERING ===== */
+#tree-canvas {
+  display: block;
+  margin: 0 auto;
+}
+
+/* ===== AUTH SPLIT LAYOUT ===== */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-primary);
+  position: relative;
+  padding: 0;
+}
+
+.auth-monsters-panel {
+  flex: 1;
+  position: relative;
+  background: linear-gradient(135deg, rgba(108,92,231,0.07) 0%, rgba(167,139,250,0.04) 100%);
+  border-right: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 100vh;
+}
+
+.auth-monsters-panel::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(108,92,231,0.1) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.auth-form-panel {
+  width: 480px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 48px;
+  position: relative;
+}
+
+.auth-back-btn {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+}
+
+.auth-card {
+  max-width: 380px;
+  width: 100%;
+  position: relative;
+}
+
+#auth-monsters {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.auth-monster {
+  position: absolute;
+  opacity: 0.92;
+  transition: opacity 0.3s;
+}
+
+/* Different sizes & positions for each monster within left panel */
+.auth-monster-1 { left: 30%; top: 16%; transform: translateX(-50%); }
+.auth-monster-2 { left: 62%; top: 30%; transform: translateX(-50%); }
+.auth-monster-3 { left: 25%; top: 56%; transform: translateX(-50%); }
+.auth-monster-4 { left: 65%; top: 62%; transform: translateX(-50%); }
+
+@media (max-width: 900px) {
+  .auth-monsters-panel { display: none; }
+  .auth-form-panel { width: 100%; min-height: 100vh; }
+}
+
+/* ===== LEADERBOARD GAP REDUCTION ===== */
+#view-leaderboard .dashboard-header {
+  margin-bottom: 16px;
+}
+
+/* ===== NOTIFICATION BADGE ===== */
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 100px;
+  background: var(--danger);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 5px;
+  margin-left: auto;
+  line-height: 1;
+}
+
+/* ===== HISTORY MODAL ===== */
+.history-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.history-stat {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  text-align: center;
+}
+
+.history-stat-val {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.history-stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ===== DANGEROUS COUNTDOWN OVERLAY ===== */
+.danger-countdown {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 15, 0.97);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.danger-countdown.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.danger-countdown-inner {
+  text-align: center;
+}
+
+.danger-countdown-label {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--danger);
+  margin-bottom: 24px;
+  opacity: 0.8;
+}
+
+.danger-countdown-num {
+  font-family: var(--font-display);
+  font-size: 180px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--danger);
+  text-shadow: 0 0 80px rgba(239, 68, 68, 0.5);
+  animation: dangerCountPulse 1s ease infinite;
+}
+
+.danger-countdown-sub {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-top: 24px;
+  font-weight: 300;
+}
+
+@keyframes dangerCountPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* ===== BIGGER STAT VALUES ===== */
+.dash-stat-value {
+  font-size: 44px;
+}
+
+@media (max-width: 768px) {
+  .history-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .auth-monsters-panel { display: none; }
 }

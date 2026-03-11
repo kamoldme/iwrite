@@ -19,6 +19,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/documents', require('./routes/documents'));
+app.use('/api/friends', require('./routes/friends'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/share', require('./routes/share'));
 
@@ -34,28 +35,32 @@ app.get('/api/stats/public', (req, res) => {
 });
 
 app.get('/api/leaderboard', (req, res) => {
-  const users = findMany('users.json');
-  const docs = findMany('documents.json');
+  try {
+    const users = findMany('users.json');
+    const docs = findMany('documents.json');
 
-  const leaderboard = users
-    .filter(u => u.role !== 'admin')
-    .map(u => {
-      const userDocs = docs.filter(d => d.userId === u.id && !d.deleted && d.duration > 0);
-      const minutesWritten = Math.round(userDocs.reduce((sum, d) => sum + (d.duration / 60), 0) * 10) / 10;
-      return {
-        name: u.name,
-        totalWords: u.totalWords || 0,
-        totalSessions: u.totalSessions || 0,
-        level: u.level || 1,
-        streak: u.streak || 0,
-        minutesWritten
-      };
-    })
-    .sort((a, b) => b.totalWords - a.totalWords)
-    .slice(0, 50)
-    .map((entry, i) => ({ rank: i + 1, ...entry }));
+    const leaderboard = users
+      .filter(u => u.role !== 'admin')
+      .map(u => {
+        const userDocs = docs.filter(d => d.userId === u.id && !d.deleted && d.duration > 0);
+        const minutesWritten = Math.round(userDocs.reduce((sum, d) => sum + (d.duration / 60), 0) * 10) / 10;
+        return {
+          name: u.name,
+          totalWords: u.totalWords || 0,
+          totalSessions: u.totalSessions || 0,
+          level: u.level || 1,
+          streak: u.streak || 0,
+          minutesWritten
+        };
+      })
+      .sort((a, b) => b.totalWords - a.totalWords)
+      .slice(0, 50)
+      .map((entry, i) => ({ rank: i + 1, ...entry }));
 
-  res.json(leaderboard);
+    res.json(leaderboard);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load leaderboard' });
+  }
 });
 
 app.get('/app', (req, res) => {

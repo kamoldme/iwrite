@@ -30,8 +30,6 @@ const Editor = {
   async start(duration, mode) {
     this.duration = duration;
     this.mode = mode;
-    this.startTime = Date.now();
-    this.lastKeystroke = Date.now();
     this.abandoned = false;
     this.lastWordMilestone = 0;
 
@@ -42,6 +40,13 @@ const Editor = {
       App.toast('Failed to create document', 'error');
       return;
     }
+
+    if (mode === 'dangerous') {
+      await this.runCountdown();
+    }
+
+    this.startTime = Date.now();
+    this.lastKeystroke = Date.now();
 
     this.container.classList.add('active');
     this.textarea.value = '';
@@ -63,8 +68,26 @@ const Editor = {
     this.textarea.addEventListener('input', this.onInput);
     this.textarea.addEventListener('keydown', this.onKeydown);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
-    window.addEventListener('blur', this.onBlur);
-    window.addEventListener('focus', this.onFocus);
+  },
+
+  runCountdown() {
+    return new Promise(resolve => {
+      const overlay = document.getElementById('danger-countdown');
+      const numEl = document.getElementById('danger-countdown-num');
+      overlay.classList.add('active');
+      let count = 5;
+      numEl.textContent = count;
+      const interval = setInterval(() => {
+        count--;
+        if (count <= 0) {
+          clearInterval(interval);
+          overlay.classList.remove('active');
+          resolve();
+        } else {
+          numEl.textContent = count;
+        }
+      }, 1000);
+    });
   },
 
   onInput: () => {
@@ -94,16 +117,9 @@ const Editor = {
     }
   },
 
-  onBlur: () => {
-    if (Editor.active) Editor.onTabLeave();
-  },
-
-  onFocus: () => {
-    if (Editor.active) Editor.onTabReturn();
-  },
-
   onTabLeave() {
     if (this.abandoned || !this.active) return;
+    if (this.tabCountdown) return; // guard: already counting down
     this.tabLeftTime = Date.now();
     this.tabWarning.classList.add('active');
     this.tabCountdown = setInterval(() => {
@@ -306,8 +322,6 @@ const Editor = {
     this.textarea.removeEventListener('input', this.onInput);
     this.textarea.removeEventListener('keydown', this.onKeydown);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
-    window.removeEventListener('blur', this.onBlur);
-    window.removeEventListener('focus', this.onFocus);
   },
 
   abort() {

@@ -3,6 +3,18 @@ const { v4: uuid } = require('uuid');
 const { findOne, findMany, insertOne, updateOne, deleteOne } = require('../utils/storage');
 const { authenticate } = require('../middleware/auth');
 
+function calcLevel(totalXP) {
+  let level = 1;
+  let xpUsed = 0;
+  let threshold = 100;
+  while (totalXP >= xpUsed + threshold) {
+    xpUsed += threshold;
+    level++;
+    threshold = Math.round(100 * Math.pow(1.15, level - 1));
+  }
+  return level;
+}
+
 const router = express.Router();
 
 router.use(authenticate);
@@ -105,9 +117,10 @@ router.post('/:id/complete', (req, res) => {
 
   const totalWords = (user.totalWords || 0) + (wordCount || 0);
 
+  const newXP = user.xp + (xpEarned || 0);
   const updatedUser = updateOne('users.json', u => u.id === req.user.id, {
-    xp: user.xp + (xpEarned || 0),
-    level: Math.floor((user.xp + (xpEarned || 0)) / 100) + 1,
+    xp: newXP,
+    level: calcLevel(newXP),
     streak: newStreak,
     longestStreak: Math.max(user.longestStreak, newStreak),
     lastWritingDate: today,

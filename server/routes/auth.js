@@ -38,6 +38,9 @@ router.post('/register', async (req, res) => {
       totalWords: 0,
       totalSessions: 0,
       achievements: [],
+      friends: [],
+      friendRequests: [],
+      sentRequests: [],
       createdAt: new Date().toISOString()
     };
 

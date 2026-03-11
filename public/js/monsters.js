@@ -12,6 +12,13 @@ const Monsters = {
     { type: 'antenna',  color: '#fd6db5', accent: '#e84393', side: 'right' }
   ],
 
+  sizes: [
+    { w: 104, h: 124 }, // horns - large
+    { w: 68,  h: 82  }, // ears - small
+    { w: 92,  h: 110 }, // spiky - medium-large
+    { w: 72,  h: 86  }  // antenna - medium-small
+  ],
+
   init() {
     const container = document.getElementById('auth-monsters');
     if (!container) return;
@@ -19,8 +26,8 @@ const Monsters = {
 
     this.configs.forEach((cfg, i) => {
       const canvas = document.createElement('canvas');
-      canvas.width = 80;
-      canvas.height = 96;
+      canvas.width = this.sizes[i].w;
+      canvas.height = this.sizes[i].h;
       canvas.className = `auth-monster auth-monster-${i + 1}`;
       container.appendChild(canvas);
       this.canvases.push(canvas);

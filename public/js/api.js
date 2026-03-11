@@ -106,7 +106,34 @@ const API = {
   },
 
   async getFriends() {
-    return this.request('/auth/friends');
+    return this.request('/friends');
+  },
+
+  async getFriendRequests() {
+    return this.request('/friends/requests');
+  },
+
+  async getFriendSuggestions() {
+    return this.request('/friends/suggestions');
+  },
+
+  async sendFriendRequest(email) {
+    return this.request('/friends/request', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+  },
+
+  async acceptFriendRequest(fromId) {
+    return this.request(`/friends/accept/${fromId}`, { method: 'POST' });
+  },
+
+  async rejectFriendRequest(fromId) {
+    return this.request(`/friends/reject/${fromId}`, { method: 'POST' });
+  },
+
+  async removeFriend(friendId) {
+    return this.request(`/friends/${friendId}`, { method: 'DELETE' });
   },
 
   async sendDuelChallenge(friendId, duration) {

@@ -6,6 +6,19 @@ const App = {
   sessionDuration: 15,
   sessionMode: 'normal',
   toastTimer: null,
+  notifInterval: null,
+
+  calcXPLevel(totalXP) {
+    let level = 1;
+    let xpUsed = 0;
+    let threshold = 100;
+    while (totalXP >= xpUsed + threshold) {
+      xpUsed += threshold;
+      level++;
+      threshold = Math.round(100 * Math.pow(1.15, level - 1));
+    }
+    return { level, xpInLevel: totalXP - xpUsed, xpForNextLevel: threshold };
+  },
 
   async init() {
     const token = API.getToken();
@@ -37,6 +50,7 @@ const App = {
     this.updateUserUI();
     this.loadDashboard();
     this.bindAppEvents();
+    this.startNotifPolling();
   },
 
   bindAuthEvents() {
@@ -195,6 +209,11 @@ const App = {
     document.getElementById('add-friend-btn').addEventListener('click', () => this.addFriend());
     document.getElementById('save-profile-btn').addEventListener('click', () => this.saveProfile());
     document.getElementById('change-password-btn').addEventListener('click', () => this.changePassword());
+
+    document.getElementById('history-btn').addEventListener('click', () => this.openHistoryModal());
+    document.getElementById('history-close').addEventListener('click', () => {
+      document.getElementById('history-modal').classList.remove('active');
+    });
   },
 
   switchView(view) {
@@ -246,11 +265,10 @@ const App = {
     document.getElementById('longest-streak-text').textContent = `Best: ${this.user.longestStreak || 0}`;
     document.getElementById('total-xp').textContent = (this.user.xp || 0).toLocaleString();
 
-    const level = this.user.level || 1;
-    const xpInLevel = (this.user.xp || 0) % 100;
+    const { level, xpInLevel, xpForNextLevel } = this.calcXPLevel(this.user.xp || 0);
     document.getElementById('xp-level-text').innerHTML = `&#x1F396;&#xFE0F; Level ${level}`;
-    document.getElementById('xp-progress-text').textContent = `${xpInLevel} / 100 XP`;
-    document.getElementById('xp-bar-fill').style.width = `${xpInLevel}%`;
+    document.getElementById('xp-progress-text').textContent = `${xpInLevel} / ${xpForNextLevel} XP`;
+    document.getElementById('xp-bar-fill').style.width = `${Math.min(100, (xpInLevel / xpForNextLevel) * 100)}%`;
 
     const canvas = document.getElementById('tree-canvas');
     const stage = this.user.treeStage || 0;
@@ -540,65 +558,183 @@ const App = {
 
   async loadFriends() {
     const container = document.getElementById('friends-list');
-    const friends = JSON.parse(localStorage.getItem('iwrite_friends') || '[]');
-    this.friends = friends;
+    const reqSection = document.getElementById('friend-requests-section');
+    const sugSection = document.getElementById('friend-suggestions-section');
 
-    if (friends.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No friends yet</h3>
-          <p>Add friends by their email to start challenging them to duels.</p>
-        </div>`;
-      return;
+    try {
+      const [friends, requests, suggestions] = await Promise.all([
+        API.getFriends(),
+        API.getFriendRequests(),
+        API.getFriendSuggestions()
+      ]);
+      this.friends = friends;
+
+      // Friend requests
+      if (requests.length > 0) {
+        reqSection.style.display = 'block';
+        document.getElementById('friend-requests-list').innerHTML = requests.map(r => `
+          <div class="doc-card" style="margin-bottom:8px">
+            <div class="doc-card-info">
+              <h4>${this.escapeHtml(r.name)}</h4>
+              <div class="doc-card-meta"><span>${r.email}</span><span>Level ${r.level || 1}</span></div>
+            </div>
+            <div class="doc-card-actions">
+              <button class="btn btn-small btn-primary" onclick="App.acceptRequest('${r.id}')">Accept</button>
+              <button class="doc-action-btn delete" onclick="App.rejectRequest('${r.id}')" title="Decline">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </div>`).join('');
+      } else {
+        reqSection.style.display = 'none';
+      }
+
+      // Suggestions
+      if (suggestions.length > 0) {
+        sugSection.style.display = 'block';
+        document.getElementById('friend-suggestions-list').innerHTML = suggestions.map(s => `
+          <div class="doc-card" style="margin-bottom:8px">
+            <div class="doc-card-info">
+              <h4>${this.escapeHtml(s.name)}</h4>
+              <div class="doc-card-meta"><span>${s.mutualCount} mutual friend${s.mutualCount !== 1 ? 's' : ''}</span><span>Level ${s.level || 1}</span></div>
+            </div>
+            <div class="doc-card-actions">
+              <button class="btn btn-small" onclick="App.addFriendById('${s.email}')">Add</button>
+            </div>
+          </div>`).join('');
+      } else {
+        sugSection.style.display = 'none';
+      }
+
+      // Friends list
+      if (friends.length === 0) {
+        container.innerHTML = `<div class="empty-state"><h3>No friends yet</h3><p>Send a request to someone by their email above.</p></div>`;
+      } else {
+        container.innerHTML = friends.map(f => `
+          <div class="doc-card">
+            <div class="doc-card-info">
+              <h4>${this.escapeHtml(f.name)}</h4>
+              <div class="doc-card-meta"><span>${f.email}</span><span>Level ${f.level || 1}</span></div>
+            </div>
+            <div class="doc-card-actions">
+              <button class="btn btn-small" onclick="App.challengeFriend('${f.id}')">Challenge</button>
+              <button class="doc-action-btn delete" onclick="App.removeFriend('${f.id}')" title="Remove">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </div>`).join('');
+      }
+    } catch {
+      container.innerHTML = `<div class="empty-state"><p>Failed to load friends.</p></div>`;
     }
-
-    container.innerHTML = friends.map(f => `
-      <div class="doc-card">
-        <div class="doc-card-info">
-          <h4>${this.escapeHtml(f.name)}</h4>
-          <div class="doc-card-meta">
-            <span>${f.email}</span>
-            <span>Level ${f.level || 1}</span>
-          </div>
-        </div>
-        <div class="doc-card-actions">
-          <button class="btn btn-small" onclick="App.challengeFriend('${f.id}')">Challenge</button>
-          <button class="doc-action-btn delete" onclick="App.removeFriend('${f.id}')" title="Remove">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-      </div>
-    `).join('');
   },
 
-  addFriend() {
+  async addFriend() {
     const input = document.getElementById('friend-email-input');
     const email = input.value.trim();
     if (!email) return;
-
-    const friends = JSON.parse(localStorage.getItem('iwrite_friends') || '[]');
-    if (friends.some(f => f.email === email)) {
-      this.toast('Friend already added', 'error');
-      return;
+    try {
+      const result = await API.sendFriendRequest(email);
+      input.value = '';
+      this.toast(result.message || 'Request sent!', 'success');
+      this.loadFriends();
+    } catch (err) {
+      this.toast(err.message || 'Failed to send request', 'error');
     }
-
-    friends.push({
-      id: Date.now().toString(),
-      name: email.split('@')[0],
-      email,
-      level: 1
-    });
-    localStorage.setItem('iwrite_friends', JSON.stringify(friends));
-    input.value = '';
-    this.toast('Friend added!', 'success');
-    this.loadFriends();
   },
 
-  removeFriend(id) {
-    let friends = JSON.parse(localStorage.getItem('iwrite_friends') || '[]');
-    friends = friends.filter(f => f.id !== id);
-    localStorage.setItem('iwrite_friends', JSON.stringify(friends));
-    this.loadFriends();
+  async addFriendById(email) {
+    try {
+      const result = await API.sendFriendRequest(email);
+      this.toast(result.message || 'Request sent!', 'success');
+      this.loadFriends();
+    } catch (err) {
+      this.toast(err.message || 'Failed', 'error');
+    }
+  },
+
+  async acceptRequest(fromId) {
+    try {
+      await API.acceptFriendRequest(fromId);
+      this.toast('Friend request accepted!', 'success');
+      this.loadFriends();
+      this.updateNotifBadge();
+    } catch (err) {
+      this.toast(err.message || 'Failed', 'error');
+    }
+  },
+
+  async rejectRequest(fromId) {
+    try {
+      await API.rejectFriendRequest(fromId);
+      this.toast('Request declined', '');
+      this.loadFriends();
+      this.updateNotifBadge();
+    } catch (err) {
+      this.toast(err.message || 'Failed', 'error');
+    }
+  },
+
+  async removeFriend(id) {
+    try {
+      await API.removeFriend(id);
+      this.toast('Friend removed', '');
+      this.loadFriends();
+    } catch {
+      this.toast('Failed to remove friend', 'error');
+    }
+  },
+
+  async startNotifPolling() {
+    const poll = async () => {
+      try { await this.updateNotifBadge(); } catch {}
+    };
+    poll();
+    this.notifInterval = setInterval(poll, 30000);
+  },
+
+  async updateNotifBadge() {
+    try {
+      const requests = await API.getFriendRequests();
+      const badge = document.getElementById('friends-badge');
+      if (!badge) return;
+      if (requests.length > 0) {
+        badge.textContent = requests.length;
+        badge.style.display = 'inline-flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    } catch {}
+  },
+
+  openHistoryModal() {
+    const docs = this.documents.filter(d => !d.deleted && d.duration > 0);
+    const totalWords = docs.reduce((s, d) => s + (d.wordCount || 0), 0);
+    const totalSessions = docs.length;
+    const totalMinutes = Math.round(docs.reduce((s, d) => s + (d.duration || 0), 0) / 60);
+    const dangerousSessions = docs.filter(d => d.mode === 'dangerous').length;
+
+    document.getElementById('history-stats').innerHTML = `
+      <div class="history-stat"><div class="history-stat-val">${totalSessions}</div><div class="history-stat-label">Sessions</div></div>
+      <div class="history-stat"><div class="history-stat-val">${totalWords.toLocaleString()}</div><div class="history-stat-label">Words</div></div>
+      <div class="history-stat"><div class="history-stat-val">${totalMinutes}m</div><div class="history-stat-label">Time Written</div></div>
+      <div class="history-stat"><div class="history-stat-val">${dangerousSessions}</div><div class="history-stat-label">Dangerous</div></div>`;
+
+    document.getElementById('history-sessions').innerHTML = docs.length === 0
+      ? '<p style="text-align:center;color:var(--text-muted);padding:20px">No sessions yet</p>'
+      : docs.slice(0, 30).map(d => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light);font-size:13px">
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">${this.escapeHtml(d.title)}</div>
+            <div style="color:var(--text-muted);font-size:11px;margin-top:2px">${this.formatDate(d.updatedAt)} · ${d.mode === 'dangerous' ? '⚡ Dangerous' : 'Normal'}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:600">${(d.wordCount || 0).toLocaleString()} words</div>
+            <div style="color:var(--xp-color);font-size:11px">+${d.xpEarned || 0} XP</div>
+          </div>
+        </div>`).join('');
+
+    document.getElementById('history-modal').classList.add('active');
   },
 
   challengeFriend(id) {
