@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iWrite — Shared Document</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="logo">iWrite</a>
+      <a href="/app" class="btn btn-small">Open App</a>
+    </div>
+  </nav>
+
+  <div class="shared-container" id="shared-content" style="padding-top:100px">
+    <div style="text-align:center"><div class="spinner" style="margin:40px auto"></div></div>
+  </div>
+
+  <script>
+    const token = window.location.pathname.split('/').pop();
+
+    async function load() {
+      try {
+        const res = await fetch(`/api/share/${token}`);
+        if (!res.ok) throw new Error();
+        const doc = await res.json();
+
+        const commentsRes = await fetch(`/api/share/${token}/comments`);
+        const comments = commentsRes.ok ? await commentsRes.json() : [];
+
+        document.getElementById('shared-content').innerHTML = `
+          <div class="shared-header">
+            <h1>${escapeHtml(doc.title)}</h1>
+            <div class="shared-meta">
+              By ${escapeHtml(doc.ownerName)} &middot; ${doc.wordCount} words &middot;
+              ${new Date(doc.updatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            </div>
+          </div>
+          <div class="shared-content">${escapeHtml(doc.content)}</div>
+          ${doc.permission !== 'view' ? `
+            <div class="comments-section">
+              <h3>Comments</h3>
+              <div id="comments-list">
+                ${comments.map(c => `
+                  <div class="comment">
+                    <span class="comment-author">${escapeHtml(c.author)}</span>
+                    <span class="comment-date">${new Date(c.createdAt).toLocaleDateString()}</span>
+                    <p class="comment-text">${escapeHtml(c.text)}</p>
+                  </div>
+                `).join('') || '<p style="color:var(--text-muted);font-size:14px">No comments yet.</p>'}
+              </div>
+              <div class="comment-form">
+                <input type="text" id="comment-author" placeholder="Your name" style="max-width:140px">
+                <input type="text" id="comment-text" placeholder="Write a comment...">
+                <button class="btn btn-primary btn-small" onclick="addComment()">Post</button>
+              </div>
+            </div>
+          ` : ''}
+        `;
+      } catch {
+        document.getElementById('shared-content').innerHTML = `
+          <div class="empty-state">
+            <h3>Document not found</h3>
+            <p>This document may have been deleted or the link has expired.</p>
+            <a href="/" class="btn btn-primary btn-small">Go Home</a>
+          </div>`;
+      }
+    }
+
+    async function addComment() {
+      const author = document.getElementById('comment-author').value || 'Anonymous';
+      const text = document.getElementById('comment-text').value;
+      if (!text) return;
+
+      try {
+        await fetch(`/api/share/${token}/comment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ author, text })
+        });
+        document.getElementById('comment-text').value = '';
+        load();
+      } catch {}
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
+    }
+
+    load();
+  </script>
+</body>
+</html>

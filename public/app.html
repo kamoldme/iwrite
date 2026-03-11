@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iWrite — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="auth-view" class="auth-container" style="display:none">
+    <div class="auth-card">
+      <a href="/" class="logo">iWrite</a>
+      <div id="login-form">
+        <h2>Welcome back</h2>
+        <p class="auth-sub">Sign in to continue your streak</p>
+        <div class="auth-error" id="login-error"></div>
+        <div class="auth-field">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="you@example.com">
+        </div>
+        <div class="auth-field">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="Your password">
+        </div>
+        <button class="btn btn-primary btn-full" id="login-btn" style="margin-top:8px">Sign In</button>
+        <p class="auth-switch">Don't have an account? <a href="#" id="show-register">Sign up</a></p>
+      </div>
+      <div id="register-form" style="display:none">
+        <h2>Start writing</h2>
+        <p class="auth-sub">Create your account and plant your tree</p>
+        <div class="auth-error" id="register-error"></div>
+        <div class="auth-field">
+          <label>Name</label>
+          <input type="text" id="register-name" placeholder="Your name">
+        </div>
+        <div class="auth-field">
+          <label>Email</label>
+          <input type="email" id="register-email" placeholder="you@example.com">
+        </div>
+        <div class="auth-field">
+          <label>Password</label>
+          <input type="password" id="register-password" placeholder="Min 6 characters">
+        </div>
+        <button class="btn btn-primary btn-full" id="register-btn" style="margin-top:8px">Create Account</button>
+        <p class="auth-switch">Already have an account? <a href="#" id="show-login">Sign in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-view" style="display:none">
+    <div class="app-container">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <a href="/" class="logo">iWrite</a>
+          <div class="streak-indicator" id="streak-badge" style="display:none">
+            <span class="streak-fire">&#x1F525;</span>
+            <span id="streak-count">0</span>
+          </div>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="sidebar-nav-item active" data-view="dashboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+          </button>
+          <button class="sidebar-nav-item" data-view="documents">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            Documents
+          </button>
+          <button class="sidebar-nav-item" data-view="leaderboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 21h8M12 17v4"/><path d="M7 4h10l-1 9H8L7 4z"/><path d="M7 8H4l1 4h2M17 8h3l-1 4h-2"/></svg>
+            Leaderboard
+          </button>
+          <button class="sidebar-nav-item" data-view="duels">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Duels
+          </button>
+          <button class="sidebar-nav-item" data-view="friends">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            Friends
+          </button>
+          <button class="sidebar-nav-item" data-view="profile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profile
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="user-info">
+            <div class="user-avatar" id="user-avatar">?</div>
+            <div class="user-details">
+              <div class="user-name" id="user-name">Loading...</div>
+              <div class="user-level" id="user-level">Level 1</div>
+            </div>
+          </div>
+          <button class="sidebar-nav-item" id="logout-btn" style="margin-top:8px;color:var(--text-muted)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Log Out
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <!-- DASHBOARD VIEW -->
+        <div id="view-dashboard" class="view">
+          <div class="dashboard-hero">
+            <div class="dashboard-hero-text">
+              <h1 id="greeting-text">Ready to write?</h1>
+              <p class="dashboard-hero-sub">Your writing journey continues. Pick up where you left off.</p>
+            </div>
+            <button class="btn btn-primary btn-large dashboard-start-btn" id="new-doc-btn">
+              &#x270F;&#xFE0F; Start Writing
+            </button>
+          </div>
+
+          <div class="dashboard-stats-row">
+            <div class="dash-stat-card dash-stat-words">
+              <div class="dash-stat-emoji">&#x1F4DD;</div>
+              <div class="dash-stat-value" id="total-words">0</div>
+              <div class="dash-stat-label">Words Written</div>
+            </div>
+            <div class="dash-stat-card dash-stat-sessions">
+              <div class="dash-stat-emoji">&#x1F3AF;</div>
+              <div class="dash-stat-value" id="total-sessions">0</div>
+              <div class="dash-stat-label">Sessions Done</div>
+            </div>
+            <div class="dash-stat-card dash-stat-streak">
+              <div class="dash-stat-emoji">&#x1F525;</div>
+              <div class="dash-stat-value" id="current-streak">0</div>
+              <div class="dash-stat-label">Day Streak</div>
+              <div class="dash-stat-sub" id="longest-streak-text">Best: 0</div>
+            </div>
+            <div class="dash-stat-card dash-stat-xp">
+              <div class="dash-stat-emoji">&#x2B50;</div>
+              <div class="dash-stat-value" id="total-xp">0</div>
+              <div class="dash-stat-label">Total XP</div>
+            </div>
+          </div>
+
+          <div class="dashboard-columns">
+            <div class="dashboard-col-left">
+              <div class="xp-bar-container">
+                <div class="xp-bar-header">
+                  <span class="xp-bar-level" id="xp-level-text">&#x1F396;&#xFE0F; Level 1</span>
+                  <span class="xp-bar-progress-text" id="xp-progress-text">0 / 100 XP</span>
+                </div>
+                <div class="xp-bar">
+                  <div class="xp-bar-fill" id="xp-bar-fill" style="width:0%"></div>
+                </div>
+              </div>
+
+              <div class="docs-header">
+                <h2>&#x1F4C4; Recent Documents</h2>
+                <button class="btn btn-primary btn-small" id="new-doc-btn-2">New Session</button>
+              </div>
+              <div id="recent-docs"></div>
+            </div>
+
+            <div class="dashboard-col-right">
+              <div class="tree-container">
+                <h3>&#x1F333; Your Writing Tree</h3>
+                <canvas id="tree-canvas" width="300" height="320"></canvas>
+                <p class="tree-info">Stage: <span class="tree-stage-label" id="tree-stage-text">Seed</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DOCUMENTS VIEW -->
+        <div id="view-documents" class="view" style="display:none">
+          <div class="docs-header">
+            <h2>&#x1F4DA; All Documents</h2>
+            <button class="btn btn-primary btn-small" id="new-doc-btn-3">New Session</button>
+          </div>
+          <div id="all-docs"></div>
+        </div>
+
+        <!-- LEADERBOARD VIEW -->
+        <div id="view-leaderboard" class="view" style="display:none">
+          <div class="dashboard-header">
+            <h1>&#x1F3C6; Leaderboard</h1>
+            <p>See who's writing the most. Climb the ranks!</p>
+          </div>
+          <div class="leaderboard-container" id="leaderboard-container">
+            <div class="leaderboard-podium" id="leaderboard-podium"></div>
+            <div class="leaderboard-table-wrap">
+              <table class="leaderboard-table" id="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Writer</th>
+                    <th>Words</th>
+                    <th>Sessions</th>
+                    <th>Time</th>
+                    <th>Level</th>
+                    <th>Streak</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- DUELS VIEW -->
+        <div id="view-duels" class="view" style="display:none">
+          <div class="dashboard-header">
+            <h1>&#x26A1; Writing Duels</h1>
+            <p>Challenge friends to a writing battle. Most words in the time limit wins.</p>
+          </div>
+          <div class="docs-header" style="margin-top:24px">
+            <h2>Active Duels</h2>
+            <button class="btn btn-primary btn-small" id="new-duel-btn">Challenge a Friend</button>
+          </div>
+          <div id="active-duels">
+            <div class="empty-state">
+              <h3>No active duels</h3>
+              <p>Challenge a friend to see who can write more words in a set time.</p>
+            </div>
+          </div>
+          <div class="docs-header" style="margin-top:32px">
+            <h2>Duel History</h2>
+          </div>
+          <div id="duel-history">
+            <div class="empty-state">
+              <p>Your completed duels will appear here.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- FRIENDS VIEW -->
+        <div id="view-friends" class="view" style="display:none">
+          <div class="dashboard-header">
+            <h1>&#x1F46B; Friends</h1>
+            <p>Add friends by their email to challenge them to writing duels.</p>
+          </div>
+          <div style="display:flex;gap:12px;margin-bottom:32px;max-width:480px">
+            <input type="email" id="friend-email-input" placeholder="Enter friend's email" style="flex:1;padding:12px 16px;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-sm);font-family:var(--font-sans);font-size:14px;outline:none;background:rgba(255,255,255,0.06);color:inherit">
+            <button class="btn btn-primary btn-small" id="add-friend-btn">Add Friend</button>
+          </div>
+          <div id="friends-list">
+            <div class="empty-state">
+              <h3>No friends yet</h3>
+              <p>Add friends by their email to start challenging them to duels.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROFILE VIEW (now last) -->
+        <div id="view-profile" class="view" style="display:none">
+          <div class="dashboard-header">
+            <h1>&#x1F464; Profile</h1>
+          </div>
+          <div class="profile-grid">
+            <div class="profile-section">
+              <h3 class="profile-section-title">Account Details</h3>
+              <div class="auth-field">
+                <label>Name</label>
+                <input type="text" id="profile-name">
+              </div>
+              <div class="auth-field">
+                <label>Email</label>
+                <input type="email" id="profile-email" disabled>
+              </div>
+              <div class="auth-field">
+                <label>Plan</label>
+                <input type="text" id="profile-plan" disabled>
+              </div>
+              <div class="auth-field">
+                <label>Member Since</label>
+                <input type="text" id="profile-since" disabled>
+              </div>
+              <button class="btn btn-primary btn-small" id="save-profile-btn" style="margin-top:8px">Save Changes</button>
+            </div>
+
+            <div class="profile-section">
+              <h3 class="profile-section-title">&#x1F512; Change Password</h3>
+              <div class="auth-error" id="password-error"></div>
+              <div class="auth-field">
+                <label>Current Password</label>
+                <input type="password" id="current-password" placeholder="Enter current password">
+              </div>
+              <div class="auth-field">
+                <label>New Password</label>
+                <input type="password" id="new-password" placeholder="Min 6 characters">
+              </div>
+              <div class="auth-field">
+                <label>Confirm New Password</label>
+                <input type="password" id="confirm-password" placeholder="Re-enter new password">
+              </div>
+              <div class="auth-error" id="password-success" style="color:var(--success)"></div>
+              <button class="btn btn-primary btn-small" id="change-password-btn" style="margin-top:8px">Update Password</button>
+            </div>
+          </div>
+
+          <div style="margin-top:48px">
+            <h2 style="font-size:20px;font-weight:700;margin-bottom:16px">&#x1F3C5; Achievements</h2>
+            <div id="achievements-list" class="achievements-grid"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- EDITOR -->
+    <div class="editor-container" id="editor-container">
+      <div class="editor-toolbar">
+        <div class="editor-toolbar-left">
+          <button class="editor-back-btn" id="editor-back">&larr;</button>
+          <input type="text" class="editor-title-input" id="editor-title" placeholder="Untitled" value="Untitled">
+        </div>
+        <div class="editor-toolbar-center">
+          <div class="editor-timer" id="editor-timer">--:--</div>
+          <span class="editor-mode-badge normal" id="editor-mode-badge">Normal</span>
+        </div>
+        <div class="editor-toolbar-right">
+          <span class="editor-word-count" id="editor-word-count">0 words</span>
+          <button class="btn btn-primary btn-small" id="editor-save-btn">Complete</button>
+        </div>
+      </div>
+      <div class="danger-progress" id="danger-progress" style="display:none">
+        <div class="danger-progress-bar" id="danger-progress-bar"></div>
+      </div>
+      <div class="screen-vignette" id="screen-vignette"></div>
+      <div class="editor-area">
+        <textarea class="editor-textarea" id="editor-textarea" placeholder="Start writing your thoughts..."></textarea>
+      </div>
+    </div>
+
+    <!-- TAB WARNING -->
+    <div class="tab-warning" id="tab-warning">
+      <h2>Come back!</h2>
+      <p>Your writing is being deleted...</p>
+      <div class="tab-warning-timer" id="tab-warning-timer">10</div>
+    </div>
+
+    <!-- SESSION START MODAL -->
+    <div class="modal-overlay" id="session-modal">
+      <div class="modal">
+        <h2>New Session</h2>
+        <p>Set your timer and choose your mode. Once started, there's no going back.</p>
+        <div class="modal-field">
+          <label>Session Duration</label>
+          <div class="time-presets" id="time-presets">
+            <button class="time-preset" data-minutes="5">5 min</button>
+            <button class="time-preset active" data-minutes="15">15 min</button>
+            <button class="time-preset" data-minutes="30">30 min</button>
+            <button class="time-preset" data-minutes="60">60 min</button>
+            <button class="time-preset" data-minutes="0">Unlimited</button>
+          </div>
+        </div>
+        <div class="modal-field">
+          <label>Writing Mode</label>
+          <div class="mode-selector">
+            <div class="mode-option active" data-mode="normal">
+              <h4>Normal</h4>
+              <p>Tab-lock only. Leave and lose it.</p>
+            </div>
+            <div class="mode-option dangerous-opt" data-mode="dangerous">
+              <h4>Dangerous</h4>
+              <p>Stop typing for 6s and the session fails.</p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-full" id="modal-cancel">Cancel</button>
+          <button class="btn btn-primary btn-full" id="modal-start">Start Writing</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DUEL CHALLENGE MODAL -->
+    <div class="modal-overlay" id="duel-modal">
+      <div class="modal">
+        <h2>Challenge to a Duel</h2>
+        <p>Choose a friend and a time limit. Both writers get the same time — most words wins.</p>
+        <div class="modal-field">
+          <label>Select Friend</label>
+          <select id="duel-friend-select">
+            <option value="">Choose a friend...</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Duration</label>
+          <div class="time-presets" id="duel-time-presets">
+            <button class="time-preset" data-minutes="5">5 min</button>
+            <button class="time-preset active" data-minutes="10">10 min</button>
+            <button class="time-preset" data-minutes="15">15 min</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-full" id="duel-cancel">Cancel</button>
+          <button class="btn btn-danger btn-full" id="duel-start">Send Challenge</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SESSION FAILED -->
+    <div class="session-failed" id="session-failed">
+      <div class="session-failed-icon">&#x1F480;</div>
+      <h2>Session Failed</h2>
+      <p id="sf-reason">Your writing is gone.</p>
+      <div style="display:flex;gap:12px;margin-top:32px">
+        <button class="btn btn-ghost btn-large" id="sf-dashboard">View Documents</button>
+        <button class="btn btn-primary btn-large" id="sf-retry">Try Again</button>
+      </div>
+    </div>
+
+    <!-- SESSION COMPLETE -->
+    <div class="session-complete" id="session-complete">
+      <h2>Session Complete &#x1F389;</h2>
+      <div class="session-stats">
+        <div class="session-stat">
+          <div class="session-stat-value" id="sc-words">0</div>
+          <div class="session-stat-label">Words</div>
+        </div>
+        <div class="session-stat">
+          <div class="session-stat-value" id="sc-time">0:00</div>
+          <div class="session-stat-label">Duration</div>
+        </div>
+        <div class="session-stat">
+          <div class="session-stat-value xp-gained" id="sc-xp">+0 XP</div>
+          <div class="session-stat-label">Earned</div>
+        </div>
+      </div>
+      <div class="streak-display" id="sc-streak" style="display:none">
+        <span class="streak-fire">&#x1F525;</span>
+        <span id="sc-streak-count">0 day streak!</span>
+      </div>
+      <div style="display:flex;gap:12px">
+        <button class="btn btn-ghost btn-large" id="sc-dashboard">Back to Dashboard</button>
+        <button class="btn btn-primary btn-large" id="sc-new-session">Write Again</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/tree.js"></script>
+  <script src="/js/editor.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

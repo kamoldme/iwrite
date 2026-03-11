@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iWrite — Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="admin-auth" class="auth-container">
+    <div class="auth-card">
+      <a href="/" class="logo">iWrite</a>
+      <h2>Admin Login</h2>
+      <p class="auth-sub">Enter your admin credentials</p>
+      <div class="auth-error" id="admin-error"></div>
+      <div class="auth-field">
+        <label>Email</label>
+        <input type="email" id="admin-email">
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input type="password" id="admin-password">
+      </div>
+      <button class="btn btn-primary btn-full" id="admin-login-btn" style="margin-top:8px">Sign In</button>
+    </div>
+  </div>
+
+  <div id="admin-panel" style="display:none">
+    <nav class="nav" style="background:var(--bg-secondary)">
+      <div class="nav-inner">
+        <a href="/" class="logo">iWrite <span style="font-size:12px;font-family:var(--font-sans);color:var(--text-muted);margin-left:8px">ADMIN</span></a>
+        <div class="nav-links">
+          <button class="btn btn-small" style="background:var(--accent)" data-tab="overview">Overview</button>
+          <button class="btn btn-small" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)" data-tab="users">Users</button>
+          <button class="btn btn-small" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)" data-tab="documents">Documents</button>
+          <button class="btn btn-small" style="background:var(--danger)" id="admin-logout">Logout</button>
+        </div>
+      </div>
+    </nav>
+
+    <div style="max-width:1200px;margin:0 auto;padding:96px 24px 48px">
+      <div id="tab-overview">
+        <h1 style="font-family:var(--font-display);font-size:32px;font-weight:900;margin-bottom:32px">Dashboard</h1>
+        <div class="stats-grid" id="admin-stats"></div>
+      </div>
+
+      <div id="tab-users" style="display:none">
+        <h1 style="font-family:var(--font-display);font-size:32px;font-weight:900;margin-bottom:32px">Users</h1>
+        <table class="admin-table" id="users-table">
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Plan</th><th>XP</th><th>Streak</th><th>Words</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="tab-documents" style="display:none">
+        <h1 style="font-family:var(--font-display);font-size:32px;font-weight:900;margin-bottom:32px">Documents</h1>
+        <table class="admin-table" id="docs-table">
+          <thead><tr><th>Title</th><th>Words</th><th>Mode</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let adminToken = localStorage.getItem('iwrite_admin_token');
+
+    async function adminRequest(path, options = {}) {
+      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` };
+      const res = await fetch(`/api${path}`, { ...options, headers });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    }
+
+    function toast(msg, type) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `toast visible ${type}`;
+      setTimeout(() => el.className = 'toast', 3000);
+    }
+
+    document.getElementById('admin-login-btn').addEventListener('click', async () => {
+      const email = document.getElementById('admin-email').value;
+      const password = document.getElementById('admin-password').value;
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        if (data.user.role !== 'admin') throw new Error('Not an admin account');
+        adminToken = data.token;
+        localStorage.setItem('iwrite_admin_token', adminToken);
+        showPanel();
+      } catch (err) {
+        const el = document.getElementById('admin-error');
+        el.textContent = err.message;
+        el.classList.add('visible');
+      }
+    });
+
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-tab]').forEach(b => {
+          b.style.background = 'transparent';
+          b.style.border = '1px solid rgba(255,255,255,0.08)';
+          b.style.color = 'rgba(240,240,245,0.6)';
+        });
+        btn.style.background = '#6c5ce7';
+        btn.style.border = 'none';
+        btn.style.color = 'white';
+        document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
+        document.getElementById(`tab-${btn.dataset.tab}`).style.display = 'block';
+      });
+    });
+
+    document.getElementById('admin-logout').addEventListener('click', () => {
+      localStorage.removeItem('iwrite_admin_token');
+      location.reload();
+    });
+
+    async function showPanel() {
+      document.getElementById('admin-auth').style.display = 'none';
+      document.getElementById('admin-panel').style.display = 'block';
+      await loadOverview();
+      await loadUsers();
+      await loadDocs();
+    }
+
+    async function loadOverview() {
+      try {
+        const stats = await adminRequest('/admin/stats');
+        document.getElementById('admin-stats').innerHTML = `
+          <div class="stat-card"><div class="stat-card-label">Total Users</div><div class="stat-card-value">${stats.totalUsers}</div></div>
+          <div class="stat-card"><div class="stat-card-label">Total Documents</div><div class="stat-card-value">${stats.totalDocuments}</div></div>
+          <div class="stat-card"><div class="stat-card-label">Active Documents</div><div class="stat-card-value">${stats.activeDocuments}</div></div>
+          <div class="stat-card"><div class="stat-card-label">Abandoned</div><div class="stat-card-value" style="color:var(--danger)">${stats.abandonedDocuments}</div></div>
+          <div class="stat-card"><div class="stat-card-label">Total Words</div><div class="stat-card-value">${stats.totalWords.toLocaleString()}</div></div>
+          <div class="stat-card"><div class="stat-card-label">Premium Users</div><div class="stat-card-value" style="color:var(--xp-color)">${stats.premiumUsers}</div></div>
+        `;
+      } catch { toast('Failed to load stats', 'error'); }
+    }
+
+    async function loadUsers() {
+      try {
+        const users = await adminRequest('/admin/users');
+        const tbody = document.querySelector('#users-table tbody');
+        tbody.innerHTML = users.map(u => `
+          <tr>
+            <td>${esc(u.name)}</td>
+            <td>${esc(u.email)}</td>
+            <td><span class="badge badge-${u.role}">${u.role}</span></td>
+            <td><span class="badge badge-${u.plan}">${u.plan}</span></td>
+            <td>${u.xp || 0}</td>
+            <td>${u.streak || 0}</td>
+            <td>${(u.totalWords || 0).toLocaleString()}</td>
+            <td>
+              <button class="doc-action-btn" onclick="togglePlan('${u.id}','${u.plan}')" title="Toggle plan">P</button>
+              ${u.role !== 'admin' ? `<button class="doc-action-btn delete" onclick="deleteUser('${u.id}')" title="Delete">X</button>` : ''}
+            </td>
+          </tr>
+        `).join('');
+      } catch { toast('Failed to load users', 'error'); }
+    }
+
+    async function loadDocs() {
+      try {
+        const docs = await adminRequest('/admin/documents');
+        const tbody = document.querySelector('#docs-table tbody');
+        tbody.innerHTML = docs.map(d => `
+          <tr>
+            <td>${esc(d.title)}</td>
+            <td>${d.wordCount || 0}</td>
+            <td>${d.mode || 'normal'}</td>
+            <td><span class="badge badge-${d.deleted ? 'deleted' : 'active'}">${d.deletedBySystem ? 'Abandoned' : d.deleted ? 'Deleted' : 'Active'}</span></td>
+            <td>${new Date(d.createdAt).toLocaleDateString()}</td>
+            <td>
+              ${d.deleted ? `<button class="doc-action-btn" onclick="restoreDoc('${d.id}')" title="Restore">R</button>` : ''}
+              <button class="doc-action-btn" onclick="viewDoc('${d.id}')" title="View">V</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch { toast('Failed to load documents', 'error'); }
+    }
+
+    async function togglePlan(id, current) {
+      const plan = current === 'premium' ? 'free' : 'premium';
+      try {
+        await adminRequest(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify({ plan }) });
+        toast(`Plan changed to ${plan}`, 'success');
+        loadUsers();
+      } catch { toast('Failed', 'error'); }
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('Delete this user?')) return;
+      try {
+        await adminRequest(`/admin/users/${id}`, { method: 'DELETE' });
+        toast('User deleted', 'success');
+        loadUsers();
+      } catch { toast('Failed', 'error'); }
+    }
+
+    async function restoreDoc(id) {
+      try {
+        await adminRequest(`/admin/documents/${id}/restore`, { method: 'POST' });
+        toast('Document restored', 'success');
+        loadDocs();
+      } catch { toast('Failed', 'error'); }
+    }
+
+    async function viewDoc(id) {
+      try {
+        const doc = await adminRequest(`/admin/documents/${id}`);
+        alert(`Title: ${doc.title}\nWords: ${doc.wordCount}\n\n${doc.content || '(empty)'}`);
+      } catch { toast('Failed', 'error'); }
+    }
+
+    function esc(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
+
+    if (adminToken) {
+      adminRequest('/admin/stats').then(() => showPanel()).catch(() => {
+        localStorage.removeItem('iwrite_admin_token');
+      });
+    }
+  </script>
+</body>
+</html>

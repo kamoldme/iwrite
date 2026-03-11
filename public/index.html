@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iWrite — Brainstorm Without Distractions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700;1,800;1,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="landing">
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="logo">iWrite</a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="/app" class="btn btn-small">Launch App</a>
+      </div>
+      <button class="mobile-menu" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <h1 class="hero-title">
+      <span class="hero-line">Write it.</span>
+      <span class="hero-line">Or <em>lose</em> it.</span>
+    </h1>
+    <p class="hero-sub">
+      A distraction-free brainstorming space that locks you in,
+      rewards your focus, and deletes your work if you dare to leave.
+    </p>
+    <div class="hero-actions">
+      <a href="/app" class="btn btn-primary btn-large">Start Writing</a>
+      <a href="#how-it-works" class="btn btn-ghost btn-large">How It Works</a>
+    </div>
+    <div class="hero-visual">
+      <div class="mock-editor">
+        <div class="mock-toolbar">
+          <div class="mock-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="mock-timer">04:32</div>
+          <div class="mock-xp">+12 XP</div>
+        </div>
+        <div class="mock-content">
+          <div class="mock-line typing" style="--delay: 0s">The best ideas come when you can't escape your own thoughts.</div>
+          <div class="mock-line typing" style="--delay: 2s">No tabs. No distractions. Just you and the blank page.</div>
+          <div class="mock-line typing" style="--delay: 4s">Write or lose everything — the choice is yours.</div>
+          <div class="mock-cursor"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-bar">
+    <div class="stats-inner">
+      <div class="stat">
+        <span class="stat-num" id="stat-words">0</span>
+        <span class="stat-label">Words Written</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num" id="stat-sessions">0</span>
+        <span class="stat-label">Sessions Completed</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num" id="stat-writers">0</span>
+        <span class="stat-label">Writers</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" class="features">
+    <div class="section-header">
+      <h2>Built for <em>real</em> thinking.</h2>
+      <p>In a world drowning in AI-generated content, iWrite gives you a space to think for yourself.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card" data-aos>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M3 9h18M9 3v18"/>
+          </svg>
+        </div>
+        <h3>Tab Lock</h3>
+        <p>Leave the tab and your writing disappears. Stay focused or pay the price.</p>
+      </div>
+      <div class="feature-card" data-aos>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <h3>Timed Sessions</h3>
+        <p>Set your timer. 5 minutes or 5 hours. The clock keeps you honest.</p>
+      </div>
+      <div class="feature-card" data-aos>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+        </div>
+        <h3>Dangerous Mode</h3>
+        <p>Stop typing for 6 seconds and your session fails. Keep writing or lose everything.</p>
+      </div>
+      <div class="feature-card" data-aos>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 22c4-4 8-7.5 8-12a8 8 0 10-16 0c0 4.5 4 8 8 12z"/>
+            <path d="M12 2v8M8 8l4 4 4-4"/>
+          </svg>
+        </div>
+        <h3>Growing Tree</h3>
+        <p>Your tree grows with every session. Break your streak and watch the leaves fall.</p>
+      </div>
+      <div class="feature-card" data-aos>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9"/>
+          </svg>
+        </div>
+        <h3>XP & Levels</h3>
+        <p>Earn experience for every word. Level up. Writing is your game now.</p>
+      </div>
+      <div class="feature-card" data-aos>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+            <polyline points="16,6 12,2 8,6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <h3>Share & Collaborate</h3>
+        <p>Share with view, comment, or edit links. Brainstorm together.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="how-it-works" class="how-it-works">
+    <div class="section-header">
+      <h2>Simple. Brutal. Effective.</h2>
+    </div>
+    <div class="steps">
+      <div class="step" data-aos>
+        <div class="step-num">01</div>
+        <h3>Set Your Timer</h3>
+        <p>Choose how long you want to brainstorm. 5, 15, 30 minutes — or go unlimited.</p>
+      </div>
+      <div class="step-arrow">&rarr;</div>
+      <div class="step" data-aos>
+        <div class="step-num">02</div>
+        <h3>Start Writing</h3>
+        <p>Your tab is locked. The timer starts. It's just you and your thoughts now.</p>
+      </div>
+      <div class="step-arrow">&rarr;</div>
+      <div class="step" data-aos>
+        <div class="step-num">03</div>
+        <h3>Stay or Lose</h3>
+        <p>Leave the tab and your work vanishes. Complete the session to save and earn XP.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <h2>Your thoughts are worth protecting.<br>Start writing them down.</h2>
+    <a href="/app" class="btn btn-primary btn-large">Launch iWrite</a>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="logo">iWrite</span>
+        <p>Think for yourself. Write for yourself.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Product</h4>
+          <a href="#features">Features</a>
+          <a href="#how-it-works">How It Works</a>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 iWrite. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="/js/landing.js"></script>
+</body>
+</html>
