@@ -87,17 +87,23 @@ router.post('/:id/complete', (req, res) => {
   const lastDate = user.lastWritingDate;
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-  let newStreak = user.streak;
+  let newStreak;
+  let newTreeStage;
   if (lastDate === today) {
-    // already wrote today
+    // already wrote today — no streak or tree change
+    newStreak = user.streak;
+    newTreeStage = user.treeStage || 0;
   } else if (lastDate === yesterday) {
-    newStreak += 1;
+    // streak continues — tree grows one stage
+    newStreak = user.streak + 1;
+    newTreeStage = Math.min(10, (user.treeStage || 0) + 1);
   } else {
+    // streak broken — tree resets from the beginning
     newStreak = 1;
+    newTreeStage = 1;
   }
 
   const totalWords = (user.totalWords || 0) + (wordCount || 0);
-  const treeStage = Math.min(10, Math.floor(totalWords / 500));
 
   const updatedUser = updateOne('users.json', u => u.id === req.user.id, {
     xp: user.xp + (xpEarned || 0),
@@ -105,7 +111,7 @@ router.post('/:id/complete', (req, res) => {
     streak: newStreak,
     longestStreak: Math.max(user.longestStreak, newStreak),
     lastWritingDate: today,
-    treeStage,
+    treeStage: newTreeStage,
     totalWords,
     totalSessions: (user.totalSessions || 0) + 1
   });

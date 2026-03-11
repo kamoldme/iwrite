@@ -27,9 +27,11 @@ const App = {
     document.getElementById('auth-view').style.display = 'flex';
     document.getElementById('app-view').style.display = 'none';
     this.bindAuthEvents();
+    Monsters.init();
   },
 
   showApp() {
+    Monsters.destroy();
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'block';
     this.updateUserUI();
@@ -87,6 +89,19 @@ const App = {
         }
       });
     });
+
+    ['login-pw-eye', 'register-pw-eye'].forEach(btnId => {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        const input = btn.closest('.auth-pw-wrap').querySelector('input');
+        const isHiding = input.type === 'text';
+        input.type = isHiding ? 'password' : 'text';
+        btn.querySelector('.eye-open').style.display = isHiding ? '' : 'none';
+        btn.querySelector('.eye-closed').style.display = isHiding ? 'none' : '';
+        Monsters.setLookAway(!isHiding);
+      });
+    });
   },
 
   bindAppEvents() {
@@ -105,12 +120,34 @@ const App = {
     document.getElementById('modal-cancel').addEventListener('click', () => this.closeSessionModal());
     document.getElementById('modal-start').addEventListener('click', () => this.startSession());
 
-    document.querySelectorAll('#time-presets .time-preset').forEach(btn => {
+    document.querySelectorAll('#time-presets .time-preset[data-minutes]').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#time-presets .time-preset').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.sessionDuration = parseInt(btn.dataset.minutes);
+        document.getElementById('time-custom-row').style.display = 'none';
       });
+    });
+
+    document.getElementById('time-preset-add-btn').addEventListener('click', () => {
+      const row = document.getElementById('time-custom-row');
+      row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+      if (row.style.display === 'flex') document.getElementById('custom-time-input').focus();
+    });
+
+    const setCustomTime = () => {
+      const val = parseInt(document.getElementById('custom-time-input').value);
+      if (!val || val < 1) return;
+      document.querySelectorAll('#time-presets .time-preset').forEach(b => b.classList.remove('active'));
+      document.getElementById('time-preset-add-btn').textContent = `${val}m`;
+      document.getElementById('time-preset-add-btn').classList.add('active');
+      this.sessionDuration = val;
+      document.getElementById('time-custom-row').style.display = 'none';
+      document.getElementById('custom-time-input').value = '';
+    };
+    document.getElementById('custom-time-set').addEventListener('click', setCustomTime);
+    document.getElementById('custom-time-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') setCustomTime();
     });
 
     document.querySelectorAll('.mode-option').forEach(opt => {
@@ -173,6 +210,7 @@ const App = {
     if (view === 'leaderboard') this.loadLeaderboard();
     if (view === 'profile') this.loadProfile();
     if (view === 'friends') this.loadFriends();
+    // help view is static, no loading needed
   },
 
   updateUserUI() {
@@ -302,6 +340,10 @@ const App = {
 
   openSessionModal() {
     document.getElementById('session-modal').classList.add('active');
+    document.getElementById('time-custom-row').style.display = 'none';
+    const addBtn = document.getElementById('time-preset-add-btn');
+    addBtn.textContent = '+';
+    addBtn.classList.remove('active');
   },
 
   closeSessionModal() {

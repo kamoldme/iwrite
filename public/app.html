@@ -10,7 +10,9 @@
 </head>
 <body>
   <div id="auth-view" class="auth-container" style="display:none">
+    <div id="auth-monsters"></div>
     <div class="auth-card">
+      <a href="/" class="auth-back-btn">&#8592; Back</a>
       <a href="/" class="logo">iWrite</a>
       <div id="login-form">
         <h2>Welcome back</h2>
@@ -22,7 +24,13 @@
         </div>
         <div class="auth-field">
           <label>Password</label>
-          <input type="password" id="login-password" placeholder="Your password">
+          <div class="auth-pw-wrap">
+            <input type="password" id="login-password" placeholder="Your password">
+            <button type="button" class="pw-eye-btn" id="login-pw-eye" aria-label="Toggle password">
+              <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-closed" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
         </div>
         <button class="btn btn-primary btn-full" id="login-btn" style="margin-top:8px">Sign In</button>
         <p class="auth-switch">Don't have an account? <a href="#" id="show-register">Sign up</a></p>
@@ -41,7 +49,13 @@
         </div>
         <div class="auth-field">
           <label>Password</label>
-          <input type="password" id="register-password" placeholder="Min 6 characters">
+          <div class="auth-pw-wrap">
+            <input type="password" id="register-password" placeholder="Min 6 characters">
+            <button type="button" class="pw-eye-btn" id="register-pw-eye" aria-label="Toggle password">
+              <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-closed" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
         </div>
         <button class="btn btn-primary btn-full" id="register-btn" style="margin-top:8px">Create Account</button>
         <p class="auth-switch">Already have an account? <a href="#" id="show-login">Sign in</a></p>
@@ -83,6 +97,10 @@
           <button class="sidebar-nav-item" data-view="profile">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             Profile
+          </button>
+          <button class="sidebar-nav-item" data-view="help">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Help
           </button>
         </nav>
         <div class="sidebar-footer">
@@ -298,6 +316,111 @@
             <div id="achievements-list" class="achievements-grid"></div>
           </div>
         </div>
+        <!-- HELP VIEW -->
+        <div id="view-help" class="view" style="display:none">
+          <div class="dashboard-header">
+            <h1>&#x2753; Help &amp; Documentation</h1>
+            <p>Everything you need to know about iWrite.</p>
+          </div>
+
+          <div class="help-grid">
+
+            <div class="help-card">
+              <div class="help-icon">&#x270F;&#xFE0F;</div>
+              <h3>How It Works</h3>
+              <p>iWrite is a distraction-free writing tool built on one rule: <strong>write it or lose it</strong>.</p>
+              <ol class="help-list">
+                <li>Set a timer and choose a mode.</li>
+                <li>The editor opens — tab switching is locked.</li>
+                <li>Leave the tab and a 10-second countdown starts. Don't come back in time and your writing is deleted forever.</li>
+                <li>Complete the session to save your document and earn XP.</li>
+              </ol>
+            </div>
+
+            <div class="help-card">
+              <div class="help-icon">&#x26A1;</div>
+              <h3>Writing Modes</h3>
+              <div class="help-mode">
+                <span class="help-mode-badge normal-badge">Normal</span>
+                <p>Tab-lock only. Leave the tab and your writing gets a 10-second grace period. Come back before it runs out.</p>
+              </div>
+              <div class="help-mode" style="margin-top:16px">
+                <span class="help-mode-badge danger-badge">Dangerous</span>
+                <p>Stop typing for <strong>6 seconds</strong> and the session fails automatically. Your writing is deleted. No exceptions.</p>
+              </div>
+            </div>
+
+            <div class="help-card">
+              <div class="help-icon">&#x2B50;</div>
+              <h3>XP &amp; Levels</h3>
+              <p>Every completed session earns you XP based on your output:</p>
+              <ul class="help-list">
+                <li><strong>Base XP</strong> — 0.5 XP per word written</li>
+                <li><strong>Time bonus</strong> — 2 XP per minute of writing</li>
+                <li><strong>Dangerous bonus</strong> — +50% of base XP for completing Dangerous mode</li>
+              </ul>
+              <p style="margin-top:12px">You <strong>level up every 100 XP</strong>. There's no level cap — keep writing.</p>
+            </div>
+
+            <div class="help-card">
+              <div class="help-icon">&#x1F525;</div>
+              <h3>Streaks</h3>
+              <p>Write at least one session every day to maintain your streak. Your streak counter increases by 1 each day you write.</p>
+              <ul class="help-list">
+                <li>Miss a day and your streak resets to 0.</li>
+                <li>Your longest streak is always saved on your profile.</li>
+                <li>Streak milestones unlock achievements.</li>
+              </ul>
+            </div>
+
+            <div class="help-card">
+              <div class="help-icon">&#x1F333;</div>
+              <h3>Your Writing Tree</h3>
+              <p>Your tree is a visual reflection of your consistency. It grows one stage each day you complete a session.</p>
+              <ul class="help-list">
+                <li>11 stages: Seed → Sprout → Seedling → Sapling → Young Tree → Growing Tree → Mature Tree → Strong Tree → Grand Tree → Ancient Tree → <strong>World Tree</strong></li>
+                <li>Break your streak and your tree <strong>resets back to a seed</strong>.</li>
+                <li>Active streaks give your tree a warm golden glow.</li>
+              </ul>
+            </div>
+
+            <div class="help-card">
+              <div class="help-icon">&#x1F3C6;</div>
+              <h3>Leaderboard</h3>
+              <p>The public leaderboard ranks all writers by total words written, showing the top 50.</p>
+              <ul class="help-list">
+                <li>Total words are cumulative across all sessions — they never reset.</li>
+                <li>The podium shows the top 3 writers.</li>
+                <li>Your row is highlighted so you can see where you stand.</li>
+              </ul>
+            </div>
+
+            <div class="help-card">
+              <div class="help-icon">&#x1F46B;</div>
+              <h3>Friends &amp; Duels</h3>
+              <p>Add friends by their email address to challenge them to writing duels.</p>
+              <ul class="help-list">
+                <li><strong>Duels</strong> — a timed head-to-head battle. Most words written in the time limit wins.</li>
+                <li><strong>Adding friends</strong> — enter their email in the Friends tab. They'll appear in your friends list.</li>
+              </ul>
+              <p style="margin-top:12px;color:var(--text-muted);font-size:13px">&#x1F6A7; Live duel matchmaking is coming soon.</p>
+            </div>
+
+            <div class="help-card">
+              <div class="help-icon">&#x1F4E4;</div>
+              <h3>Sharing Documents</h3>
+              <p>Completed documents can be shared with a unique link.</p>
+              <ul class="help-list">
+                <li><strong>View</strong> — recipient can read your document.</li>
+                <li><strong>Comment</strong> — recipient can leave comments.</li>
+                <li><strong>Edit</strong> — recipient can edit the content.</li>
+              </ul>
+              <p style="margin-top:12px">Click the share icon on any document card to copy a view link to clipboard.</p>
+            </div>
+
+          </div>
+        </div>
+
       </main>
     </div>
 
@@ -346,6 +469,11 @@
             <button class="time-preset" data-minutes="30">30 min</button>
             <button class="time-preset" data-minutes="60">60 min</button>
             <button class="time-preset" data-minutes="0">Unlimited</button>
+            <button class="time-preset time-preset-add" id="time-preset-add-btn" title="Custom time">+</button>
+          </div>
+          <div class="time-custom-row" id="time-custom-row" style="display:none">
+            <input type="number" id="custom-time-input" min="1" max="1440" placeholder="minutes">
+            <button class="btn btn-primary btn-small" id="custom-time-set">Set</button>
           </div>
         </div>
         <div class="modal-field">
@@ -437,6 +565,7 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/tree.js"></script>
+  <script src="/js/monsters.js"></script>
   <script src="/js/editor.js"></script>
   <script src="/js/app.js"></script>
 </body>
