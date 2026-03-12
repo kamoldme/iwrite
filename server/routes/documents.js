@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuid } = require('uuid');
 const { findOne, findMany, insertOne, updateOne, deleteOne } = require('../utils/storage');
 const { authenticate } = require('../middleware/auth');
+const { logAction } = require('../utils/logger');
 
 function calcLevel(totalXP) {
   let level = 0;
@@ -197,6 +198,7 @@ router.post('/:id/complete', (req, res) => {
     totalSessions: (user.totalSessions || 0) + 1
   });
 
+  logAction('session_completed', { docId: req.params.id, wordCount, duration, xpEarned }, req.user.id);
   const { password: _, ...safeUser } = updatedUser;
   res.json({ document: findOne('documents.json', d => d.id === req.params.id), user: safeUser });
 });
@@ -250,6 +252,7 @@ router.post('/:id/abandon', (req, res) => {
     failedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });
+  logAction('session_failed', { docId: req.params.id, reason: reason || 'unknown', title: doc.title, wordCount: doc.wordCount }, req.user.id);
   res.json({ success: true, message: 'Document lost' });
 });
 

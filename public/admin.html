@@ -7,8 +7,142 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .admin-layout { display: flex; min-height: 100vh; }
+    .admin-sidebar {
+      width: 240px; background: var(--bg-secondary); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10;
+    }
+    .admin-sidebar-header { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+    .admin-sidebar-header .logo { font-family: var(--font-display); font-size: 24px; font-weight: 900; }
+    .admin-sidebar-header .admin-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-top: 2px; }
+    .admin-nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+    .admin-nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; border: none;
+      background: none; width: 100%; text-align: left; transition: var(--transition);
+    }
+    .admin-nav-item:hover { background: var(--hover-bg); color: var(--text-primary); }
+    .admin-nav-item.active { background: var(--accent-soft); color: var(--accent); }
+    .admin-nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .admin-nav-item .nav-count {
+      margin-left: auto; font-size: 11px; background: var(--accent-soft); color: var(--accent);
+      padding: 1px 7px; border-radius: 10px; font-weight: 600;
+    }
+    .admin-sidebar-footer { padding: 12px 8px; border-top: 1px solid var(--border); }
+    .admin-main { margin-left: 240px; flex: 1; padding: 32px 40px; min-height: 100vh; }
+    .admin-page-title {
+      font-family: var(--font-display); font-size: 28px; font-weight: 900; margin-bottom: 24px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .admin-stat-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px; position: relative; overflow: hidden;
+    }
+    .admin-stat-card .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 4px; }
+    .admin-stat-card .value { font-family: var(--font-display); font-size: 28px; font-weight: 900; }
+
+    /* Tables */
+    .admin-table { width: 100%; border-collapse: collapse; }
+    .admin-table th { text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+    .admin-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid var(--border-light); }
+    .admin-table tr:hover td { background: var(--hover-bg); }
+    .admin-table .actions { display: flex; gap: 6px; }
+
+    /* Action buttons */
+    .admin-btn {
+      padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none;
+      cursor: pointer; transition: var(--transition);
+    }
+    .admin-btn-primary { background: var(--accent); color: white; }
+    .admin-btn-primary:hover { opacity: 0.85; }
+    .admin-btn-danger { background: var(--danger-soft); color: var(--danger); }
+    .admin-btn-danger:hover { background: var(--danger); color: white; }
+    .admin-btn-success { background: var(--success-soft); color: var(--success); }
+    .admin-btn-success:hover { background: var(--success); color: white; }
+    .admin-btn-ghost { background: var(--hover-bg); color: var(--text-secondary); }
+    .admin-btn-ghost:hover { background: var(--border); color: var(--text-primary); }
+
+    /* User detail panel */
+    .user-detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: none; }
+    .user-detail-panel {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 560px; background: var(--bg-secondary);
+      border-left: 1px solid var(--border); z-index: 101; overflow-y: auto; display: none;
+      animation: slideInRight 0.25s ease;
+    }
+    @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .user-detail-header { padding: 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .user-detail-body { padding: 24px; }
+    .user-detail-section { margin-bottom: 24px; }
+    .user-detail-section h4 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 12px; }
+    .user-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .user-detail-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+    .user-detail-stat .label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+    .user-detail-stat .value { font-size: 18px; font-weight: 700; margin-top: 2px; }
+
+    /* Edit form fields */
+    .admin-field { margin-bottom: 12px; }
+    .admin-field label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+    .admin-field input, .admin-field select, .admin-field textarea {
+      width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg-card); color: var(--text-primary); font-family: var(--font-sans); font-size: 13px;
+    }
+    .admin-field textarea { min-height: 80px; resize: vertical; }
+
+    /* Log entries */
+    .log-entry { padding: 10px 14px; border-bottom: 1px solid var(--border-light); display: flex; gap: 12px; align-items: flex-start; }
+    .log-entry:hover { background: var(--hover-bg); }
+    .log-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 5px; flex-shrink: 0; }
+    .log-dot.danger { background: var(--danger); }
+    .log-dot.success { background: var(--success); }
+    .log-action { font-size: 13px; font-weight: 600; }
+    .log-details { font-size: 12px; color: var(--text-secondary); }
+    .log-time { font-size: 11px; color: var(--text-muted); }
+
+    /* Support ticket card */
+    .ticket-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; margin-bottom: 12px;
+    }
+    .ticket-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .ticket-subject { font-size: 14px; font-weight: 600; }
+    .ticket-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .ticket-body { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+    .ticket-reply-area { margin-top: 8px; }
+    .ticket-reply-area textarea { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated); color: var(--text-primary); font-size: 13px; font-family: var(--font-sans); min-height: 60px; resize: vertical; }
+
+    /* Search */
+    .admin-search {
+      width: 100%; max-width: 320px; padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--bg-card); color: var(--text-primary); font-family: var(--font-sans); font-size: 13px; margin-bottom: 16px;
+    }
+
+    /* Badges */
+    .badge { display: inline-block; padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; }
+    .badge-admin { background: var(--gradient-accent); color: white; }
+    .badge-user { background: var(--hover-bg); color: var(--text-secondary); }
+    .badge-free { background: var(--hover-bg); color: var(--text-secondary); }
+    .badge-premium { background: var(--gradient-accent); color: white; }
+    .badge-active { background: var(--success-soft); color: var(--success); }
+    .badge-deleted { background: var(--danger-soft); color: var(--danger); }
+    .badge-open { background: var(--success-soft); color: var(--success); }
+    .badge-closed { background: var(--hover-bg); color: var(--text-muted); }
+    .badge-replied { background: var(--accent-soft); color: var(--accent); }
+    .badge-feedback { background: var(--accent-soft); color: var(--accent); }
+    .badge-bug { background: var(--danger-soft); color: var(--danger); }
+    .badge-suggestion { background: rgba(245, 158, 11, 0.12); color: var(--warning); }
+    .badge-inactive { background: var(--danger-soft); color: var(--danger); }
+
+    /* Empty state */
+    .admin-empty { text-align: center; padding: 48px 24px; color: var(--text-muted); font-size: 14px; }
+
+    /* Toolbar */
+    .admin-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+  </style>
 </head>
 <body>
+  <!-- AUTH SCREEN -->
   <div id="admin-auth" class="auth-container">
     <div class="auth-card">
       <a href="/" class="logo">iWrite</a>
@@ -27,53 +161,179 @@
     </div>
   </div>
 
+  <!-- ADMIN PANEL -->
   <div id="admin-panel" style="display:none">
-    <nav class="nav" style="background:var(--bg-secondary)">
-      <div class="nav-inner">
-        <a href="/" class="logo">iWrite <span style="font-size:12px;font-family:var(--font-sans);color:var(--text-muted);margin-left:8px">ADMIN</span></a>
-        <div class="nav-links">
-          <button class="btn btn-small" style="background:var(--accent)" data-tab="overview">Overview</button>
-          <button class="btn btn-small" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)" data-tab="users">Users</button>
-          <button class="btn btn-small" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)" data-tab="documents">Documents</button>
-          <button class="btn btn-small" style="background:var(--danger)" id="admin-logout">Logout</button>
+    <div class="admin-layout">
+      <!-- Sidebar -->
+      <aside class="admin-sidebar">
+        <div class="admin-sidebar-header">
+          <a href="/" class="logo">iWrite</a>
+          <div class="admin-label">Admin Panel</div>
         </div>
-      </div>
-    </nav>
+        <nav class="admin-nav">
+          <button class="admin-nav-item active" data-tab="overview">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+          </button>
+          <button class="admin-nav-item" data-tab="users">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            Users
+            <span class="nav-count" id="users-count">0</span>
+          </button>
+          <button class="admin-nav-item" data-tab="documents">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            Documents
+          </button>
+          <button class="admin-nav-item" data-tab="lost-files">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            Lost Files
+            <span class="nav-count" id="lost-count">0</span>
+          </button>
+          <button class="admin-nav-item" data-tab="logs">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            Activity Logs
+          </button>
+          <button class="admin-nav-item" data-tab="support">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            Support
+            <span class="nav-count" id="support-count">0</span>
+          </button>
+          <button class="admin-nav-item" data-tab="duels">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Duels
+          </button>
+        </nav>
+        <div class="admin-sidebar-footer">
+          <button class="admin-nav-item" id="admin-logout" style="color:var(--danger)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Logout
+          </button>
+        </div>
+      </aside>
 
-    <div style="max-width:1200px;margin:0 auto;padding:96px 24px 48px">
-      <div id="tab-overview">
-        <h1 style="font-family:var(--font-display);font-size:32px;font-weight:900;margin-bottom:32px">Dashboard</h1>
-        <div class="stats-grid" id="admin-stats"></div>
-      </div>
+      <!-- Main content -->
+      <main class="admin-main">
+        <!-- OVERVIEW -->
+        <div id="tab-overview">
+          <div class="admin-page-title">Dashboard</div>
+          <div class="admin-stats-grid" id="admin-stats"></div>
+          <div style="margin-top:24px">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">Recent Activity</h3>
+            <div id="recent-logs"></div>
+          </div>
+        </div>
 
-      <div id="tab-users" style="display:none">
-        <h1 style="font-family:var(--font-display);font-size:32px;font-weight:900;margin-bottom:32px">Users</h1>
-        <table class="admin-table" id="users-table">
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Plan</th><th>XP</th><th>Streak</th><th>Words</th><th>Actions</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+        <!-- USERS -->
+        <div id="tab-users" style="display:none">
+          <div class="admin-page-title">Users</div>
+          <div class="admin-toolbar">
+            <input class="admin-search" id="users-search" placeholder="Search users by name or email...">
+          </div>
+          <table class="admin-table" id="users-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Plan</th><th>Level</th><th>XP</th><th>Streak</th><th>Words</th><th>Sessions</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
 
-      <div id="tab-documents" style="display:none">
-        <h1 style="font-family:var(--font-display);font-size:32px;font-weight:900;margin-bottom:32px">Documents</h1>
-        <table class="admin-table" id="docs-table">
-          <thead><tr><th>Title</th><th>Words</th><th>Mode</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+        <!-- DOCUMENTS -->
+        <div id="tab-documents" style="display:none">
+          <div class="admin-page-title">Documents</div>
+          <div class="admin-toolbar">
+            <input class="admin-search" id="docs-search" placeholder="Search documents by title...">
+          </div>
+          <table class="admin-table" id="docs-table">
+            <thead><tr><th>Title</th><th>Owner</th><th>Words</th><th>Mode</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- LOST FILES -->
+        <div id="tab-lost-files" style="display:none">
+          <div class="admin-page-title">Lost Files</div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Abandoned/failed sessions with more than 30 words. Activate to restore them to the user's session list.</p>
+          <table class="admin-table" id="lost-table">
+            <thead><tr><th>Title</th><th>Owner</th><th>Words</th><th>Reason</th><th>Lost At</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- ACTIVITY LOGS -->
+        <div id="tab-logs" style="display:none">
+          <div class="admin-toolbar">
+            <div class="admin-page-title" style="margin-bottom:0">Activity Logs</div>
+            <button class="admin-btn admin-btn-danger" onclick="clearLogs()">Clear All Logs</button>
+          </div>
+          <div id="logs-list"></div>
+        </div>
+
+        <!-- SUPPORT -->
+        <div id="tab-support" style="display:none">
+          <div class="admin-page-title">Support Tickets</div>
+          <div class="admin-toolbar">
+            <div style="display:flex;gap:8px">
+              <button class="admin-btn admin-btn-primary support-filter active" data-filter="all">All</button>
+              <button class="admin-btn admin-btn-ghost support-filter" data-filter="open">Open</button>
+              <button class="admin-btn admin-btn-ghost support-filter" data-filter="replied">Replied</button>
+              <button class="admin-btn admin-btn-ghost support-filter" data-filter="closed">Closed</button>
+            </div>
+          </div>
+          <div id="support-list"></div>
+        </div>
+
+        <!-- DUELS -->
+        <div id="tab-duels" style="display:none">
+          <div class="admin-page-title">Duel History</div>
+          <div id="duels-list">
+            <div class="admin-empty">No duel history yet. Duels will appear here when users start battling.</div>
+          </div>
+        </div>
+      </main>
     </div>
+  </div>
+
+  <!-- USER DETAIL PANEL -->
+  <div class="user-detail-overlay" id="user-detail-overlay"></div>
+  <div class="user-detail-panel" id="user-detail-panel">
+    <div class="user-detail-header">
+      <h3 id="detail-user-name" style="font-size:18px;font-weight:700">User</h3>
+      <button class="admin-btn admin-btn-ghost" id="detail-close">&times; Close</button>
+    </div>
+    <div class="user-detail-body" id="user-detail-body"></div>
+  </div>
+
+  <!-- EDIT USER MODAL -->
+  <div class="user-detail-overlay" id="edit-user-overlay" style="display:none"></div>
+  <div class="user-detail-panel" id="edit-user-panel" style="display:none;width:440px">
+    <div class="user-detail-header">
+      <h3 style="font-size:18px;font-weight:700">Edit User</h3>
+      <button class="admin-btn admin-btn-ghost" id="edit-close">&times; Close</button>
+    </div>
+    <div class="user-detail-body" id="edit-user-body"></div>
+  </div>
+
+  <!-- VIEW DOCUMENT MODAL -->
+  <div class="user-detail-overlay" id="doc-view-overlay" style="display:none"></div>
+  <div class="user-detail-panel" id="doc-view-panel" style="display:none;width:600px">
+    <div class="user-detail-header">
+      <h3 id="doc-view-title" style="font-size:18px;font-weight:700">Document</h3>
+      <button class="admin-btn admin-btn-ghost" id="doc-view-close">&times; Close</button>
+    </div>
+    <div class="user-detail-body" id="doc-view-body"></div>
   </div>
 
   <div class="toast" id="toast"></div>
 
   <script>
     let adminToken = localStorage.getItem('iwrite_admin_token');
+    let allUsers = [];
+    let allDocs = [];
+    let currentSupportFilter = 'all';
 
-    async function adminRequest(path, options = {}) {
-      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` };
-      const res = await fetch(`/api${path}`, { ...options, headers });
-      if (!res.ok) throw new Error((await res.json()).error);
-      return res.json();
+    // ===== UTILITY =====
+    function esc(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
     }
 
     function toast(msg, type) {
@@ -83,6 +343,25 @@
       setTimeout(() => el.className = 'toast', 3000);
     }
 
+    function timeAgo(dateStr) {
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      return `${days}d ago`;
+    }
+
+    async function adminRequest(path, options = {}) {
+      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` };
+      const res = await fetch(`/api${path}`, { ...options, headers });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    }
+
+    // ===== AUTH =====
     document.getElementById('admin-login-btn').addEventListener('click', async () => {
       const email = document.getElementById('admin-email').value;
       const password = document.getElementById('admin-password').value;
@@ -105,16 +384,15 @@
       }
     });
 
+    document.getElementById('admin-password').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('admin-login-btn').click();
+    });
+
+    // ===== TAB SWITCHING =====
     document.querySelectorAll('[data-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('[data-tab]').forEach(b => {
-          b.style.background = 'transparent';
-          b.style.border = '1px solid rgba(255,255,255,0.08)';
-          b.style.color = 'rgba(240,240,245,0.6)';
-        });
-        btn.style.background = '#6c5ce7';
-        btn.style.border = 'none';
-        btn.style.color = 'white';
+        document.querySelectorAll('.admin-nav-item[data-tab]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
         document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
         document.getElementById(`tab-${btn.dataset.tab}`).style.display = 'block';
       });
@@ -125,68 +403,244 @@
       location.reload();
     });
 
+    // ===== CLOSE PANELS =====
+    document.getElementById('detail-close').addEventListener('click', closeUserDetail);
+    document.getElementById('user-detail-overlay').addEventListener('click', closeUserDetail);
+    document.getElementById('edit-close').addEventListener('click', closeEditUser);
+    document.getElementById('edit-user-overlay').addEventListener('click', closeEditUser);
+    document.getElementById('doc-view-close').addEventListener('click', closeDocView);
+    document.getElementById('doc-view-overlay').addEventListener('click', closeDocView);
+
+    function closeUserDetail() {
+      document.getElementById('user-detail-panel').style.display = 'none';
+      document.getElementById('user-detail-overlay').style.display = 'none';
+    }
+    function closeEditUser() {
+      document.getElementById('edit-user-panel').style.display = 'none';
+      document.getElementById('edit-user-overlay').style.display = 'none';
+    }
+    function closeDocView() {
+      document.getElementById('doc-view-panel').style.display = 'none';
+      document.getElementById('doc-view-overlay').style.display = 'none';
+    }
+
+    // ===== SEARCH =====
+    document.getElementById('users-search').addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      renderUsersTable(allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)));
+    });
+    document.getElementById('docs-search').addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      renderDocsTable(allDocs.filter(d => (d.title || '').toLowerCase().includes(q) || (d.ownerName || '').toLowerCase().includes(q)));
+    });
+
+    // ===== SUPPORT FILTERS =====
+    document.querySelectorAll('.support-filter').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.support-filter').forEach(b => { b.classList.remove('active'); b.classList.add('admin-btn-ghost'); b.classList.remove('admin-btn-primary'); });
+        btn.classList.add('active', 'admin-btn-primary');
+        btn.classList.remove('admin-btn-ghost');
+        currentSupportFilter = btn.dataset.filter;
+        loadSupport();
+      });
+    });
+
+    // ===== SHOW PANEL =====
     async function showPanel() {
       document.getElementById('admin-auth').style.display = 'none';
       document.getElementById('admin-panel').style.display = 'block';
-      await loadOverview();
-      await loadUsers();
-      await loadDocs();
+      await Promise.all([loadOverview(), loadUsers(), loadDocs(), loadLostFiles(), loadLogs(), loadSupport()]);
     }
 
+    // ===== OVERVIEW =====
     async function loadOverview() {
       try {
         const stats = await adminRequest('/admin/stats');
         document.getElementById('admin-stats').innerHTML = `
-          <div class="stat-card"><div class="stat-card-label">Total Users</div><div class="stat-card-value">${stats.totalUsers}</div></div>
-          <div class="stat-card"><div class="stat-card-label">Total Documents</div><div class="stat-card-value">${stats.totalDocuments}</div></div>
-          <div class="stat-card"><div class="stat-card-label">Active Documents</div><div class="stat-card-value">${stats.activeDocuments}</div></div>
-          <div class="stat-card"><div class="stat-card-label">Abandoned</div><div class="stat-card-value" style="color:var(--danger)">${stats.abandonedDocuments}</div></div>
-          <div class="stat-card"><div class="stat-card-label">Total Words</div><div class="stat-card-value">${stats.totalWords.toLocaleString()}</div></div>
-          <div class="stat-card"><div class="stat-card-label">Premium Users</div><div class="stat-card-value" style="color:var(--xp-color)">${stats.premiumUsers}</div></div>
+          <div class="admin-stat-card"><div class="label">Users</div><div class="value">${stats.totalUsers}</div></div>
+          <div class="admin-stat-card"><div class="label">Documents</div><div class="value">${stats.totalDocuments}</div></div>
+          <div class="admin-stat-card"><div class="label">Active Docs</div><div class="value" style="color:var(--success)">${stats.activeDocuments}</div></div>
+          <div class="admin-stat-card"><div class="label">Abandoned</div><div class="value" style="color:var(--danger)">${stats.abandonedDocuments}</div></div>
+          <div class="admin-stat-card"><div class="label">Total Words</div><div class="value">${stats.totalWords.toLocaleString()}</div></div>
+          <div class="admin-stat-card"><div class="label">Premium</div><div class="value" style="color:var(--xp-color)">${stats.premiumUsers}</div></div>
+          <div class="admin-stat-card"><div class="label">Open Tickets</div><div class="value" style="color:var(--warning)">${stats.openTickets}</div></div>
+          <div class="admin-stat-card"><div class="label">Log Entries</div><div class="value">${stats.totalLogs}</div></div>
         `;
+
+        // Recent logs on dashboard
+        const logs = await adminRequest('/admin/logs');
+        const recentEl = document.getElementById('recent-logs');
+        if (logs.length === 0) {
+          recentEl.innerHTML = '<div class="admin-empty">No activity yet.</div>';
+        } else {
+          recentEl.innerHTML = logs.slice(0, 10).map(l => `
+            <div class="log-entry">
+              <div class="log-dot ${l.action.includes('delete') ? 'danger' : l.action.includes('restore') || l.action.includes('activate') ? 'success' : ''}"></div>
+              <div style="flex:1">
+                <div class="log-action">${formatAction(l.action)}</div>
+                <div class="log-details">${formatLogDetails(l)}</div>
+              </div>
+              <div class="log-time">${timeAgo(l.timestamp)}</div>
+            </div>
+          `).join('');
+        }
       } catch { toast('Failed to load stats', 'error'); }
     }
 
+    function formatAction(action) {
+      return action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function formatLogDetails(log) {
+      const parts = [];
+      if (log.userName && log.userName !== 'System') parts.push(`by ${esc(log.userName)}`);
+      if (log.details) {
+        if (log.details.name) parts.push(esc(log.details.name));
+        if (log.details.email) parts.push(esc(log.details.email));
+        if (log.details.title) parts.push(`"${esc(log.details.title)}"`);
+        if (log.details.changes) parts.push(`changed: ${log.details.changes.join(', ')}`);
+      }
+      return parts.join(' · ') || '';
+    }
+
+    // ===== USERS =====
     async function loadUsers() {
       try {
-        const users = await adminRequest('/admin/users');
-        const tbody = document.querySelector('#users-table tbody');
-        tbody.innerHTML = users.map(u => `
-          <tr>
-            <td>${esc(u.name)}</td>
-            <td>${esc(u.email)}</td>
-            <td><span class="badge badge-${u.role}">${u.role}</span></td>
-            <td><span class="badge badge-${u.plan}">${u.plan}</span></td>
-            <td>${u.xp || 0}</td>
-            <td>${u.streak || 0}</td>
-            <td>${(u.totalWords || 0).toLocaleString()}</td>
-            <td>
-              <button class="doc-action-btn" onclick="togglePlan('${u.id}','${u.plan}')" title="Toggle plan">P</button>
-              ${u.role !== 'admin' ? `<button class="doc-action-btn delete" onclick="deleteUser('${u.id}')" title="Delete">X</button>` : ''}
-            </td>
-          </tr>
-        `).join('');
+        allUsers = await adminRequest('/admin/users');
+        document.getElementById('users-count').textContent = allUsers.filter(u => u.role !== 'admin').length;
+        renderUsersTable(allUsers);
       } catch { toast('Failed to load users', 'error'); }
     }
 
-    async function loadDocs() {
+    function renderUsersTable(users) {
+      const tbody = document.querySelector('#users-table tbody');
+      tbody.innerHTML = users.map(u => `
+        <tr style="cursor:pointer" onclick="viewUser('${u.id}')">
+          <td><strong>${esc(u.name)}</strong></td>
+          <td>${esc(u.email)}</td>
+          <td><span class="badge badge-${u.role}">${u.role}</span></td>
+          <td><span class="badge badge-${u.plan}">${u.plan}</span></td>
+          <td>${u.level || 0}</td>
+          <td>${(u.xp || 0).toLocaleString()}</td>
+          <td>${u.streak || 0}</td>
+          <td>${(u.totalWords || 0).toLocaleString()}</td>
+          <td>${u.totalSessions || 0}</td>
+          <td class="actions" onclick="event.stopPropagation()">
+            <button class="admin-btn admin-btn-primary" onclick="editUser('${u.id}')">Edit</button>
+            <button class="admin-btn admin-btn-ghost" onclick="togglePlan('${u.id}','${u.plan}')">Plan</button>
+            ${u.role !== 'admin' ? `<button class="admin-btn admin-btn-danger" onclick="deleteUser('${u.id}')">Delete</button>` : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function viewUser(id) {
       try {
-        const docs = await adminRequest('/admin/documents');
-        const tbody = document.querySelector('#docs-table tbody');
-        tbody.innerHTML = docs.map(d => `
-          <tr>
-            <td>${esc(d.title)}</td>
-            <td>${d.wordCount || 0}</td>
-            <td>${d.mode || 'normal'}</td>
-            <td><span class="badge badge-${d.deleted ? 'deleted' : 'active'}">${d.deletedBySystem ? 'Abandoned' : d.deleted ? 'Deleted' : 'Active'}</span></td>
-            <td>${new Date(d.createdAt).toLocaleDateString()}</td>
-            <td>
-              ${d.deleted ? `<button class="doc-action-btn" onclick="restoreDoc('${d.id}')" title="Restore">R</button>` : ''}
-              <button class="doc-action-btn" onclick="viewDoc('${d.id}')" title="View">V</button>
-            </td>
-          </tr>
-        `).join('');
-      } catch { toast('Failed to load documents', 'error'); }
+        const u = await adminRequest(`/admin/users/${id}`);
+        document.getElementById('detail-user-name').textContent = u.name;
+        const body = document.getElementById('user-detail-body');
+        body.innerHTML = `
+          <div class="user-detail-section">
+            <h4>Account Info</h4>
+            <div class="user-detail-grid">
+              <div class="user-detail-stat"><div class="label">Email</div><div class="value" style="font-size:13px;word-break:break-all">${esc(u.email)}</div></div>
+              <div class="user-detail-stat"><div class="label">Role</div><div class="value"><span class="badge badge-${u.role}">${u.role}</span></div></div>
+              <div class="user-detail-stat"><div class="label">Plan</div><div class="value"><span class="badge badge-${u.plan}">${u.plan}</span></div></div>
+              <div class="user-detail-stat"><div class="label">Joined</div><div class="value" style="font-size:13px">${new Date(u.createdAt).toLocaleDateString()}</div></div>
+            </div>
+          </div>
+          <div class="user-detail-section">
+            <h4>Statistics</h4>
+            <div class="user-detail-grid">
+              <div class="user-detail-stat"><div class="label">Level</div><div class="value">${u.level || 0}</div></div>
+              <div class="user-detail-stat"><div class="label">XP</div><div class="value" style="color:var(--xp-color)">${(u.xp || 0).toLocaleString()}</div></div>
+              <div class="user-detail-stat"><div class="label">Streak</div><div class="value">${u.streak || 0}</div></div>
+              <div class="user-detail-stat"><div class="label">Longest Streak</div><div class="value">${u.longestStreak || 0}</div></div>
+              <div class="user-detail-stat"><div class="label">Total Words</div><div class="value">${(u.totalWords || 0).toLocaleString()}</div></div>
+              <div class="user-detail-stat"><div class="label">Sessions</div><div class="value">${u.totalSessions || 0}</div></div>
+              <div class="user-detail-stat"><div class="label">Tree Stage</div><div class="value">${u.treeStage || 0}</div></div>
+              <div class="user-detail-stat"><div class="label">Documents</div><div class="value">${u.totalDocuments}</div></div>
+            </div>
+          </div>
+          <div class="user-detail-section">
+            <h4>Friends (${u.friendsList ? u.friendsList.length : 0})</h4>
+            ${u.friendsList && u.friendsList.length > 0 ? `
+              <div style="display:flex;flex-wrap:wrap;gap:8px">
+                ${u.friendsList.map(f => `<span class="badge badge-user" style="padding:4px 12px">${esc(f.name)} (${esc(f.email)})</span>`).join('')}
+              </div>
+            ` : '<div style="color:var(--text-muted);font-size:13px">No friends yet</div>'}
+          </div>
+          <div class="user-detail-section">
+            <h4>Recent Documents</h4>
+            ${u.documents && u.documents.length > 0 ? `
+              <table class="admin-table" style="font-size:12px">
+                <thead><tr><th>Title</th><th>Words</th><th>Mode</th><th>Status</th></tr></thead>
+                <tbody>
+                  ${u.documents.sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 15).map(d => `
+                    <tr>
+                      <td>${esc(d.title)}</td>
+                      <td>${d.wordCount || 0}</td>
+                      <td>${d.mode || 'normal'}</td>
+                      <td><span class="badge badge-${d.deleted ? 'deleted' : 'active'}">${d.deletedBySystem ? 'Lost' : d.deleted ? 'Deleted' : 'Active'}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            ` : '<div style="color:var(--text-muted);font-size:13px">No documents</div>'}
+          </div>
+        `;
+        document.getElementById('user-detail-panel').style.display = 'block';
+        document.getElementById('user-detail-overlay').style.display = 'block';
+      } catch { toast('Failed to load user details', 'error'); }
+    }
+
+    async function editUser(id) {
+      try {
+        const u = await adminRequest(`/admin/users/${id}`);
+        const body = document.getElementById('edit-user-body');
+        body.innerHTML = `
+          <form id="edit-user-form">
+            <input type="hidden" id="edit-uid" value="${u.id}">
+            <div class="admin-field"><label>Name</label><input id="edit-name" value="${esc(u.name)}"></div>
+            <div class="admin-field"><label>Email</label><input id="edit-email" value="${esc(u.email)}"></div>
+            <div class="admin-field"><label>Role</label>
+              <select id="edit-role"><option value="user" ${u.role==='user'?'selected':''}>User</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>
+            </div>
+            <div class="admin-field"><label>Plan</label>
+              <select id="edit-plan"><option value="free" ${u.plan==='free'?'selected':''}>Free</option><option value="premium" ${u.plan==='premium'?'selected':''}>Premium</option></select>
+            </div>
+            <div class="admin-field"><label>XP</label><input type="number" id="edit-xp" value="${u.xp || 0}"></div>
+            <div class="admin-field"><label>Streak</label><input type="number" id="edit-streak" value="${u.streak || 0}"></div>
+            <div class="admin-field"><label>New Password (leave blank to keep)</label><input type="password" id="edit-password" placeholder="New password"></div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <button type="submit" class="admin-btn admin-btn-primary" style="padding:8px 20px">Save Changes</button>
+              <button type="button" class="admin-btn admin-btn-ghost" style="padding:8px 20px" onclick="closeEditUser()">Cancel</button>
+            </div>
+          </form>
+        `;
+        document.getElementById('edit-user-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const updates = {
+            name: document.getElementById('edit-name').value,
+            email: document.getElementById('edit-email').value,
+            role: document.getElementById('edit-role').value,
+            plan: document.getElementById('edit-plan').value,
+            xp: parseInt(document.getElementById('edit-xp').value) || 0,
+            streak: parseInt(document.getElementById('edit-streak').value) || 0,
+          };
+          const pw = document.getElementById('edit-password').value;
+          if (pw) updates.password = pw;
+          try {
+            await adminRequest(`/admin/users/${u.id}`, { method: 'PATCH', body: JSON.stringify(updates) });
+            toast('User updated', 'success');
+            closeEditUser();
+            loadUsers();
+            loadOverview();
+          } catch (err) { toast(err.message || 'Failed', 'error'); }
+        });
+        document.getElementById('edit-user-panel').style.display = 'block';
+        document.getElementById('edit-user-overlay').style.display = 'block';
+      } catch { toast('Failed to load user', 'error'); }
     }
 
     async function togglePlan(id, current) {
@@ -199,12 +653,59 @@
     }
 
     async function deleteUser(id) {
-      if (!confirm('Delete this user?')) return;
+      if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
       try {
         await adminRequest(`/admin/users/${id}`, { method: 'DELETE' });
         toast('User deleted', 'success');
         loadUsers();
-      } catch { toast('Failed', 'error'); }
+        loadOverview();
+      } catch (err) { toast(err.message || 'Failed', 'error'); }
+    }
+
+    // ===== DOCUMENTS =====
+    async function loadDocs() {
+      try {
+        allDocs = await adminRequest('/admin/documents');
+        renderDocsTable(allDocs);
+      } catch { toast('Failed to load documents', 'error'); }
+    }
+
+    function renderDocsTable(docs) {
+      const tbody = document.querySelector('#docs-table tbody');
+      tbody.innerHTML = docs.map(d => `
+        <tr>
+          <td><strong>${esc(d.title)}</strong></td>
+          <td>${esc(d.ownerName)}</td>
+          <td>${d.wordCount || 0}</td>
+          <td>${d.mode || 'normal'}</td>
+          <td><span class="badge badge-${d.deleted ? 'deleted' : 'active'}">${d.deletedBySystem ? 'Lost' : d.deleted ? 'Deleted' : 'Active'}</span></td>
+          <td>${new Date(d.createdAt).toLocaleDateString()}</td>
+          <td class="actions">
+            <button class="admin-btn admin-btn-primary" onclick="viewDoc('${d.id}')">View</button>
+            ${d.deleted ? `<button class="admin-btn admin-btn-success" onclick="restoreDoc('${d.id}')">Restore</button>` : ''}
+            <button class="admin-btn admin-btn-danger" onclick="permanentDeleteDoc('${d.id}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function viewDoc(id) {
+      try {
+        const doc = await adminRequest(`/admin/documents/${id}`);
+        document.getElementById('doc-view-title').textContent = doc.title;
+        document.getElementById('doc-view-body').innerHTML = `
+          <div class="user-detail-grid" style="margin-bottom:16px">
+            <div class="user-detail-stat"><div class="label">Owner</div><div class="value" style="font-size:13px">${esc(doc.ownerName)}</div></div>
+            <div class="user-detail-stat"><div class="label">Words</div><div class="value">${doc.wordCount || 0}</div></div>
+            <div class="user-detail-stat"><div class="label">Mode</div><div class="value" style="font-size:14px">${doc.mode || 'normal'}</div></div>
+            <div class="user-detail-stat"><div class="label">Duration</div><div class="value" style="font-size:14px">${doc.duration ? Math.round(doc.duration / 60) + ' min' : '—'}</div></div>
+          </div>
+          <h4 style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Content</h4>
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;font-size:14px;line-height:1.7;max-height:400px;overflow-y:auto">${doc.content || '<em style="color:var(--text-muted)">Empty document</em>'}</div>
+        `;
+        document.getElementById('doc-view-panel').style.display = 'block';
+        document.getElementById('doc-view-overlay').style.display = 'block';
+      } catch { toast('Failed to load document', 'error'); }
     }
 
     async function restoreDoc(id) {
@@ -212,22 +713,181 @@
         await adminRequest(`/admin/documents/${id}/restore`, { method: 'POST' });
         toast('Document restored', 'success');
         loadDocs();
+        loadLostFiles();
+        loadOverview();
       } catch { toast('Failed', 'error'); }
     }
 
-    async function viewDoc(id) {
+    async function permanentDeleteDoc(id) {
+      if (!confirm('Permanently delete this document? This cannot be undone.')) return;
       try {
-        const doc = await adminRequest(`/admin/documents/${id}`);
-        alert(`Title: ${doc.title}\nWords: ${doc.wordCount}\n\n${doc.content || '(empty)'}`);
+        await adminRequest(`/admin/documents/${id}`, { method: 'DELETE' });
+        toast('Document permanently deleted', 'success');
+        loadDocs();
+        loadLostFiles();
+        loadOverview();
       } catch { toast('Failed', 'error'); }
     }
 
-    function esc(str) {
-      const d = document.createElement('div');
-      d.textContent = str || '';
-      return d.innerHTML;
+    // ===== LOST FILES =====
+    async function loadLostFiles() {
+      try {
+        const files = await adminRequest('/admin/lost-files');
+        document.getElementById('lost-count').textContent = files.length;
+        const tbody = document.querySelector('#lost-table tbody');
+        if (files.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="admin-empty">No lost files</td></tr>';
+          return;
+        }
+        tbody.innerHTML = files.map(d => `
+          <tr>
+            <td><strong>${esc(d.title)}</strong></td>
+            <td>${esc(d.ownerName)}</td>
+            <td>${d.wordCount || 0}</td>
+            <td>${d.failReason || 'unknown'}</td>
+            <td>${d.failedAt ? new Date(d.failedAt).toLocaleString() : '—'}</td>
+            <td><span class="badge badge-${d.active ? 'active' : 'inactive'}">${d.active ? 'Active' : 'Not Active'}</span></td>
+            <td class="actions">
+              ${d.active
+                ? `<button class="admin-btn admin-btn-danger" onclick="deactivateLost('${d.id}')">Deactivate</button>`
+                : `<button class="admin-btn admin-btn-success" onclick="activateLost('${d.id}')">Activate</button>`
+              }
+              <button class="admin-btn admin-btn-primary" onclick="viewDoc('${d.id}')">View</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch { toast('Failed to load lost files', 'error'); }
     }
 
+    async function activateLost(id) {
+      try {
+        await adminRequest(`/admin/lost-files/${id}/activate`, { method: 'POST' });
+        toast('File activated for user', 'success');
+        loadLostFiles();
+        loadDocs();
+      } catch { toast('Failed', 'error'); }
+    }
+
+    async function deactivateLost(id) {
+      try {
+        await adminRequest(`/admin/lost-files/${id}/deactivate`, { method: 'POST' });
+        toast('File deactivated', 'success');
+        loadLostFiles();
+        loadDocs();
+      } catch { toast('Failed', 'error'); }
+    }
+
+    // ===== ACTIVITY LOGS =====
+    async function loadLogs() {
+      try {
+        const logs = await adminRequest('/admin/logs');
+        const el = document.getElementById('logs-list');
+        if (logs.length === 0) {
+          el.innerHTML = '<div class="admin-empty">No activity logs yet.</div>';
+          return;
+        }
+        el.innerHTML = logs.map(l => `
+          <div class="log-entry">
+            <div class="log-dot ${l.action.includes('delete') ? 'danger' : l.action.includes('restore') || l.action.includes('activate') ? 'success' : ''}"></div>
+            <div style="flex:1">
+              <div class="log-action">${formatAction(l.action)}</div>
+              <div class="log-details">${formatLogDetails(l)}</div>
+            </div>
+            <div class="log-time">${new Date(l.timestamp).toLocaleString()}</div>
+          </div>
+        `).join('');
+      } catch { toast('Failed to load logs', 'error'); }
+    }
+
+    async function clearLogs() {
+      if (!confirm('Clear all activity logs?')) return;
+      try {
+        await adminRequest('/admin/logs', { method: 'DELETE' });
+        toast('Logs cleared', 'success');
+        loadLogs();
+        loadOverview();
+      } catch { toast('Failed', 'error'); }
+    }
+
+    // ===== SUPPORT =====
+    async function loadSupport() {
+      try {
+        let tickets = await adminRequest('/admin/support');
+        document.getElementById('support-count').textContent = tickets.filter(t => t.status === 'open').length;
+
+        if (currentSupportFilter !== 'all') {
+          tickets = tickets.filter(t => t.status === currentSupportFilter);
+        }
+
+        const el = document.getElementById('support-list');
+        if (tickets.length === 0) {
+          el.innerHTML = '<div class="admin-empty">No support tickets.</div>';
+          return;
+        }
+        el.innerHTML = tickets.map(t => `
+          <div class="ticket-card">
+            <div class="ticket-header">
+              <div>
+                <span class="badge badge-${t.type}" style="margin-right:6px">${t.type}</span>
+                <span class="ticket-subject">${esc(t.subject)}</span>
+                <div class="ticket-meta">${esc(t.userName)} (${esc(t.userEmail)}) · ${timeAgo(t.createdAt)}</div>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="badge badge-${t.status}">${t.status}</span>
+                <button class="admin-btn admin-btn-danger" onclick="deleteTicket('${t.id}')" style="font-size:10px">X</button>
+              </div>
+            </div>
+            <div class="ticket-body">${esc(t.message)}</div>
+            ${t.adminReply ? `<div style="padding:8px 12px;background:var(--accent-soft);border-radius:8px;font-size:13px;margin-bottom:8px"><strong>Your reply:</strong> ${esc(t.adminReply)}</div>` : ''}
+            <div class="ticket-reply-area">
+              <textarea id="reply-${t.id}" placeholder="Write a reply...">${t.adminReply || ''}</textarea>
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <button class="admin-btn admin-btn-primary" onclick="replyTicket('${t.id}')">Reply & Mark Replied</button>
+                ${t.status !== 'closed' ? `<button class="admin-btn admin-btn-ghost" onclick="closeTicket('${t.id}')">Close</button>` : ''}
+                ${t.status === 'closed' ? `<button class="admin-btn admin-btn-success" onclick="reopenTicket('${t.id}')">Reopen</button>` : ''}
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch { toast('Failed to load support tickets', 'error'); }
+    }
+
+    async function replyTicket(id) {
+      const reply = document.getElementById(`reply-${id}`).value.trim();
+      if (!reply) return toast('Write a reply first', 'error');
+      try {
+        await adminRequest(`/admin/support/${id}`, { method: 'PATCH', body: JSON.stringify({ adminReply: reply, status: 'replied' }) });
+        toast('Reply sent', 'success');
+        loadSupport();
+      } catch { toast('Failed', 'error'); }
+    }
+
+    async function closeTicket(id) {
+      try {
+        await adminRequest(`/admin/support/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'closed' }) });
+        toast('Ticket closed', 'success');
+        loadSupport();
+      } catch { toast('Failed', 'error'); }
+    }
+
+    async function reopenTicket(id) {
+      try {
+        await adminRequest(`/admin/support/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'open' }) });
+        toast('Ticket reopened', 'success');
+        loadSupport();
+      } catch { toast('Failed', 'error'); }
+    }
+
+    async function deleteTicket(id) {
+      if (!confirm('Delete this ticket?')) return;
+      try {
+        await adminRequest(`/admin/support/${id}`, { method: 'DELETE' });
+        toast('Ticket deleted', 'success');
+        loadSupport();
+      } catch { toast('Failed', 'error'); }
+    }
+
+    // ===== INIT =====
     if (adminToken) {
       adminRequest('/admin/stats').then(() => showPanel()).catch(() => {
         localStorage.removeItem('iwrite_admin_token');

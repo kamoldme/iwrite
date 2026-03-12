@@ -206,6 +206,17 @@ const API = {
     return this.request(`/share/${token}/register`, { method: 'POST' });
   },
 
+  async getSupportTickets() {
+    return this.request('/support');
+  },
+
+  async submitSupportTicket(subject, message, type) {
+    return this.request('/support', {
+      method: 'POST',
+      body: JSON.stringify({ subject, message, type })
+    });
+  },
+
   logout() {
     this.clearToken();
     window.location.href = '/app';

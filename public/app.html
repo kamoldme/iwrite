@@ -117,6 +117,10 @@
             Profile
           </button>
           <div class="sidebar-divider"></div>
+          <button class="sidebar-nav-item" data-view="support">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            Support
+          </button>
           <button class="sidebar-nav-item" data-view="help">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Help
@@ -367,6 +371,37 @@
             <div id="achievements-list" class="achievements-grid"></div>
           </div>
         </div>
+        <!-- SUPPORT VIEW -->
+        <div id="view-support" class="view" style="display:none">
+          <div class="dashboard-header">
+            <h1>&#x1F4AC; Support</h1>
+            <p>Send us feedback, report bugs, or suggest features.</p>
+          </div>
+          <div class="support-form" style="max-width:600px;margin-bottom:32px">
+            <div class="auth-field">
+              <label>Type</label>
+              <select id="support-type" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-sans);font-size:14px">
+                <option value="feedback">Feedback</option>
+                <option value="bug">Bug Report</option>
+                <option value="suggestion">Suggestion</option>
+              </select>
+            </div>
+            <div class="auth-field">
+              <label>Subject</label>
+              <input type="text" id="support-subject" placeholder="Brief description">
+            </div>
+            <div class="auth-field">
+              <label>Message</label>
+              <textarea id="support-message" placeholder="Describe in detail..." style="width:100%;min-height:120px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-family:var(--font-sans);font-size:14px;resize:vertical"></textarea>
+            </div>
+            <button class="btn btn-primary btn-small" id="support-submit-btn">Submit Ticket</button>
+          </div>
+          <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">Your Tickets</h3>
+          <div id="support-tickets-list">
+            <div class="empty-state"><p>No tickets yet.</p></div>
+          </div>
+        </div>
+
         <!-- HELP VIEW -->
         <div id="view-help" class="view" style="display:none">
           <div class="dashboard-header">

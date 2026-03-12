@@ -168,6 +168,10 @@ const App = {
       this._applyTheme(isLight ? 'dark' : 'light');
     });
 
+    // Support submit
+    const supportBtn = document.getElementById('support-submit-btn');
+    if (supportBtn) supportBtn.addEventListener('click', () => this.submitSupportTicket());
+
     document.getElementById('new-doc-btn').addEventListener('click', () => this.openSessionModal());
     document.getElementById('new-doc-btn-2').addEventListener('click', () => this.openSessionModal());
     document.getElementById('new-doc-btn-3').addEventListener('click', () => this.openSessionModal());
@@ -325,7 +329,7 @@ const App = {
     if (view === 'leaderboard') this.loadLeaderboard();
     if (view === 'profile') this.loadProfile();
     if (view === 'friends') this.loadFriends();
-    // help view is static, no loading needed
+    if (view === 'support') this.loadSupport();
   },
 
   updateUserUI() {
@@ -1226,6 +1230,59 @@ const App = {
       el.className = 'toast';
       this.toastTimer = null;
     }, 3000);
+  },
+
+  // ===== SUPPORT =====
+  async loadSupport() {
+    const list = document.getElementById('support-tickets-list');
+    try {
+      const tickets = await API.getSupportTickets();
+      if (tickets.length === 0) {
+        list.innerHTML = '<div class="empty-state"><p>No tickets yet. Submit one above!</p></div>';
+        return;
+      }
+      list.innerHTML = tickets.map(t => `
+        <div class="doc-card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+            <div>
+              <span class="badge badge-${t.type === 'bug' ? 'deleted' : t.type === 'suggestion' ? 'premium' : 'active'}" style="font-size:10px;margin-right:6px">${t.type}</span>
+              <strong style="font-size:14px">${this._esc(t.subject)}</strong>
+            </div>
+            <span class="badge badge-${t.status === 'open' ? 'active' : t.status === 'closed' ? 'deleted' : 'premium'}" style="font-size:10px">${t.status}</span>
+          </div>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">${this._esc(t.message)}</p>
+          ${t.adminReply ? `<div style="margin-top:8px;padding:8px 12px;background:var(--accent-soft);border-radius:var(--radius-sm);font-size:13px"><strong>Admin reply:</strong> ${this._esc(t.adminReply)}</div>` : ''}
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${new Date(t.createdAt).toLocaleDateString()}</div>
+        </div>
+      `).join('');
+    } catch {
+      list.innerHTML = '<div class="empty-state"><p>Failed to load tickets.</p></div>';
+    }
+  },
+
+  async submitSupportTicket() {
+    const type = document.getElementById('support-type').value;
+    const subject = document.getElementById('support-subject').value.trim();
+    const message = document.getElementById('support-message').value.trim();
+    if (!subject || !message) {
+      this.toast('Please fill in subject and message', 'error');
+      return;
+    }
+    try {
+      await API.submitSupportTicket(subject, message, type);
+      document.getElementById('support-subject').value = '';
+      document.getElementById('support-message').value = '';
+      this.toast('Ticket submitted!', 'success');
+      this.loadSupport();
+    } catch (err) {
+      this.toast(err.message || 'Failed to submit', 'error');
+    }
+  },
+
+  _esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
   }
 };
 

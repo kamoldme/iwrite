@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { v4: uuid } = require('uuid');
 const { findOne, insertOne, updateOne } = require('../utils/storage');
 const { generateToken, authenticate } = require('../middleware/auth');
+const { logAction } = require('../utils/logger');
 
 const router = express.Router();
 
@@ -46,6 +47,7 @@ router.post('/register', async (req, res) => {
     };
 
     insertOne('users.json', user);
+    logAction('user_registered', { name: user.name, email: user.email }, user.id);
     const token = generateToken(user);
     const { password: _, ...safeUser } = user;
     res.status(201).json({ token, user: safeUser });

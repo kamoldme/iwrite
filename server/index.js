@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3000;
 
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-['users.json', 'documents.json', 'comments.json'].forEach(file => {
+['users.json', 'documents.json', 'comments.json', 'logs.json', 'support.json'].forEach(file => {
   const p = path.join(dataDir, file);
   if (!fs.existsSync(p)) fs.writeFileSync(p, '[]');
 });
@@ -22,6 +22,7 @@ app.use('/api/documents', require('./routes/documents'));
 app.use('/api/friends', require('./routes/friends'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/share', require('./routes/share'));
+app.use('/api/support', require('./routes/support'));
 
 const { findMany } = require('./utils/storage');
 app.get('/api/stats/public', (req, res) => {
