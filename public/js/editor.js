@@ -66,6 +66,7 @@ const Editor = {
     document.getElementById('editor-save-btn').style.display = 'inline-flex';
     document.getElementById('editor-edit-btn').style.display = 'none';
     document.getElementById('editor-save-edit-btn').style.display = 'none';
+    document.getElementById('editor-comment-history-btn').style.display = 'none';
     document.getElementById('formatting-toolbar').style.display = 'flex';
     this.titleInput.readOnly = false;
 
@@ -355,6 +356,36 @@ const Editor = {
 
   // ===== EDIT MODE FOR COMPLETED DOCS =====
 
+  showConfetti() {
+    const colors = ['#6c5ce7', '#a78bfa', '#22c55e', '#f59e0b', '#ef4444', '#00cec9', '#fd6db5'];
+    const anchor = document.getElementById('editor-save-edit-btn') || document.getElementById('editor-edit-btn');
+    const rect = anchor ? anchor.getBoundingClientRect() : { left: window.innerWidth / 2 - 40, top: 64, width: 80 };
+    const ox = rect.left + rect.width / 2;
+    const oy = rect.top + rect.height / 2;
+
+    for (let i = 0; i < 36; i++) {
+      const el = document.createElement('div');
+      const size = 5 + Math.random() * 6;
+      el.style.cssText = `position:fixed;width:${size}px;height:${size}px;background:${colors[i % colors.length]};border-radius:${Math.random() > 0.5 ? '50%' : '3px'};left:${ox}px;top:${oy}px;pointer-events:none;z-index:99999`;
+      document.body.appendChild(el);
+      const vx = (Math.random() - 0.5) * 10;
+      let vy = -(5 + Math.random() * 9);
+      let x = ox, y = oy, opacity = 1;
+      const step = () => {
+        vy += 0.45;
+        x += vx;
+        y += vy;
+        opacity -= 0.022;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.opacity = opacity;
+        if (opacity > 0 && y < window.innerHeight) requestAnimationFrame(step);
+        else el.remove();
+      };
+      setTimeout(() => requestAnimationFrame(step), i * 12);
+    }
+  },
+
   enterEditMode() {
     this.isEditing = true;
     this.isDirty = false;
@@ -366,6 +397,7 @@ const Editor = {
     document.getElementById('editor-edit-btn').style.display = 'none';
     document.getElementById('editor-save-edit-btn').style.display = 'inline-flex';
     this.modeBadge.textContent = 'Editing';
+    this.showConfetti();
 
     this.bindFormatting();
 
@@ -385,8 +417,19 @@ const Editor = {
       this.isDirty = false;
       this.originalContent = this.textarea.innerHTML;
       this.originalTitle = this.titleInput.value;
-      App.toast('Document saved!', 'success');
       this.exitEditMode();
+      this.showConfetti();
+      App.toast('Document saved!', 'success');
+      // Refresh document list in background
+      if (App.currentView === 'documents') App.loadDocuments();
+      else if (App.currentView === 'dashboard') App.loadDashboard();
+      // Also update local cache entry
+      const idx = App.documents.findIndex(d => d.id === this.documentId);
+      if (idx !== -1) {
+        App.documents[idx].title = this.titleInput.value;
+        App.documents[idx].wordCount = this.getWordCount();
+        App.documents[idx].updatedAt = new Date().toISOString();
+      }
     } catch {
       App.toast('Failed to save changes', 'error');
     }
@@ -442,6 +485,7 @@ const Editor = {
         this.exitEditMode();
         this.container.classList.remove('active');
         document.getElementById('formatting-toolbar').style.display = 'none';
+        document.getElementById('editor-comment-history-btn').style.display = 'none';
       }
       return;
     }
@@ -450,5 +494,6 @@ const Editor = {
     if (this.isEditing) this.exitEditMode();
     this.container.classList.remove('active');
     document.getElementById('formatting-toolbar').style.display = 'none';
+    document.getElementById('editor-comment-history-btn').style.display = 'none';
   }
 };

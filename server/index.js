@@ -48,7 +48,8 @@ app.get('/api/leaderboard', (req, res) => {
           name: u.name,
           totalWords: u.totalWords || 0,
           totalSessions: u.totalSessions || 0,
-          level: u.level || 1,
+          xp: u.xp || 0,
+          level: u.level || 0,
           streak: u.streak || 0,
           minutesWritten
         };

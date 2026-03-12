@@ -45,6 +45,30 @@ router.post('/', (req, res) => {
   res.status(201).json(doc);
 });
 
+router.get('/shared-with-me', (req, res) => {
+  const user = findOne('users.json', u => u.id === req.user.id);
+  const sharedTokens = user.sharedTokens || [];
+  if (sharedTokens.length === 0) return res.json([]);
+
+  const docs = findMany('documents.json');
+  const result = [];
+  for (const entry of sharedTokens) {
+    const doc = docs.find(d => !d.deleted && d.shareLinks && d.shareLinks.some(s => s.token === entry.token));
+    if (doc) {
+      result.push({
+        id: doc.id,
+        title: doc.title,
+        wordCount: doc.wordCount || 0,
+        updatedAt: doc.updatedAt,
+        createdAt: doc.createdAt,
+        permission: entry.permission,
+        token: entry.token
+      });
+    }
+  }
+  res.json(result);
+});
+
 router.get('/:id', (req, res) => {
   const doc = findOne('documents.json', d => d.id === req.params.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
@@ -139,6 +163,14 @@ router.get('/:id/comments', (req, res) => {
 
   const comments = findMany('comments.json', c => c.documentId === doc.id && c.status === 'pending');
   res.json(comments);
+});
+
+router.get('/:id/comments/history', (req, res) => {
+  const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+  if (!doc) return res.status(404).json({ error: 'Document not found' });
+
+  const comments = findMany('comments.json', c => c.documentId === doc.id && c.status !== 'pending');
+  res.json(comments.sort((a, b) => new Date(b.resolvedAt || b.createdAt) - new Date(a.resolvedAt || a.createdAt)));
 });
 
 router.post('/:id/share', (req, res) => {

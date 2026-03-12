@@ -66,14 +66,14 @@ router.get('/:token/comments', (req, res) => {
   );
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
-  const comments = findMany('comments.json', c => c.documentId === doc.id && c.status !== 'rejected' && c.status !== 'accepted');
+  const comments = findMany('comments.json', c => c.documentId === doc.id && c.status === 'pending');
   res.json(comments);
 });
 
 router.patch('/:token/comments/:commentId/resolve', authenticate, (req, res) => {
   const { status } = req.body;
-  if (!['accepted', 'rejected'].includes(status)) {
-    return res.status(400).json({ error: 'Status must be accepted or rejected' });
+  if (!['done', 'accepted', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Status must be done, accepted or rejected' });
   }
 
   const docs = findMany('documents.json');
@@ -93,6 +93,31 @@ router.patch('/:token/comments/:commentId/resolve', authenticate, (req, res) => 
   if (!updated) return res.status(404).json({ error: 'Comment not found' });
 
   res.json(updated);
+});
+
+// Register that a logged-in user has accessed a shared document (saves token to their profile)
+router.post('/:token/register', authenticate, (req, res) => {
+  const docs = findMany('documents.json');
+  const doc = docs.find(d => d.shareLinks && d.shareLinks.some(s => s.token === req.params.token));
+  if (!doc || doc.deleted) return res.status(404).json({ error: 'Not found' });
+
+  // Don't register own documents
+  if (doc.userId === req.user.id) return res.json({ ok: true });
+
+  const user = findOne('users.json', u => u.id === req.user.id);
+  const sharedTokens = user.sharedTokens || [];
+  if (!sharedTokens.find(t => t.token === req.params.token)) {
+    const link = doc.shareLinks.find(s => s.token === req.params.token);
+    updateOne('users.json', u => u.id === req.user.id, {
+      sharedTokens: [...sharedTokens, {
+        token: req.params.token,
+        docId: doc.id,
+        permission: link.type,
+        addedAt: new Date().toISOString()
+      }]
+    });
+  }
+  res.json({ ok: true });
 });
 
 module.exports = router;

@@ -201,6 +201,10 @@
             </div>
           </div>
           <div id="all-docs"></div>
+          <div id="shared-docs-section" style="display:none;margin-top:32px">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">&#x1F517; Shared With Me</h3>
+            <div id="shared-docs"></div>
+          </div>
         </div>
 
         <!-- LEADERBOARD VIEW -->
@@ -458,6 +462,9 @@
         </div>
         <div class="editor-toolbar-right">
           <span class="editor-word-count" id="editor-word-count">0 words</span>
+          <button class="doc-action-btn" id="editor-comment-history-btn" title="Comment History" style="display:none;width:30px;height:30px;flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="9" y1="14" x2="13" y2="14"/></svg>
+          </button>
           <button class="btn btn-primary btn-small" id="editor-save-btn">Complete</button>
           <button class="btn btn-primary btn-small" id="editor-edit-btn" style="display:none">Edit</button>
           <button class="btn btn-primary btn-small" id="editor-save-edit-btn" style="display:none">Save</button>
@@ -626,6 +633,18 @@
       <div id="history-sessions" style="margin-top:24px;max-height:300px;overflow-y:auto"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost btn-full" id="history-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMENT HISTORY MODAL -->
+  <div class="modal-overlay" id="comment-history-modal">
+    <div class="modal" style="max-width:520px">
+      <h2>&#x1F4AC; Comment History</h2>
+      <p>All resolved comments for this document.</p>
+      <div id="comment-history-list" style="margin-top:20px;max-height:360px;overflow-y:auto"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-full" id="comment-history-close">Close</button>
       </div>
     </div>
   </div>

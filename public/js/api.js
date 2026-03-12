@@ -116,6 +116,10 @@ const API = {
     return this.request(`/documents/${documentId}/comments`);
   },
 
+  async getCommentHistory(documentId) {
+    return this.request(`/documents/${documentId}/comments/history`);
+  },
+
   async getFriends() {
     return this.request('/friends');
   },
@@ -167,6 +171,14 @@ const API = {
 
   async getLeaderboard() {
     return this.request('/leaderboard');
+  },
+
+  async getSharedDocuments() {
+    return this.request('/documents/shared-with-me');
+  },
+
+  async registerSharedToken(token) {
+    return this.request(`/share/${token}/register`, { method: 'POST' });
   },
 
   logout() {

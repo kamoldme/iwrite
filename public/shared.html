@@ -62,6 +62,11 @@
         const commentsRes = await fetch(`/api/share/${token}/comments`);
         comments = commentsRes.ok ? await commentsRes.json() : [];
 
+        // Auto-register so this doc appears in the user's Sessions → Shared With Me
+        if (currentUser && currentUser.id !== docData.ownerId) {
+          apiRequest(`/share/${token}/register`, { method: 'POST' }).catch(() => {});
+        }
+
         render();
       } catch {
         document.getElementById('shared-content').innerHTML = `
@@ -111,8 +116,7 @@
                 <div class="comment-bubble-text">${escapeHtml(c.text)}</div>
                 ${isOwner ? `
                   <div class="comment-bubble-actions">
-                    <button class="comment-resolve-btn accept" onclick="resolveComment('${c.id}', 'accepted')">Accept</button>
-                    <button class="comment-resolve-btn reject" onclick="resolveComment('${c.id}', 'rejected')">Reject</button>
+                    <button class="comment-resolve-btn accept" onclick="resolveComment('${c.id}', 'done')">Done</button>
                   </div>
                 ` : ''}
               </div>

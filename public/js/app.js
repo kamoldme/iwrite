@@ -48,7 +48,8 @@ const App = {
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'block';
     this.updateUserUI();
-    this.loadDashboard();
+    const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
+    this.switchView(savedView);
     this.bindAppEvents();
     this.startNotifPolling();
   },
@@ -216,10 +217,15 @@ const App = {
     document.getElementById('history-close').addEventListener('click', () => {
       document.getElementById('history-modal').classList.remove('active');
     });
+    document.getElementById('editor-comment-history-btn').addEventListener('click', () => this.openCommentHistory());
+    document.getElementById('comment-history-close').addEventListener('click', () => {
+      document.getElementById('comment-history-modal').classList.remove('active');
+    });
   },
 
   switchView(view) {
     this.currentView = view;
+    localStorage.setItem('iwrite_view', view);
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     document.getElementById(`view-${view}`).style.display = 'block';
     document.querySelectorAll('.sidebar-nav-item[data-view]').forEach(btn => {
@@ -293,6 +299,44 @@ const App = {
       this.documents = [];
     }
     this.renderDocumentList('all-docs', this.documents);
+
+    try {
+      const sharedDocs = await API.getSharedDocuments();
+      const section = document.getElementById('shared-docs-section');
+      if (sharedDocs.length > 0) {
+        section.style.display = 'block';
+        this.renderSharedDocumentList('shared-docs', sharedDocs);
+      } else {
+        section.style.display = 'none';
+      }
+    } catch {
+      document.getElementById('shared-docs-section').style.display = 'none';
+    }
+  },
+
+  renderSharedDocumentList(containerId, docs) {
+    const container = document.getElementById(containerId);
+    const permLabels = { view: 'View', comment: 'Comment', edit: 'Edit' };
+    const permColors = { view: '#6c5ce7', comment: '#1ab5a0', edit: '#fd6db5' };
+    container.innerHTML = docs.map(doc => `
+      <div class="doc-card" data-id="${doc.id}" data-token="${doc.token}" style="cursor:pointer">
+        <div class="doc-card-info">
+          <h4>${this.escapeHtml(doc.title)}
+            <span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;background:${permColors[doc.permission] || '#6c5ce7'}22;color:${permColors[doc.permission] || '#6c5ce7'}">${permLabels[doc.permission] || doc.permission}</span>
+          </h4>
+          <div class="doc-card-meta">
+            <span>${doc.wordCount || 0} words</span>
+            <span>${this.formatDate(doc.updatedAt)}</span>
+          </div>
+        </div>
+      </div>`).join('');
+
+    container.onclick = (e) => {
+      const card = e.target.closest('.doc-card');
+      if (card) {
+        window.open(`/shared/${card.dataset.token}`, '_blank');
+      }
+    };
   },
 
   renderDocumentList(containerId, docs) {
@@ -370,12 +414,14 @@ const App = {
       document.getElementById('editor-save-btn').style.display = 'none';
       document.getElementById('editor-edit-btn').style.display = 'inline-flex';
       document.getElementById('editor-save-edit-btn').style.display = 'none';
+      document.getElementById('editor-comment-history-btn').style.display = 'inline-flex';
 
       // Read-only initially
       document.getElementById('editor-title').readOnly = true;
       document.getElementById('editor-textarea').contentEditable = 'false';
 
-      Editor.updateWordCount();
+      // Defer word count so DOM has rendered the content
+      requestAnimationFrame(() => Editor.updateWordCount());
 
       // Load comments for this document
       CommentSystem.destroy();
@@ -828,6 +874,33 @@ const App = {
     return div.innerHTML;
   },
 
+  async openCommentHistory() {
+    const modal = document.getElementById('comment-history-modal');
+    const list = document.getElementById('comment-history-list');
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)">Loading...</div>';
+    modal.classList.add('active');
+
+    try {
+      const history = await API.getCommentHistory(Editor.documentId);
+      if (history.length === 0) {
+        list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">No resolved comments yet.</p>';
+        return;
+      }
+      list.innerHTML = history.map(c => `
+        <div style="padding:12px 0;border-bottom:1px solid var(--border-light)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-weight:600;font-size:13px">${this.escapeHtml(c.author)}</span>
+            <span style="font-size:11px;color:var(--text-muted)">${new Date(c.resolvedAt || c.createdAt).toLocaleDateString()}</span>
+          </div>
+          ${c.highlightedText ? `<div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-bottom:4px">"${this.escapeHtml(c.highlightedText.substring(0, 80))}${c.highlightedText.length > 80 ? '...' : ''}"</div>` : ''}
+          <div style="font-size:13px;color:var(--text-secondary)">${this.escapeHtml(c.text)}</div>
+          <div style="margin-top:4px"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--success)">&#x2713; Done</span></div>
+        </div>`).join('');
+    } catch {
+      list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Failed to load comment history.</p>';
+    }
+  },
+
   toast(message, type = '') {
     if (this.toastTimer) clearTimeout(this.toastTimer);
     const el = document.getElementById('toast');
@@ -1086,8 +1159,7 @@ const CommentSystem = {
           <div class="comment-bubble-text">${App.escapeHtml(c.text)}</div>
           ${this.isOwner ? `
             <div class="comment-bubble-actions">
-              <button class="comment-resolve-btn accept" onclick="CommentSystem.resolveComment('${c.id}', 'accepted')">Accept</button>
-              <button class="comment-resolve-btn reject" onclick="CommentSystem.resolveComment('${c.id}', 'rejected')">Reject</button>
+              <button class="comment-resolve-btn accept" onclick="CommentSystem.resolveComment('${c.id}', 'done')">Done</button>
             </div>
           ` : ''}
         </div>
@@ -1119,7 +1191,7 @@ const CommentSystem = {
       this.comments = this.comments.filter(c => c.id !== commentId);
       this.renderHighlights();
       this.renderPanel();
-      App.toast(`Comment ${status}`, 'success');
+      App.toast('Comment marked as done', 'success');
     } catch {
       App.toast('Failed to resolve comment', 'error');
     }

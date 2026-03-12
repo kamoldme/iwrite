@@ -41,6 +41,7 @@ router.post('/register', async (req, res) => {
       friends: [],
       friendRequests: [],
       sentRequests: [],
+      sharedTokens: [],
       createdAt: new Date().toISOString()
     };
 
