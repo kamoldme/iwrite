@@ -103,6 +103,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             Profile
           </button>
+          <div class="sidebar-divider"></div>
           <button class="sidebar-nav-item" data-view="help">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Help
@@ -116,6 +117,11 @@
               <div class="user-level" id="user-level">Level 1</div>
             </div>
           </div>
+          <button class="sidebar-nav-item theme-toggle-btn" id="theme-toggle-btn" style="margin-top:8px;color:var(--text-muted)" title="Toggle theme">
+            <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg class="theme-icon-light" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+            <span class="theme-toggle-label">Light Mode</span>
+          </button>
           <button class="sidebar-nav-item" id="logout-btn" style="margin-top:8px;color:var(--text-muted)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             Log Out
@@ -459,9 +465,26 @@
         <div class="editor-toolbar-center">
           <div class="editor-timer" id="editor-timer">--:--</div>
           <span class="editor-mode-badge normal" id="editor-mode-badge">Normal</span>
+          <div id="formatting-toolbar" style="display:none">
+            <div class="fmt-separator"></div>
+            <button class="fmt-btn" data-command="bold" title="Bold (Ctrl+B)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg>
+            </button>
+            <button class="fmt-btn" data-command="italic" title="Italic (Ctrl+I)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/></svg>
+            </button>
+            <button class="fmt-btn" data-command="underline" title="Underline (Ctrl+U)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z"/></svg>
+            </button>
+            <div class="fmt-separator"></div>
+            <button class="fmt-btn fmt-color-btn" data-color="#f0f0f5" title="White" style="color:#f0f0f5">A</button>
+            <button class="fmt-btn fmt-color-btn" data-color="#ef4444" title="Red" style="color:#ef4444">A</button>
+            <button class="fmt-btn fmt-color-btn" data-color="#22c55e" title="Green" style="color:#22c55e">A</button>
+            <button class="fmt-btn fmt-color-btn" data-color="#6c5ce7" title="Purple" style="color:#6c5ce7">A</button>
+            <button class="fmt-btn fmt-color-btn" data-color="#f59e0b" title="Yellow" style="color:#f59e0b">A</button>
+          </div>
         </div>
         <div class="editor-toolbar-right">
-          <span class="editor-word-count" id="editor-word-count">0 words</span>
           <button class="doc-action-btn" id="editor-comment-history-btn" title="Comment History" style="display:none;width:30px;height:30px;flex-shrink:0">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="9" y1="14" x2="13" y2="14"/></svg>
           </button>
@@ -474,25 +497,11 @@
         <div class="danger-progress-bar" id="danger-progress-bar"></div>
       </div>
       <div class="screen-vignette" id="screen-vignette"></div>
-      <div class="formatting-toolbar" id="formatting-toolbar" style="display:none">
-        <button class="fmt-btn" data-command="bold" title="Bold (Ctrl+B)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg>
-        </button>
-        <button class="fmt-btn" data-command="italic" title="Italic (Ctrl+I)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/></svg>
-        </button>
-        <button class="fmt-btn" data-command="underline" title="Underline (Ctrl+U)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z"/></svg>
-        </button>
-        <div class="fmt-separator"></div>
-        <button class="fmt-btn fmt-color-btn" data-color="#f0f0f5" title="White" style="color:#f0f0f5">A</button>
-        <button class="fmt-btn fmt-color-btn" data-color="#ef4444" title="Red" style="color:#ef4444">A</button>
-        <button class="fmt-btn fmt-color-btn" data-color="#22c55e" title="Green" style="color:#22c55e">A</button>
-        <button class="fmt-btn fmt-color-btn" data-color="#6c5ce7" title="Purple" style="color:#6c5ce7">A</button>
-        <button class="fmt-btn fmt-color-btn" data-color="#f59e0b" title="Yellow" style="color:#f59e0b">A</button>
-      </div>
       <div class="editor-area">
         <div class="editor-textarea" id="editor-textarea" contenteditable="true" data-placeholder="Start writing your thoughts..."></div>
+        <div class="editor-word-count-bar">
+          <span class="editor-word-count" id="editor-word-count">0 words</span>
+        </div>
       </div>
     </div>
 

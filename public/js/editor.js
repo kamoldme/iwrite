@@ -396,8 +396,8 @@ const Editor = {
 
     document.getElementById('editor-edit-btn').style.display = 'none';
     document.getElementById('editor-save-edit-btn').style.display = 'inline-flex';
-    this.modeBadge.textContent = 'Editing';
-    this.showConfetti();
+    this.modeBadge.textContent = '● Editing';
+    this.modeBadge.className = 'editor-mode-badge editing';
 
     this.bindFormatting();
 
@@ -442,6 +442,7 @@ const Editor = {
     document.getElementById('editor-edit-btn').style.display = 'inline-flex';
     document.getElementById('editor-save-edit-btn').style.display = 'none';
     this.modeBadge.textContent = 'Viewing';
+    this.modeBadge.className = 'editor-mode-badge normal';
 
     if (this._editChangeHandler) {
       this.textarea.removeEventListener('input', this._editChangeHandler);

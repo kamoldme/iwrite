@@ -34,6 +34,40 @@
   --gradient-hero: radial-gradient(ellipse at 50% 0%, rgba(108,92,231,0.15) 0%, transparent 60%);
 }
 
+/* ===== LIGHT THEME ===== */
+.light {
+  --bg-primary: #f2f2f7;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f0f8;
+  --bg-elevated: #f8f8fc;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --text-primary: #1a1a2e;
+  --text-secondary: rgba(26, 26, 46, 0.65);
+  --text-muted: rgba(26, 26, 46, 0.38);
+  --border: rgba(0, 0, 0, 0.09);
+  --border-light: rgba(0, 0, 0, 0.05);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0,0,0,0.06);
+  --shadow-3d: 0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255,255,255,0.8);
+  --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.4) 100%);
+  --gradient-hero: radial-gradient(ellipse at 50% 0%, rgba(108,92,231,0.08) 0%, transparent 60%);
+}
+.light body, .light {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+.light .nav {
+  background: rgba(242, 242, 247, 0.85);
+}
+.light .sidebar {
+  background: var(--bg-secondary);
+  border-right-color: var(--border);
+}
+.light .fmt-btn:hover {
+  background: rgba(0,0,0,0.06);
+}
+
 *, *::before, *::after {
   margin: 0;
   padding: 0;
@@ -789,6 +823,12 @@ a {
   flex-shrink: 0;
 }
 
+.sidebar-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 12px;
+}
+
 .sidebar-footer {
   padding: 16px 12px;
   border-top: 1px solid var(--border);
@@ -1230,9 +1270,31 @@ a {
   box-shadow: 0 0 16px rgba(239, 68, 68, 0.3);
 }
 
+.editor-mode-badge.editing {
+  background: var(--success-soft);
+  color: var(--success);
+  animation: editingPulse 2s ease-in-out infinite;
+}
+
 @keyframes dangerPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
   50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+@keyframes editingPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+/* Word count bar at bottom of editor */
+.editor-word-count-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  max-width: 640px;
+  padding: 8px 0 0;
+  pointer-events: none;
 }
 
 .editor-toolbar-right {
@@ -1295,14 +1357,11 @@ a {
   pointer-events: none;
 }
 
-/* Formatting toolbar */
-.formatting-toolbar {
+/* Formatting toolbar — now inline inside editor-toolbar-center */
+#formatting-toolbar {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
 }
 .fmt-btn {
   width: 32px;

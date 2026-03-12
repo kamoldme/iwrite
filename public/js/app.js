@@ -48,6 +48,8 @@ const App = {
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'block';
     this.updateUserUI();
+    const savedTheme = localStorage.getItem('iwrite_theme') || 'dark';
+    if (savedTheme === 'light') document.documentElement.classList.add('light');
     const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
     this.switchView(savedView);
     this.bindAppEvents();
@@ -127,6 +129,14 @@ const App = {
     });
 
     document.getElementById('logout-btn').addEventListener('click', () => API.logout());
+
+    // Theme toggle — sync button state with current theme
+    const isLightNow = document.documentElement.classList.contains('light');
+    this._applyTheme(isLightNow ? 'light' : 'dark');
+    document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+      const isLight = document.documentElement.classList.contains('light');
+      this._applyTheme(isLight ? 'dark' : 'light');
+    });
 
     document.getElementById('new-doc-btn').addEventListener('click', () => this.openSessionModal());
     document.getElementById('new-doc-btn-2').addEventListener('click', () => this.openSessionModal());
@@ -420,8 +430,8 @@ const App = {
       document.getElementById('editor-title').readOnly = true;
       document.getElementById('editor-textarea').contentEditable = 'false';
 
-      // Defer word count so DOM has rendered the content
-      requestAnimationFrame(() => Editor.updateWordCount());
+      // Defer word count until after paint so innerHTML is fully rendered
+      setTimeout(() => Editor.updateWordCount(), 0);
 
       // Load comments for this document
       CommentSystem.destroy();
@@ -872,6 +882,17 @@ const App = {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+  },
+
+  _applyTheme(theme) {
+    const isLight = theme === 'light';
+    document.documentElement.classList.toggle('light', isLight);
+    localStorage.setItem('iwrite_theme', theme);
+    const btn = document.getElementById('theme-toggle-btn');
+    if (!btn) return;
+    btn.querySelector('.theme-icon-dark').style.display = isLight ? 'none' : '';
+    btn.querySelector('.theme-icon-light').style.display = isLight ? '' : 'none';
+    btn.querySelector('.theme-toggle-label').textContent = isLight ? 'Dark Mode' : 'Light Mode';
   },
 
   async openCommentHistory() {
