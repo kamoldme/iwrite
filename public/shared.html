@@ -12,55 +12,57 @@
   <nav class="nav">
     <div class="nav-inner">
       <a href="/" class="logo">iWrite</a>
-      <a href="/app" class="btn btn-small">Open App</a>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="user-info" style="font-size:13px;color:var(--text-muted)"></span>
+        <a href="/app" class="btn btn-small">Open App</a>
+      </div>
     </div>
   </nav>
 
-  <div class="shared-container" id="shared-content" style="padding-top:100px">
+  <div id="shared-content" style="padding-top:100px;max-width:1100px;margin:0 auto;padding-left:24px;padding-right:24px">
     <div style="text-align:center"><div class="spinner" style="margin:40px auto"></div></div>
   </div>
 
   <script>
     const token = window.location.pathname.split('/').pop();
+    let currentUser = null;
+    let docData = null;
+    let comments = [];
+
+    function getAuthToken() {
+      return localStorage.getItem('iwrite_token');
+    }
+
+    async function apiRequest(path, options = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      const authToken = getAuthToken();
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      const res = await fetch(`/api${path}`, { ...options, headers: { ...headers, ...options.headers } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+
+    async function loadUser() {
+      try {
+        currentUser = await apiRequest('/auth/me');
+        document.getElementById('user-info').textContent = `Signed in as ${currentUser.name}`;
+      } catch {
+        currentUser = null;
+      }
+    }
 
     async function load() {
+      await loadUser();
       try {
         const res = await fetch(`/api/share/${token}`);
         if (!res.ok) throw new Error();
-        const doc = await res.json();
+        docData = await res.json();
 
         const commentsRes = await fetch(`/api/share/${token}/comments`);
-        const comments = commentsRes.ok ? await commentsRes.json() : [];
+        comments = commentsRes.ok ? await commentsRes.json() : [];
 
-        document.getElementById('shared-content').innerHTML = `
-          <div class="shared-header">
-            <h1>${escapeHtml(doc.title)}</h1>
-            <div class="shared-meta">
-              By ${escapeHtml(doc.ownerName)} &middot; ${doc.wordCount} words &middot;
-              ${new Date(doc.updatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            </div>
-          </div>
-          <div class="shared-content">${escapeHtml(doc.content)}</div>
-          ${doc.permission !== 'view' ? `
-            <div class="comments-section">
-              <h3>Comments</h3>
-              <div id="comments-list">
-                ${comments.map(c => `
-                  <div class="comment">
-                    <span class="comment-author">${escapeHtml(c.author)}</span>
-                    <span class="comment-date">${new Date(c.createdAt).toLocaleDateString()}</span>
-                    <p class="comment-text">${escapeHtml(c.text)}</p>
-                  </div>
-                `).join('') || '<p style="color:var(--text-muted);font-size:14px">No comments yet.</p>'}
-              </div>
-              <div class="comment-form">
-                <input type="text" id="comment-author" placeholder="Your name" style="max-width:140px">
-                <input type="text" id="comment-text" placeholder="Write a comment...">
-                <button class="btn btn-primary btn-small" onclick="addComment()">Post</button>
-              </div>
-            </div>
-          ` : ''}
-        `;
+        render();
       } catch {
         document.getElementById('shared-content').innerHTML = `
           <div class="empty-state">
@@ -71,26 +73,239 @@
       }
     }
 
-    async function addComment() {
-      const author = document.getElementById('comment-author').value || 'Anonymous';
-      const text = document.getElementById('comment-text').value;
+    function render() {
+      const isOwner = currentUser && currentUser.id === docData.ownerId;
+      const canComment = docData.permission !== 'view' && currentUser;
+
+      document.getElementById('shared-content').innerHTML = `
+        <div class="shared-with-comments">
+          <div class="shared-main">
+            <div class="shared-header">
+              <h1>${escapeHtml(docData.title)}</h1>
+              <div class="shared-meta">
+                By ${escapeHtml(docData.ownerName)} &middot; ${docData.wordCount} words &middot;
+                ${new Date(docData.updatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              </div>
+            </div>
+            <div class="shared-content" id="shared-document-content">${docData.content}</div>
+            ${!currentUser && docData.permission !== 'view' ? `
+              <div style="margin-top:24px;padding:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;text-align:center">
+                <p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px">Sign in to leave comments on this document.</p>
+                <a href="/app" class="btn btn-primary btn-small">Sign In</a>
+              </div>
+            ` : ''}
+          </div>
+          <div class="shared-comments-sidebar" id="shared-comments-sidebar">
+            ${comments.filter(c => c.status === 'pending').length > 0 ? `
+              <div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:16px">
+                Comments (${comments.filter(c => c.status === 'pending').length})
+              </div>
+            ` : ''}
+            ${comments.filter(c => c.status === 'pending').map(c => `
+              <div class="comment-bubble" data-id="${c.id}" onmouseenter="highlightMark('${c.id}')" onmouseleave="unhighlightMarks()">
+                <div class="comment-bubble-header">
+                  <span class="comment-bubble-author">${escapeHtml(c.author)}</span>
+                  <span class="comment-bubble-date">${new Date(c.createdAt).toLocaleDateString()}</span>
+                </div>
+                ${c.highlightedText ? `<div class="comment-bubble-quote">"${escapeHtml(c.highlightedText.substring(0, 80))}${c.highlightedText.length > 80 ? '...' : ''}"</div>` : ''}
+                <div class="comment-bubble-text">${escapeHtml(c.text)}</div>
+                ${isOwner ? `
+                  <div class="comment-bubble-actions">
+                    <button class="comment-resolve-btn accept" onclick="resolveComment('${c.id}', 'accepted')">Accept</button>
+                    <button class="comment-resolve-btn reject" onclick="resolveComment('${c.id}', 'rejected')">Reject</button>
+                  </div>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      // Apply highlights
+      applyHighlights();
+
+      // Bind selection for commenting
+      if (canComment) {
+        bindCommentSelection();
+      }
+    }
+
+    function applyHighlights() {
+      const contentEl = document.getElementById('shared-document-content');
+      if (!contentEl) return;
+
+      const sorted = [...comments]
+        .filter(c => c.status === 'pending' && c.startOffset !== null && c.endOffset !== null)
+        .sort((a, b) => b.startOffset - a.startOffset);
+
+      sorted.forEach(c => {
+        try { highlightRange(contentEl, c.startOffset, c.endOffset, c.id); } catch {}
+      });
+    }
+
+    function highlightRange(root, startOffset, endOffset, commentId) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let currentOffset = 0;
+      let startNode = null, startNodeOffset = 0;
+      let endNode = null, endNodeOffset = 0;
+
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const nodeLen = node.textContent.length;
+        if (!startNode && currentOffset + nodeLen > startOffset) {
+          startNode = node;
+          startNodeOffset = startOffset - currentOffset;
+        }
+        if (currentOffset + nodeLen >= endOffset) {
+          endNode = node;
+          endNodeOffset = endOffset - currentOffset;
+          break;
+        }
+        currentOffset += nodeLen;
+      }
+
+      if (!startNode || !endNode) return;
+
+      const range = document.createRange();
+      range.setStart(startNode, Math.min(startNodeOffset, startNode.textContent.length));
+      range.setEnd(endNode, Math.min(endNodeOffset, endNode.textContent.length));
+
+      const mark = document.createElement('mark');
+      mark.className = 'comment-highlight';
+      mark.dataset.commentId = commentId;
+      mark.addEventListener('click', () => {
+        const bubble = document.querySelector(`.comment-bubble[data-id="${commentId}"]`);
+        if (bubble) bubble.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+
+      try { range.surroundContents(mark); } catch {
+        mark.appendChild(range.extractContents());
+        range.insertNode(mark);
+      }
+    }
+
+    function highlightMark(commentId) {
+      const mark = document.querySelector(`.comment-highlight[data-comment-id="${commentId}"]`);
+      if (mark) mark.classList.add('active');
+    }
+
+    function unhighlightMarks() {
+      document.querySelectorAll('.comment-highlight.active').forEach(m => m.classList.remove('active'));
+    }
+
+    function bindCommentSelection() {
+      const contentEl = document.getElementById('shared-document-content');
+      if (!contentEl) return;
+
+      contentEl.addEventListener('mouseup', () => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+          hideCommentButton();
+          return;
+        }
+
+        const range = selection.getRangeAt(0);
+        if (!contentEl.contains(range.commonAncestorContainer)) return;
+
+        const selectedText = selection.toString().trim();
+        if (!selectedText) return;
+
+        const preRange = document.createRange();
+        preRange.selectNodeContents(contentEl);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        const startOffset = preRange.toString().length;
+        const endOffset = startOffset + selectedText.length;
+
+        showCommentButton(range, selectedText, startOffset, endOffset);
+      });
+    }
+
+    function showCommentButton(range, selectedText, startOffset, endOffset) {
+      let btn = document.getElementById('add-comment-btn');
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'add-comment-btn';
+        btn.className = 'comment-add-btn';
+        btn.textContent = 'Comment';
+        document.body.appendChild(btn);
+      }
+
+      const rect = range.getBoundingClientRect();
+      btn.style.display = 'block';
+      btn.style.top = `${rect.top - 40 + window.scrollY}px`;
+      btn.style.left = `${rect.left + rect.width / 2}px`;
+
+      btn.onclick = () => {
+        showCommentInput(selectedText, startOffset, endOffset, rect);
+        btn.style.display = 'none';
+      };
+    }
+
+    function hideCommentButton() {
+      const btn = document.getElementById('add-comment-btn');
+      if (btn) btn.style.display = 'none';
+    }
+
+    function showCommentInput(selectedText, startOffset, endOffset, rect) {
+      let popup = document.getElementById('comment-input-popup');
+      if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'comment-input-popup';
+        popup.className = 'comment-input-popup';
+        document.body.appendChild(popup);
+      }
+
+      popup.innerHTML = `
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-style:italic">"${escapeHtml(selectedText.substring(0, 60))}${selectedText.length > 60 ? '...' : ''}"</div>
+        <textarea id="comment-input-text" placeholder="Write your comment..."></textarea>
+        <div class="comment-input-actions">
+          <button class="btn btn-ghost btn-small" onclick="document.getElementById('comment-input-popup').classList.remove('active')">Cancel</button>
+          <button class="btn btn-primary btn-small" onclick="submitComment('${escapeAttr(selectedText)}', ${startOffset}, ${endOffset})">Post</button>
+        </div>
+      `;
+
+      popup.style.top = `${rect.bottom + 8 + window.scrollY}px`;
+      popup.style.left = `${Math.min(rect.left, window.innerWidth - 300)}px`;
+      popup.classList.add('active');
+      setTimeout(() => popup.querySelector('textarea')?.focus(), 50);
+    }
+
+    async function submitComment(highlightedText, startOffset, endOffset) {
+      const text = document.getElementById('comment-input-text')?.value?.trim();
       if (!text) return;
 
       try {
-        await fetch(`/api/share/${token}/comment`, {
+        await apiRequest(`/share/${token}/comment`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ author, text })
+          body: JSON.stringify({ text, highlightedText, startOffset, endOffset })
         });
-        document.getElementById('comment-text').value = '';
+        document.getElementById('comment-input-popup').classList.remove('active');
+        load(); // Reload to show new comment
+      } catch (e) {
+        alert('Failed to add comment. Make sure you are signed in.');
+      }
+    }
+
+    async function resolveComment(commentId, status) {
+      try {
+        await apiRequest(`/share/${token}/comments/${commentId}/resolve`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status })
+        });
         load();
-      } catch {}
+      } catch {
+        alert('Failed to resolve comment.');
+      }
     }
 
     function escapeHtml(str) {
       const div = document.createElement('div');
       div.textContent = str || '';
       return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+      return (str || '').replace(/'/g, "\\'").replace(/\n/g, ' ');
     }
 
     load();

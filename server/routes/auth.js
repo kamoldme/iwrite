@@ -30,7 +30,7 @@ router.post('/register', async (req, res) => {
       role: 'user',
       plan: 'free',
       xp: 0,
-      level: 1,
+      level: 0,
       streak: 0,
       longestStreak: 0,
       lastWritingDate: null,

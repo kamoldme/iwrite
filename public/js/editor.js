@@ -14,6 +14,11 @@ const Editor = {
   abandoned: false,
   wordMilestones: [50, 100, 250, 500, 1000, 2500],
   lastWordMilestone: 0,
+  isEditing: false,
+  isDirty: false,
+  originalContent: '',
+  originalTitle: '',
+  _editChangeHandler: null,
 
   get textarea() { return document.getElementById('editor-textarea'); },
   get container() { return document.getElementById('editor-container'); },
@@ -32,6 +37,9 @@ const Editor = {
     this.mode = mode;
     this.abandoned = false;
     this.lastWordMilestone = 0;
+    this.isEditing = false;
+    this.isDirty = false;
+    if (typeof CommentSystem !== 'undefined') CommentSystem.destroy();
 
     try {
       const doc = await API.createDocument(this.titleInput.value || 'Untitled', '', mode);
@@ -49,9 +57,17 @@ const Editor = {
     this.lastKeystroke = Date.now();
 
     this.container.classList.add('active');
-    this.textarea.value = '';
+    this.textarea.innerHTML = '';
+    this.textarea.contentEditable = 'true';
     this.textarea.focus();
     this.active = true;
+
+    // Show correct buttons for active session
+    document.getElementById('editor-save-btn').style.display = 'inline-flex';
+    document.getElementById('editor-edit-btn').style.display = 'none';
+    document.getElementById('editor-save-edit-btn').style.display = 'none';
+    document.getElementById('formatting-toolbar').style.display = 'flex';
+    this.titleInput.readOnly = false;
 
     this.modeBadge.textContent = mode === 'dangerous' ? 'Dangerous' : 'Normal';
     this.modeBadge.className = `editor-mode-badge ${mode}`;
@@ -68,6 +84,39 @@ const Editor = {
     this.textarea.addEventListener('input', this.onInput);
     this.textarea.addEventListener('keydown', this.onKeydown);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
+    this.bindFormatting();
+  },
+
+  bindFormatting() {
+    document.querySelectorAll('.fmt-btn[data-command]').forEach(btn => {
+      btn.onmousedown = (e) => {
+        e.preventDefault();
+        document.execCommand(btn.dataset.command, false, null);
+        this.updateFormatButtons();
+      };
+    });
+
+    document.querySelectorAll('.fmt-color-btn').forEach(btn => {
+      btn.onmousedown = (e) => {
+        e.preventDefault();
+        document.execCommand('foreColor', false, btn.dataset.color);
+      };
+    });
+
+    document.addEventListener('selectionchange', this._onSelectionChange);
+  },
+
+  _onSelectionChange() {
+    Editor.updateFormatButtons();
+  },
+
+  updateFormatButtons() {
+    document.querySelectorAll('.fmt-btn[data-command]').forEach(btn => {
+      const command = btn.dataset.command;
+      try {
+        btn.classList.toggle('active', document.queryCommandState(command));
+      } catch {}
+    });
   },
 
   runCountdown() {
@@ -101,11 +150,7 @@ const Editor = {
   onKeydown: (e) => {
     if (e.key === 'Tab') {
       e.preventDefault();
-      const start = Editor.textarea.selectionStart;
-      const end = Editor.textarea.selectionEnd;
-      Editor.textarea.value =
-        Editor.textarea.value.substring(0, start) + '  ' + Editor.textarea.value.substring(end);
-      Editor.textarea.selectionStart = Editor.textarea.selectionEnd = start + 2;
+      document.execCommand('insertText', false, '  ');
     }
   },
 
@@ -119,7 +164,7 @@ const Editor = {
 
   onTabLeave() {
     if (this.abandoned || !this.active) return;
-    if (this.tabCountdown) return; // guard: already counting down
+    if (this.tabCountdown) return;
     this.tabLeftTime = Date.now();
     this.tabWarning.classList.add('active');
     this.tabCountdown = setInterval(() => {
@@ -240,7 +285,7 @@ const Editor = {
   },
 
   getWordCount() {
-    return this.textarea.value.trim().split(/\s+/).filter(Boolean).length;
+    return (this.textarea.innerText || '').trim().split(/\s+/).filter(Boolean).length;
   },
 
   showXPFloat(text) {
@@ -258,7 +303,7 @@ const Editor = {
     try {
       await API.updateDocument(this.documentId, {
         title: this.titleInput.value,
-        content: this.textarea.value
+        content: this.textarea.innerHTML
       });
     } catch {}
   },
@@ -277,7 +322,7 @@ const Editor = {
 
     await API.updateDocument(this.documentId, {
       title: this.titleInput.value,
-      content: this.textarea.value
+      content: this.textarea.innerHTML
     });
 
     let result;
@@ -308,6 +353,60 @@ const Editor = {
     document.getElementById('session-complete').classList.add('active');
   },
 
+  // ===== EDIT MODE FOR COMPLETED DOCS =====
+
+  enterEditMode() {
+    this.isEditing = true;
+    this.isDirty = false;
+
+    this.titleInput.readOnly = false;
+    this.textarea.contentEditable = 'true';
+    this.textarea.focus();
+
+    document.getElementById('editor-edit-btn').style.display = 'none';
+    document.getElementById('editor-save-edit-btn').style.display = 'inline-flex';
+    this.modeBadge.textContent = 'Editing';
+
+    this.bindFormatting();
+
+    const trackChanges = () => { Editor.isDirty = true; };
+    this.textarea.addEventListener('input', trackChanges);
+    this.titleInput.addEventListener('input', trackChanges);
+    this._editChangeHandler = trackChanges;
+  },
+
+  async saveEdits() {
+    if (!this.documentId) return;
+    try {
+      await API.updateDocument(this.documentId, {
+        title: this.titleInput.value,
+        content: this.textarea.innerHTML
+      });
+      this.isDirty = false;
+      this.originalContent = this.textarea.innerHTML;
+      this.originalTitle = this.titleInput.value;
+      App.toast('Document saved!', 'success');
+      this.exitEditMode();
+    } catch {
+      App.toast('Failed to save changes', 'error');
+    }
+  },
+
+  exitEditMode() {
+    this.isEditing = false;
+    this.titleInput.readOnly = true;
+    this.textarea.contentEditable = 'false';
+    document.getElementById('editor-edit-btn').style.display = 'inline-flex';
+    document.getElementById('editor-save-edit-btn').style.display = 'none';
+    this.modeBadge.textContent = 'Viewing';
+
+    if (this._editChangeHandler) {
+      this.textarea.removeEventListener('input', this._editChangeHandler);
+      this.titleInput.removeEventListener('input', this._editChangeHandler);
+      this._editChangeHandler = null;
+    }
+  },
+
   cleanup() {
     this.active = false;
     clearInterval(this.timerInterval);
@@ -322,15 +421,34 @@ const Editor = {
     this.textarea.removeEventListener('input', this.onInput);
     this.textarea.removeEventListener('keydown', this.onKeydown);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    document.removeEventListener('selectionchange', this._onSelectionChange);
+    document.getElementById('formatting-toolbar').style.display = 'none';
   },
 
   abort() {
-    if (!this.active) {
-      this.container.classList.remove('active');
+    // Active writing session
+    if (this.active) {
+      if (confirm('Are you sure? Leaving will save your current progress but end the session early.')) {
+        this.completeSession();
+      }
       return;
     }
-    if (confirm('Are you sure? Leaving will save your current progress but end the session early.')) {
-      this.completeSession();
+
+    // Editing a completed document with unsaved changes
+    if (this.isEditing && this.isDirty) {
+      if (confirm('Are you sure? New edits will not be saved.')) {
+        this.textarea.innerHTML = this.originalContent;
+        this.titleInput.value = this.originalTitle;
+        this.exitEditMode();
+        this.container.classList.remove('active');
+        document.getElementById('formatting-toolbar').style.display = 'none';
+      }
+      return;
     }
+
+    // Just viewing — close
+    if (this.isEditing) this.exitEditMode();
+    this.container.classList.remove('active');
+    document.getElementById('formatting-toolbar').style.display = 'none';
   }
 };

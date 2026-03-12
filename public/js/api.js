@@ -94,15 +94,26 @@ const API = {
     return this.request(`/share/${token}`);
   },
 
-  async addComment(token, author, text) {
+  async addComment(token, text, highlightedText, startOffset, endOffset) {
     return this.request(`/share/${token}/comment`, {
       method: 'POST',
-      body: JSON.stringify({ author, text })
+      body: JSON.stringify({ text, highlightedText, startOffset, endOffset })
     });
   },
 
   async getComments(token) {
     return this.request(`/share/${token}/comments`);
+  },
+
+  async resolveComment(token, commentId, status) {
+    return this.request(`/share/${token}/comments/${commentId}/resolve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    });
+  },
+
+  async getDocumentComments(documentId) {
+    return this.request(`/documents/${documentId}/comments`);
   },
 
   async getFriends() {

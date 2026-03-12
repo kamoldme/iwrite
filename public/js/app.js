@@ -9,13 +9,13 @@ const App = {
   notifInterval: null,
 
   calcXPLevel(totalXP) {
-    let level = 1;
+    let level = 0;
     let xpUsed = 0;
     let threshold = 100;
     while (totalXP >= xpUsed + threshold) {
       xpUsed += threshold;
       level++;
-      threshold = Math.round(100 * Math.pow(1.15, level - 1));
+      threshold = Math.round(100 * Math.pow(1.15, level));
     }
     return { level, xpInLevel: totalXP - xpUsed, xpForNextLevel: threshold };
   },
@@ -174,6 +174,8 @@ const App = {
 
     document.getElementById('editor-back').addEventListener('click', () => Editor.abort());
     document.getElementById('editor-save-btn').addEventListener('click', () => Editor.completeSession());
+    document.getElementById('editor-edit-btn').addEventListener('click', () => Editor.enterEditMode());
+    document.getElementById('editor-save-edit-btn').addEventListener('click', () => Editor.saveEdits());
 
     document.getElementById('sc-dashboard').addEventListener('click', () => {
       document.getElementById('session-complete').classList.remove('active');
@@ -235,7 +237,8 @@ const App = {
   updateUserUI() {
     if (!this.user) return;
     document.getElementById('user-name').textContent = this.user.name;
-    document.getElementById('user-level').textContent = `Level ${this.user.level}`;
+    const { level } = this.calcXPLevel(this.user.xp || 0);
+    document.getElementById('user-level').textContent = `Level ${level}`;
     document.getElementById('user-avatar').textContent = this.user.name.charAt(0).toUpperCase();
 
     if (this.user.streak > 0) {
@@ -319,38 +322,76 @@ const App = {
         </div>
         <div class="doc-card-actions">
           ${isFailed ? '' : `
-          <button class="doc-action-btn" onclick="event.stopPropagation();App.shareDoc('${doc.id}')" title="Share">
+          <button class="doc-action-btn" data-action="share" data-doc-id="${doc.id}" title="Share">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
           </button>`}
-          <button class="doc-action-btn delete" onclick="event.stopPropagation();App.deleteDoc('${doc.id}')" title="Delete">
+          <button class="doc-action-btn delete" data-action="delete" data-doc-id="${doc.id}" title="Delete">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
           </button>
         </div>
       </div>`;
     }).join('');
 
-    container.querySelectorAll('.doc-card').forEach(card => {
-      card.addEventListener('click', () => {
-        if (!card.classList.contains('doc-failed')) {
-          this.openDocument(card.dataset.id);
-        }
-      });
-    });
+    container.onclick = (e) => {
+      const actionBtn = e.target.closest('.doc-action-btn');
+      if (actionBtn) {
+        e.stopPropagation();
+        const docId = actionBtn.dataset.docId;
+        if (actionBtn.dataset.action === 'share') this.shareDoc(docId);
+        else if (actionBtn.dataset.action === 'delete') this.deleteDoc(docId);
+        return;
+      }
+      const card = e.target.closest('.doc-card');
+      if (card && !card.classList.contains('doc-failed')) {
+        this.openDocument(card.dataset.id);
+      }
+    };
   },
 
   async openDocument(id) {
     try {
       const doc = await API.request(`/documents/${id}`);
       document.getElementById('editor-title').value = doc.title;
-      document.getElementById('editor-textarea').value = doc.content || '';
+      document.getElementById('editor-textarea').innerHTML = doc.content || '';
       Editor.documentId = id;
       Editor.active = false;
+      Editor.isEditing = false;
+      Editor.originalContent = doc.content || '';
+      Editor.originalTitle = doc.title;
+
       document.getElementById('editor-container').classList.add('active');
       document.getElementById('editor-timer').textContent = 'View';
       document.getElementById('editor-mode-badge').textContent = 'Viewing';
       document.getElementById('editor-mode-badge').className = 'editor-mode-badge normal';
       document.getElementById('danger-progress').style.display = 'none';
+      document.getElementById('formatting-toolbar').style.display = 'flex';
+
+      // Show Edit button, hide session buttons
+      document.getElementById('editor-save-btn').style.display = 'none';
+      document.getElementById('editor-edit-btn').style.display = 'inline-flex';
+      document.getElementById('editor-save-edit-btn').style.display = 'none';
+
+      // Read-only initially
+      document.getElementById('editor-title').readOnly = true;
+      document.getElementById('editor-textarea').contentEditable = 'false';
+
       Editor.updateWordCount();
+
+      // Load comments for this document
+      CommentSystem.destroy();
+      try {
+        const comments = await API.getDocumentComments(id);
+        if (comments.length > 0) {
+          // Find a share token for this doc
+          let token = null;
+          if (doc.shareLinks && doc.shareLinks.length > 0) {
+            const commentLink = doc.shareLinks.find(l => l.type === 'comment' || l.type === 'edit');
+            if (commentLink) token = commentLink.token;
+            else token = doc.shareLinks[0].token;
+          }
+          CommentSystem.init(id, comments, true, token);
+        }
+      } catch {}
     } catch {
       this.toast('Failed to open document', 'error');
     }
@@ -419,7 +460,7 @@ const App = {
             <td><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
             <td>${entry.totalSessions || 0}</td>
             <td>${entry.minutesWritten || 0}m</td>
-            <td><span class="lb-level">Lv.${entry.level || 1}</span></td>
+            <td><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
             <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
           </tr>`;
       }).join('');
@@ -502,14 +543,31 @@ const App = {
   },
 
   async shareDoc(id) {
+    const type = await this.showShareTypeModal();
+    if (!type) return;
+
     try {
-      const link = await API.shareDocument(id, 'view');
+      const link = await API.shareDocument(id, type);
       const url = `${window.location.origin}/shared/${link.token}`;
       await navigator.clipboard.writeText(url);
-      this.toast('Share link copied to clipboard!', 'success');
+      this.toast(`${type.charAt(0).toUpperCase() + type.slice(1)} link copied to clipboard!`, 'success');
     } catch {
       this.toast('Failed to create share link', 'error');
     }
+  },
+
+  showShareTypeModal() {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('share-type-modal');
+      overlay.classList.add('active');
+
+      const cleanup = () => { overlay.classList.remove('active'); };
+
+      document.getElementById('share-view-btn').onclick = () => { cleanup(); resolve('view'); };
+      document.getElementById('share-comment-btn').onclick = () => { cleanup(); resolve('comment'); };
+      document.getElementById('share-edit-btn').onclick = () => { cleanup(); resolve('edit'); };
+      document.getElementById('share-cancel-btn').onclick = () => { cleanup(); resolve(null); };
+    });
   },
 
   async deleteDoc(id) {
@@ -551,7 +609,7 @@ const App = {
       { icon: '&#x1F3AF;', name: 'Consistent', description: '7-day writing streak', earned: (u.longestStreak || 0) >= 7 },
       { icon: '&#x1F4DA;', name: 'Prolific', description: 'Write 10,000 total words', earned: (u.totalWords || 0) >= 10000 },
       { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode session', earned: false },
-      { icon: '&#x1F333;', name: 'World Tree', description: 'Grow your tree to max stage', earned: (u.treeStage || 0) >= 10 },
+      { icon: '&#x1F333;', name: 'Forest', description: 'Grow your tree to max stage', earned: (u.treeStage || 0) >= 11 },
       { icon: '&#x1F3C6;', name: 'Legend', description: '30-day writing streak', earned: (u.longestStreak || 0) >= 30 },
     ];
   },
@@ -576,7 +634,7 @@ const App = {
           <div class="doc-card" style="margin-bottom:8px">
             <div class="doc-card-info">
               <h4>${this.escapeHtml(r.name)}</h4>
-              <div class="doc-card-meta"><span>${r.email}</span><span>Level ${r.level || 1}</span></div>
+              <div class="doc-card-meta"><span>${r.email}</span><span>Level ${this.calcXPLevel(r.xp || 0).level}</span></div>
             </div>
             <div class="doc-card-actions">
               <button class="btn btn-small btn-primary" onclick="App.acceptRequest('${r.id}')">Accept</button>
@@ -596,7 +654,7 @@ const App = {
           <div class="doc-card" style="margin-bottom:8px">
             <div class="doc-card-info">
               <h4>${this.escapeHtml(s.name)}</h4>
-              <div class="doc-card-meta"><span>${s.mutualCount} mutual friend${s.mutualCount !== 1 ? 's' : ''}</span><span>Level ${s.level || 1}</span></div>
+              <div class="doc-card-meta"><span>${s.mutualCount} mutual friend${s.mutualCount !== 1 ? 's' : ''}</span><span>Level ${this.calcXPLevel(s.xp || 0).level}</span></div>
             </div>
             <div class="doc-card-actions">
               <button class="btn btn-small" onclick="App.addFriendById('${s.email}')">Add</button>
@@ -614,7 +672,7 @@ const App = {
           <div class="doc-card">
             <div class="doc-card-info">
               <h4>${this.escapeHtml(f.name)}</h4>
-              <div class="doc-card-meta"><span>${f.email}</span><span>Level ${f.level || 1}</span></div>
+              <div class="doc-card-meta"><span>${f.email}</span><span>Level ${this.calcXPLevel(f.xp || 0).level}</span></div>
             </div>
             <div class="doc-card-actions">
               <button class="btn btn-small" onclick="App.challengeFriend('${f.id}')">Challenge</button>
@@ -779,6 +837,292 @@ const App = {
       el.className = 'toast';
       this.toastTimer = null;
     }, 3000);
+  }
+};
+
+// ===== COMMENT SYSTEM =====
+const CommentSystem = {
+  comments: [],
+  documentId: null,
+  shareToken: null,
+  isOwner: false,
+  _selectionHandler: null,
+
+  init(documentId, comments, isOwner, shareToken) {
+    this.documentId = documentId;
+    this.comments = comments.filter(c => c.status === 'pending');
+    this.isOwner = isOwner;
+    this.shareToken = shareToken;
+    this.renderHighlights();
+    this.renderPanel();
+    this.bindSelectionListener();
+  },
+
+  destroy() {
+    if (this._selectionHandler) {
+      document.getElementById('editor-textarea')?.removeEventListener('mouseup', this._selectionHandler);
+      this._selectionHandler = null;
+    }
+    const panel = document.getElementById('comments-panel');
+    if (panel) panel.remove();
+    const btn = document.getElementById('add-comment-btn');
+    if (btn) btn.remove();
+    const popup = document.getElementById('comment-input-popup');
+    if (popup) popup.remove();
+    document.getElementById('editor-container')?.classList.remove('has-comments');
+    this.comments = [];
+  },
+
+  bindSelectionListener() {
+    const contentEl = document.getElementById('editor-textarea');
+    if (!contentEl) return;
+
+    this._selectionHandler = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+        this.hideCommentButton();
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      if (!contentEl.contains(range.commonAncestorContainer)) return;
+
+      const selectedText = selection.toString().trim();
+      if (selectedText.length === 0) return;
+
+      const preRange = document.createRange();
+      preRange.selectNodeContents(contentEl);
+      preRange.setEnd(range.startContainer, range.startOffset);
+      const startOffset = preRange.toString().length;
+      const endOffset = startOffset + selectedText.length;
+
+      this.showCommentButton(range, selectedText, startOffset, endOffset);
+    };
+
+    contentEl.addEventListener('mouseup', this._selectionHandler);
+  },
+
+  showCommentButton(range, selectedText, startOffset, endOffset) {
+    let btn = document.getElementById('add-comment-btn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'add-comment-btn';
+      btn.className = 'comment-add-btn';
+      btn.textContent = 'Comment';
+      document.body.appendChild(btn);
+    }
+
+    const rect = range.getBoundingClientRect();
+    btn.style.display = 'block';
+    btn.style.top = `${rect.top - 40 + window.scrollY}px`;
+    btn.style.left = `${rect.left + rect.width / 2}px`;
+
+    btn.onclick = () => {
+      this.showCommentInput(selectedText, startOffset, endOffset, rect);
+      btn.style.display = 'none';
+    };
+  },
+
+  hideCommentButton() {
+    const btn = document.getElementById('add-comment-btn');
+    if (btn) btn.style.display = 'none';
+  },
+
+  showCommentInput(selectedText, startOffset, endOffset, rect) {
+    let popup = document.getElementById('comment-input-popup');
+    if (!popup) {
+      popup = document.createElement('div');
+      popup.id = 'comment-input-popup';
+      popup.className = 'comment-input-popup';
+      popup.innerHTML = `
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-style:italic">"${App.escapeHtml(selectedText.substring(0, 60))}${selectedText.length > 60 ? '...' : ''}"</div>
+        <textarea id="comment-input-text" placeholder="Write your comment..."></textarea>
+        <div class="comment-input-actions">
+          <button class="btn btn-ghost btn-small" id="comment-input-cancel">Cancel</button>
+          <button class="btn btn-primary btn-small" id="comment-input-submit">Post</button>
+        </div>
+      `;
+      document.body.appendChild(popup);
+    } else {
+      popup.querySelector('div').innerHTML = `"${App.escapeHtml(selectedText.substring(0, 60))}${selectedText.length > 60 ? '...' : ''}"`;
+      popup.querySelector('textarea').value = '';
+    }
+
+    popup.style.top = `${rect.bottom + 8 + window.scrollY}px`;
+    popup.style.left = `${Math.min(rect.left, window.innerWidth - 300)}px`;
+    popup.classList.add('active');
+    popup.querySelector('textarea').focus();
+
+    document.getElementById('comment-input-cancel').onclick = () => {
+      popup.classList.remove('active');
+    };
+
+    document.getElementById('comment-input-submit').onclick = async () => {
+      const text = document.getElementById('comment-input-text').value.trim();
+      if (!text) return;
+
+      try {
+        // Find a comment-type share token for this document
+        let token = this.shareToken;
+        if (!token) {
+          // Owner commenting on own doc — need to find or create a share link
+          const link = await API.shareDocument(this.documentId, 'comment');
+          token = link.token;
+          this.shareToken = token;
+        }
+        const comment = await API.addComment(token, text, selectedText, startOffset, endOffset);
+        this.comments.push(comment);
+        this.renderHighlights();
+        this.renderPanel();
+        popup.classList.remove('active');
+        App.toast('Comment added', 'success');
+      } catch (e) {
+        App.toast('Failed to add comment', 'error');
+      }
+    };
+  },
+
+  renderHighlights() {
+    const contentEl = document.getElementById('editor-textarea');
+    if (!contentEl) return;
+
+    // Remove existing highlights
+    contentEl.querySelectorAll('.comment-highlight').forEach(mark => {
+      const parent = mark.parentNode;
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+      parent.removeChild(mark);
+    });
+
+    if (this.comments.length === 0) return;
+
+    // Sort comments by startOffset descending to avoid offset shifting
+    const sorted = [...this.comments]
+      .filter(c => c.startOffset !== null && c.endOffset !== null)
+      .sort((a, b) => b.startOffset - a.startOffset);
+
+    sorted.forEach(comment => {
+      try {
+        this._highlightRange(contentEl, comment.startOffset, comment.endOffset, comment.id);
+      } catch {}
+    });
+  },
+
+  _highlightRange(root, startOffset, endOffset, commentId) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let currentOffset = 0;
+    let startNode = null, startNodeOffset = 0;
+    let endNode = null, endNodeOffset = 0;
+
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      const nodeLen = node.textContent.length;
+
+      if (!startNode && currentOffset + nodeLen > startOffset) {
+        startNode = node;
+        startNodeOffset = startOffset - currentOffset;
+      }
+      if (currentOffset + nodeLen >= endOffset) {
+        endNode = node;
+        endNodeOffset = endOffset - currentOffset;
+        break;
+      }
+      currentOffset += nodeLen;
+    }
+
+    if (!startNode || !endNode) return;
+
+    const range = document.createRange();
+    range.setStart(startNode, Math.min(startNodeOffset, startNode.textContent.length));
+    range.setEnd(endNode, Math.min(endNodeOffset, endNode.textContent.length));
+
+    const mark = document.createElement('mark');
+    mark.className = 'comment-highlight';
+    mark.dataset.commentId = commentId;
+    mark.addEventListener('click', () => {
+      document.querySelectorAll('.comment-bubble').forEach(b => b.classList.remove('active'));
+      const bubble = document.querySelector(`.comment-bubble[data-id="${commentId}"]`);
+      if (bubble) {
+        bubble.classList.add('active');
+        bubble.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+
+    try {
+      range.surroundContents(mark);
+    } catch {
+      // If range spans multiple nodes, wrap what we can
+      mark.appendChild(range.extractContents());
+      range.insertNode(mark);
+    }
+  },
+
+  renderPanel() {
+    let panel = document.getElementById('comments-panel');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'comments-panel';
+      panel.className = 'comments-panel';
+      document.getElementById('editor-container')?.appendChild(panel);
+    }
+
+    if (this.comments.length === 0) {
+      panel.classList.remove('active');
+      document.getElementById('editor-container')?.classList.remove('has-comments');
+      return;
+    }
+
+    panel.classList.add('active');
+    document.getElementById('editor-container')?.classList.add('has-comments');
+
+    panel.innerHTML = `
+      <div class="comments-panel-header">Comments (${this.comments.length})</div>
+      ${this.comments.map(c => `
+        <div class="comment-bubble" data-id="${c.id}">
+          <div class="comment-bubble-header">
+            <span class="comment-bubble-author">${App.escapeHtml(c.author)}</span>
+            <span class="comment-bubble-date">${new Date(c.createdAt).toLocaleDateString()}</span>
+          </div>
+          ${c.highlightedText ? `<div class="comment-bubble-quote">"${App.escapeHtml(c.highlightedText.substring(0, 80))}${c.highlightedText.length > 80 ? '...' : ''}"</div>` : ''}
+          <div class="comment-bubble-text">${App.escapeHtml(c.text)}</div>
+          ${this.isOwner ? `
+            <div class="comment-bubble-actions">
+              <button class="comment-resolve-btn accept" onclick="CommentSystem.resolveComment('${c.id}', 'accepted')">Accept</button>
+              <button class="comment-resolve-btn reject" onclick="CommentSystem.resolveComment('${c.id}', 'rejected')">Reject</button>
+            </div>
+          ` : ''}
+        </div>
+      `).join('')}
+    `;
+
+    // Hover highlight connection
+    panel.querySelectorAll('.comment-bubble').forEach(bubble => {
+      bubble.addEventListener('mouseenter', () => {
+        const mark = document.querySelector(`.comment-highlight[data-comment-id="${bubble.dataset.id}"]`);
+        if (mark) mark.classList.add('active');
+      });
+      bubble.addEventListener('mouseleave', () => {
+        document.querySelectorAll('.comment-highlight.active').forEach(m => m.classList.remove('active'));
+      });
+    });
+  },
+
+  async resolveComment(commentId, status) {
+    try {
+      let token = this.shareToken;
+      if (!token) {
+        // Find a share link for this document
+        const link = await API.shareDocument(this.documentId, 'comment');
+        token = link.token;
+        this.shareToken = token;
+      }
+      await API.resolveComment(token, commentId, status);
+      this.comments = this.comments.filter(c => c.id !== commentId);
+      this.renderHighlights();
+      this.renderPanel();
+      App.toast(`Comment ${status}`, 'success');
+    } catch {
+      App.toast('Failed to resolve comment', 'error');
+    }
   }
 };
 

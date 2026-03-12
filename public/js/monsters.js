@@ -13,10 +13,10 @@ const Monsters = {
   ],
 
   sizes: [
-    { w: 104, h: 124 }, // horns - large
-    { w: 68,  h: 82  }, // ears - small
-    { w: 92,  h: 110 }, // spiky - medium-large
-    { w: 72,  h: 86  }  // antenna - medium-small
+    { w: 270, h: 324 }, // horns - largest (~1.5x)
+    { w: 165, h: 198 }, // ears - small (~1.5x)
+    { w: 232, h: 279 }, // spiky - large (~1.5x)
+    { w: 142, h: 171 }  // antenna - smallest (~1.5x)
   ],
 
   init() {
@@ -94,10 +94,10 @@ const Monsters = {
 
   _eyePositions(type, w, h) {
     const map = {
-      horns:   [{ cx: w*0.365, cy: h*0.47, r: 9  }, { cx: w*0.635, cy: h*0.47, r: 9  }],
-      ears:    [{ cx: w*0.36,  cy: h*0.455, r: 10 }, { cx: w*0.64,  cy: h*0.455, r: 10 }],
-      spiky:   [{ cx: w*0.36,  cy: h*0.485, r: 8  }, { cx: w*0.64,  cy: h*0.485, r: 8  }],
-      antenna: [{ cx: w*0.36,  cy: h*0.46,  r: 11 }, { cx: w*0.64,  cy: h*0.46,  r: 11 }]
+      horns:   [{ cx: w*0.365, cy: h*0.47, r: w*0.052 }, { cx: w*0.635, cy: h*0.47, r: w*0.052 }],
+      ears:    [{ cx: w*0.36,  cy: h*0.455, r: w*0.09  }, { cx: w*0.64,  cy: h*0.455, r: w*0.09  }],
+      spiky:   [{ cx: w*0.36,  cy: h*0.485, r: w*0.055 }, { cx: w*0.64,  cy: h*0.485, r: w*0.055 }],
+      antenna: [{ cx: w*0.36,  cy: h*0.46,  r: w*0.1   }, { cx: w*0.64,  cy: h*0.46,  r: w*0.1   }]
     };
     return map[type] || map.horns;
   },
@@ -117,9 +117,41 @@ const Monsters = {
     ctx.fill();
   },
 
-  _eye(ctx, cx, cy, r, dx, dy) {
-    // white
-    ctx.fillStyle = 'white';
+  _eye(ctx, cx, cy, r, dx, dy, bodyColor) {
+    if (this.lookAway) {
+      // Closed eye — pure white oval with a subtle curved line
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, r, r * 0.88, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Closed eye line using body color so it blends naturally
+      ctx.strokeStyle = bodyColor || '#888';
+      ctx.lineWidth = Math.max(1.5, r * 0.08);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.7, cy);
+      ctx.quadraticCurveTo(cx, cy + r * 0.3, cx + r * 0.7, cy);
+      ctx.stroke();
+      // Small eyelashes
+      ctx.lineWidth = Math.max(1, r * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.4, cy);
+      ctx.lineTo(cx - r * 0.5, cy + r * 0.25);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + r * 0.15);
+      ctx.lineTo(cx, cy + r * 0.4);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + r * 0.4, cy);
+      ctx.lineTo(cx + r * 0.5, cy + r * 0.25);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    // Open eye — white base
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.ellipse(cx, cy, r, r*0.88, 0, 0, Math.PI*2);
     ctx.fill();
@@ -133,13 +165,6 @@ const Monsters = {
     ctx.beginPath();
     ctx.arc(cx + dx - r*0.14, cy + dy - r*0.14, r*0.17, 0, Math.PI*2);
     ctx.fill();
-    // eyelid when looking away
-    if (this.lookAway) {
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.beginPath();
-      ctx.ellipse(cx, cy - r*0.08, r*1.04, r*0.52, 0, Math.PI, 0);
-      ctx.fill();
-    }
   },
 
   _drawHorns(ctx, cfg, w, h, cx, cy, r, pupils) {
@@ -153,8 +178,8 @@ const Monsters = {
     });
     this._body(ctx, cfg, cx, cy, r);
     const ey = cy - r*0.1;
-    this._eye(ctx, cx - r*0.37, ey, r*0.28, pupils[0].dx, pupils[0].dy);
-    this._eye(ctx, cx + r*0.37, ey, r*0.28, pupils[1].dx, pupils[1].dy);
+    this._eye(ctx, cx - r*0.37, ey, r*0.28, pupils[0].dx, pupils[0].dy, cfg.color);
+    this._eye(ctx, cx + r*0.37, ey, r*0.28, pupils[1].dx, pupils[1].dy, cfg.color);
     // smile
     ctx.strokeStyle = 'rgba(255,255,255,0.65)';
     ctx.lineWidth = 1.5; ctx.lineCap = 'round';
@@ -172,8 +197,8 @@ const Monsters = {
     });
     this._body(ctx, cfg, cx, cy, r);
     const ey = cy - r*0.12;
-    this._eye(ctx, cx - r*0.37, ey, r*0.3, pupils[0].dx, pupils[0].dy);
-    this._eye(ctx, cx + r*0.37, ey, r*0.3, pupils[1].dx, pupils[1].dy);
+    this._eye(ctx, cx - r*0.37, ey, r*0.3, pupils[0].dx, pupils[0].dy, cfg.color);
+    this._eye(ctx, cx + r*0.37, ey, r*0.3, pupils[1].dx, pupils[1].dy, cfg.color);
     // nose
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
     ctx.beginPath();
@@ -199,8 +224,8 @@ const Monsters = {
     });
     this._body(ctx, cfg, cx, cy, r);
     const ey = cy - r*0.08;
-    this._eye(ctx, cx - r*0.36, ey, r*0.26, pupils[0].dx, pupils[0].dy);
-    this._eye(ctx, cx + r*0.36, ey, r*0.26, pupils[1].dx, pupils[1].dy);
+    this._eye(ctx, cx - r*0.36, ey, r*0.26, pupils[0].dx, pupils[0].dy, cfg.color);
+    this._eye(ctx, cx + r*0.36, ey, r*0.26, pupils[1].dx, pupils[1].dy, cfg.color);
     // grumpy brows
     ctx.strokeStyle = 'rgba(0,0,0,0.45)';
     ctx.lineWidth = 2.2; ctx.lineCap = 'round';
@@ -231,8 +256,8 @@ const Monsters = {
     ctx.fill();
     this._body(ctx, cfg, cx, cy, r);
     const ey = cy - r*0.12;
-    this._eye(ctx, cx - r*0.37, ey, r*0.32, pupils[0].dx, pupils[0].dy);
-    this._eye(ctx, cx + r*0.37, ey, r*0.32, pupils[1].dx, pupils[1].dy);
+    this._eye(ctx, cx - r*0.37, ey, r*0.32, pupils[0].dx, pupils[0].dy, cfg.color);
+    this._eye(ctx, cx + r*0.37, ey, r*0.32, pupils[1].dx, pupils[1].dy, cfg.color);
     // heart mouth
     const hx = cx, hy = cy + r*0.36;
     const hr = r * 0.1;

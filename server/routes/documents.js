@@ -4,13 +4,13 @@ const { findOne, findMany, insertOne, updateOne, deleteOne } = require('../utils
 const { authenticate } = require('../middleware/auth');
 
 function calcLevel(totalXP) {
-  let level = 1;
+  let level = 0;
   let xpUsed = 0;
   let threshold = 100;
   while (totalXP >= xpUsed + threshold) {
     xpUsed += threshold;
     level++;
-    threshold = Math.round(100 * Math.pow(1.15, level - 1));
+    threshold = Math.round(100 * Math.pow(1.15, level));
   }
   return level;
 }
@@ -32,7 +32,7 @@ router.post('/', (req, res) => {
     title: title || 'Untitled',
     content: content || '',
     mode: mode || 'normal',
-    wordCount: (content || '').split(/\s+/).filter(Boolean).length,
+    wordCount: (content || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter(Boolean).length,
     xpEarned: 0,
     duration: 0,
     shareLinks: [],
@@ -67,7 +67,7 @@ router.patch('/:id', (req, res) => {
   if (req.body.title !== undefined) updates.title = req.body.title;
   if (req.body.content !== undefined) {
     updates.content = req.body.content;
-    updates.wordCount = req.body.content.split(/\s+/).filter(Boolean).length;
+    updates.wordCount = req.body.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter(Boolean).length;
   }
   updates.updatedAt = new Date().toISOString();
 
@@ -108,7 +108,7 @@ router.post('/:id/complete', (req, res) => {
   } else if (lastDate === yesterday) {
     // streak continues — tree grows one stage
     newStreak = user.streak + 1;
-    newTreeStage = Math.min(10, (user.treeStage || 0) + 1);
+    newTreeStage = Math.min(11, (user.treeStage || 0) + 1);
   } else {
     // streak broken — tree resets from the beginning
     newStreak = 1;
@@ -131,6 +131,14 @@ router.post('/:id/complete', (req, res) => {
 
   const { password: _, ...safeUser } = updatedUser;
   res.json({ document: findOne('documents.json', d => d.id === req.params.id), user: safeUser });
+});
+
+router.get('/:id/comments', (req, res) => {
+  const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+  if (!doc) return res.status(404).json({ error: 'Document not found' });
+
+  const comments = findMany('comments.json', c => c.documentId === doc.id && c.status === 'pending');
+  res.json(comments);
 });
 
 router.post('/:id/share', (req, res) => {

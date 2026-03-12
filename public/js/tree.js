@@ -1,7 +1,7 @@
 const TreeRenderer = {
   stages: [
     'Seed', 'Sprout', 'Seedling', 'Sapling', 'Young Tree',
-    'Growing Tree', 'Mature Tree', 'Strong Tree', 'Grand Tree', 'Ancient Tree', 'World Tree'
+    'Growing Tree', 'Mature Tree', 'Strong Tree', 'Grand Tree', 'Ancient Tree', 'World Tree', 'Forest'
   ],
 
   draw(canvas, stage, streak) {
@@ -18,6 +18,11 @@ const TreeRenderer = {
 
     if (stage === 0) {
       this.drawSeed(ctx, w / 2, groundY);
+      return;
+    }
+
+    if (stage >= 11) {
+      this.drawForest(ctx, w, h, groundY, streak);
       return;
     }
 
@@ -189,5 +194,41 @@ const TreeRenderer = {
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
+  },
+
+  drawForest(ctx, w, h, groundY, streak) {
+    // Extended ground
+    ctx.fillStyle = '#f0f9f0';
+    ctx.beginPath();
+    ctx.ellipse(w / 2, groundY + 10, w * 0.45, 24, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw 3 trees: left small, center large, right small
+    const trees = [
+      { x: w * 0.2, scale: 0.5, stage: 6 },
+      { x: w * 0.5, scale: 1.0, stage: 10 },
+      { x: w * 0.8, scale: 0.55, stage: 7 }
+    ];
+
+    trees.forEach(t => {
+      ctx.save();
+      ctx.translate(t.x, groundY);
+      ctx.scale(t.scale, t.scale);
+      const tGroundY = 0;
+      const trunkHeight = Math.min(30 + t.stage * 18, 180);
+      const trunkWidth = Math.min(4 + t.stage * 2, 24);
+      this.drawTrunk(ctx, 0, tGroundY, trunkHeight, trunkWidth, t.stage);
+      if (t.stage >= 2) this.drawBranches(ctx, 0, tGroundY - trunkHeight, t.stage, streak);
+      if (t.stage >= 1) this.drawLeaves(ctx, 0, tGroundY - trunkHeight, t.stage, streak);
+      if (t.stage >= 5) {
+        // flowers already drawn by drawLeaves for stage >= 5
+      }
+      if (t.stage >= 7) this.drawFruits(ctx, 0, tGroundY - trunkHeight, t.stage);
+      ctx.restore();
+    });
+
+    if (streak > 0) {
+      this.drawStreakGlow(ctx, w / 2, groundY - 80, streak);
+    }
   }
 };
