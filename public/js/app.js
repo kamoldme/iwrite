@@ -2,6 +2,8 @@ const App = {
   user: null,
   documents: [],
   friends: [],
+  folders: [],
+  currentFolder: null, // null = root
   currentView: 'dashboard',
   sessionDuration: 15,
   sessionMode: 'normal',
@@ -130,6 +132,34 @@ const App = {
 
     document.getElementById('logout-btn').addEventListener('click', () => API.logout());
 
+    // Mobile sidebar toggle
+    const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
+    const mobileSidebarOverlay = document.getElementById('mobile-sidebar-overlay');
+    const sidebar = document.getElementById('sidebar');
+
+    const openMobileSidebar = () => {
+      sidebar.classList.add('open');
+      mobileSidebarToggle.classList.add('open');
+      mobileSidebarOverlay.style.display = 'block';
+    };
+    const closeMobileSidebar = () => {
+      sidebar.classList.remove('open');
+      mobileSidebarToggle.classList.remove('open');
+      mobileSidebarOverlay.style.display = 'none';
+    };
+
+    mobileSidebarToggle.addEventListener('click', () => {
+      sidebar.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar();
+    });
+    mobileSidebarOverlay.addEventListener('click', closeMobileSidebar);
+
+    // Close sidebar on mobile when a nav item is clicked
+    sidebar.querySelectorAll('.sidebar-nav-item[data-view]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (window.innerWidth <= 768) closeMobileSidebar();
+      });
+    });
+
     // Theme toggle — sync button state with current theme
     const isLightNow = document.documentElement.classList.contains('light');
     this._applyTheme(isLightNow ? 'light' : 'dark');
@@ -180,6 +210,28 @@ const App = {
         document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('active'));
         opt.classList.add('active');
         this.sessionMode = opt.dataset.mode;
+        // Swap time preset panels based on mode
+        const isDanger = this.sessionMode === 'dangerous';
+        document.getElementById('time-presets').style.display = isDanger ? 'none' : 'flex';
+        document.getElementById('danger-time-presets').style.display = isDanger ? 'flex' : 'none';
+        document.getElementById('time-custom-row').style.display = 'none';
+        if (isDanger) {
+          // Default danger duration to the active preset
+          const dangerActive = document.querySelector('#danger-time-presets .time-preset.active');
+          this.sessionDuration = parseInt(dangerActive?.dataset.minutes || 5);
+        } else {
+          const normalActive = document.querySelector('#time-presets .time-preset.active');
+          this.sessionDuration = parseInt(normalActive?.dataset.minutes || 15);
+        }
+      });
+    });
+
+    // Bind danger mode time presets
+    document.querySelectorAll('#danger-time-presets .time-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#danger-time-presets .time-preset').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.sessionDuration = parseInt(btn.dataset.minutes);
       });
     });
 
@@ -187,6 +239,33 @@ const App = {
     document.getElementById('editor-save-btn').addEventListener('click', () => Editor.completeSession());
     document.getElementById('editor-edit-btn').addEventListener('click', () => Editor.enterEditMode());
     document.getElementById('editor-save-edit-btn').addEventListener('click', () => Editor.saveEdits());
+    document.getElementById('editor-copy-btn').addEventListener('click', async () => {
+      const textarea = document.getElementById('editor-textarea');
+      try {
+        // Copy as both HTML (for Google Docs) and plain text
+        const html = textarea.innerHTML;
+        const text = textarea.innerText;
+        if (navigator.clipboard && ClipboardItem) {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'text/html': new Blob([html], { type: 'text/html' }),
+              'text/plain': new Blob([text], { type: 'text/plain' })
+            })
+          ]);
+        } else {
+          await navigator.clipboard.writeText(text);
+        }
+        this.toast('Copied to clipboard!', 'success');
+      } catch {
+        // Fallback
+        try {
+          await navigator.clipboard.writeText(textarea.innerText);
+          this.toast('Copied as plain text!', 'success');
+        } catch {
+          this.toast('Failed to copy', 'error');
+        }
+      }
+    });
 
     document.getElementById('sc-dashboard').addEventListener('click', () => {
       document.getElementById('session-complete').classList.remove('active');
@@ -223,14 +302,13 @@ const App = {
     document.getElementById('save-profile-btn').addEventListener('click', () => this.saveProfile());
     document.getElementById('change-password-btn').addEventListener('click', () => this.changePassword());
 
+    document.getElementById('create-folder-btn').addEventListener('click', () => this.createFolder());
     document.getElementById('history-btn').addEventListener('click', () => this.openHistoryModal());
-    document.getElementById('history-close').addEventListener('click', () => {
-      document.getElementById('history-modal').classList.remove('active');
-    });
+    document.getElementById('history-close').addEventListener('click', () => this.closeHistorySidebar());
+    document.getElementById('history-sidebar-overlay').addEventListener('click', () => this.closeHistorySidebar());
+    document.getElementById('comment-history-close').addEventListener('click', () => this.closeCommentHistorySidebar());
+    document.getElementById('comment-history-sidebar-overlay').addEventListener('click', () => this.closeCommentHistorySidebar());
     document.getElementById('editor-comment-history-btn').addEventListener('click', () => this.openCommentHistory());
-    document.getElementById('comment-history-close').addEventListener('click', () => {
-      document.getElementById('comment-history-modal').classList.remove('active');
-    });
   },
 
   switchView(view) {
@@ -299,7 +377,9 @@ const App = {
     } catch {
       this.documents = [];
     }
-    this.renderDocumentList('recent-docs', this.documents.slice(0, 5));
+    // Only show non-failed docs in main lists
+    const visibleDocs = this.documents.filter(d => !d.deletedBySystem);
+    this.renderDocumentList('recent-docs', visibleDocs.slice(0, 5));
   },
 
   async loadDocuments() {
@@ -308,12 +388,69 @@ const App = {
     } catch {
       this.documents = [];
     }
-    this.renderDocumentList('all-docs', this.documents);
+    try {
+      this.folders = await API.getFolders();
+    } catch {
+      this.folders = [];
+    }
+
+    // Only show non-failed docs in main list; failed ones appear in session history
+    const visibleDocs = this.documents.filter(d => !d.deletedBySystem);
+
+    // Render breadcrumb
+    const bc = document.getElementById('folder-breadcrumb');
+    if (this.currentFolder) {
+      const folder = this.folders.find(f => f.id === this.currentFolder);
+      bc.style.display = 'flex';
+      bc.innerHTML = `<button class="folder-breadcrumb-link" id="bc-root">All Sessions</button>
+        <span class="folder-breadcrumb-sep">›</span>
+        <span style="color:var(--text-primary);font-weight:600">${this.escapeHtml(folder?.name || 'Folder')}</span>`;
+      document.getElementById('bc-root').onclick = () => { this.currentFolder = null; this.loadDocuments(); };
+    } else {
+      bc.style.display = 'none';
+    }
+
+    // Render folders (only when at root)
+    const folderContainer = document.getElementById('folder-list');
+    if (!this.currentFolder && this.folders.length > 0) {
+      folderContainer.innerHTML = this.folders.map(f => {
+        const count = visibleDocs.filter(d => d.folder === f.id).length;
+        return `<div class="folder-card" data-folder-id="${f.id}">
+          <span class="folder-card-icon">📁</span>
+          <span class="folder-card-name">${this.escapeHtml(f.name)}</span>
+          <span class="folder-card-count">${count}</span>
+          <button class="folder-card-delete" data-delete-folder="${f.id}" title="Delete folder">&times;</button>
+        </div>`;
+      }).join('');
+
+      folderContainer.onclick = (e) => {
+        const delBtn = e.target.closest('[data-delete-folder]');
+        if (delBtn) {
+          e.stopPropagation();
+          this.deleteFolder(delBtn.dataset.deleteFolder);
+          return;
+        }
+        const card = e.target.closest('.folder-card');
+        if (card) {
+          this.currentFolder = card.dataset.folderId;
+          this.loadDocuments();
+        }
+      };
+    } else {
+      folderContainer.innerHTML = '';
+    }
+
+    // Filter docs by current folder
+    const folderDocs = this.currentFolder
+      ? visibleDocs.filter(d => d.folder === this.currentFolder)
+      : visibleDocs.filter(d => !d.folder);
+
+    this.renderDocumentList('all-docs', folderDocs);
 
     try {
       const sharedDocs = await API.getSharedDocuments();
       const section = document.getElementById('shared-docs-section');
-      if (sharedDocs.length > 0) {
+      if (sharedDocs.length > 0 && !this.currentFolder) {
         section.style.display = 'block';
         this.renderSharedDocumentList('shared-docs', sharedDocs);
       } else {
@@ -376,6 +513,9 @@ const App = {
         </div>
         <div class="doc-card-actions">
           ${isFailed ? '' : `
+          <button class="doc-action-btn" data-action="move" data-doc-id="${doc.id}" title="Move to folder">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+          </button>
           <button class="doc-action-btn" data-action="share" data-doc-id="${doc.id}" title="Share">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
           </button>`}
@@ -392,6 +532,7 @@ const App = {
         e.stopPropagation();
         const docId = actionBtn.dataset.docId;
         if (actionBtn.dataset.action === 'share') this.shareDoc(docId);
+        else if (actionBtn.dataset.action === 'move') this.moveDocToFolder(docId);
         else if (actionBtn.dataset.action === 'delete') this.deleteDoc(docId);
         return;
       }
@@ -418,7 +559,7 @@ const App = {
       document.getElementById('editor-mode-badge').textContent = 'Viewing';
       document.getElementById('editor-mode-badge').className = 'editor-mode-badge normal';
       document.getElementById('danger-progress').style.display = 'none';
-      document.getElementById('formatting-toolbar').style.display = 'flex';
+      document.getElementById('formatting-toolbar').style.display = 'none'; // shown on Edit
 
       // Show Edit button, hide session buttons
       document.getElementById('editor-save-btn').style.display = 'none';
@@ -430,8 +571,9 @@ const App = {
       document.getElementById('editor-title').readOnly = true;
       document.getElementById('editor-textarea').contentEditable = 'false';
 
-      // Defer word count until after paint so innerHTML is fully rendered
-      setTimeout(() => Editor.updateWordCount(), 0);
+      // Show status bar and update word count after rendering
+      document.getElementById('status-bar').style.display = 'flex';
+      setTimeout(() => Editor.updateWordCount(), 50);
 
       // Load comments for this document
       CommentSystem.destroy();
@@ -459,6 +601,15 @@ const App = {
     const addBtn = document.getElementById('time-preset-add-btn');
     addBtn.textContent = '+';
     addBtn.classList.remove('active');
+    // Reset to normal mode when opening
+    document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('active'));
+    document.querySelector('.mode-option[data-mode="normal"]').classList.add('active');
+    this.sessionMode = 'normal';
+    this.sessionDuration = 15;
+    document.getElementById('time-presets').style.display = 'flex';
+    document.getElementById('danger-time-presets').style.display = 'none';
+    document.querySelectorAll('#time-presets .time-preset').forEach(b => b.classList.remove('active'));
+    document.querySelector('#time-presets .time-preset[data-minutes="15"]').classList.add('active');
   },
 
   closeSessionModal() {
@@ -627,7 +778,8 @@ const App = {
   },
 
   async deleteDoc(id) {
-    if (!confirm('Delete this document?')) return;
+    const ok = await this.showConfirm('Delete this document?');
+    if (!ok) return;
     try {
       await API.deleteDocument(id);
       if (this.currentView === 'dashboard') this.loadDashboard();
@@ -821,34 +973,150 @@ const App = {
     } catch {}
   },
 
+  async createFolder() {
+    // Use a simple prompt-style inline approach via the confirm dialog
+    const overlay = document.getElementById('confirm-overlay');
+    const msgEl = document.getElementById('confirm-message');
+    msgEl.innerHTML = '<span>Folder name:</span><br><input id="folder-name-input" style="margin-top:10px;width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-elevated);color:var(--text-primary);font-family:var(--font-sans);font-size:13px" placeholder="My Folder" autofocus>';
+    overlay.classList.add('active');
+    setTimeout(() => document.getElementById('folder-name-input')?.focus(), 100);
+
+    const result = await new Promise(resolve => {
+      document.getElementById('confirm-ok').onclick = () => {
+        const val = document.getElementById('folder-name-input')?.value?.trim();
+        overlay.classList.remove('active');
+        resolve(val || null);
+      };
+      document.getElementById('confirm-cancel').onclick = () => {
+        overlay.classList.remove('active');
+        resolve(null);
+      };
+    });
+
+    if (!result) return;
+    try {
+      await API.createFolder(result);
+      this.toast('Folder created', 'success');
+      this.loadDocuments();
+    } catch (err) {
+      this.toast(err.message || 'Failed to create folder', 'error');
+    }
+  },
+
+  async deleteFolder(folderId) {
+    const ok = await this.showConfirm('Delete this folder? Documents inside will be moved to the root.');
+    if (!ok) return;
+    try {
+      await API.deleteFolder(folderId);
+      this.toast('Folder deleted', 'success');
+      this.loadDocuments();
+    } catch {
+      this.toast('Failed to delete folder', 'error');
+    }
+  },
+
+  async moveDocToFolder(docId) {
+    // Show a folder selection popup
+    if (this.folders.length === 0) {
+      this.toast('Create a folder first', 'error');
+      return;
+    }
+
+    const overlay = document.getElementById('confirm-overlay');
+    const msgEl = document.getElementById('confirm-message');
+    const optionsHtml = this.folders.map(f =>
+      `<button class="btn btn-ghost btn-small" data-folder-target="${f.id}" style="margin:4px">${this.escapeHtml(f.name)}</button>`
+    ).join('');
+    msgEl.innerHTML = `<span>Move to folder:</span><br><div style="margin-top:10px;display:flex;flex-wrap:wrap;justify-content:center">${optionsHtml}<button class="btn btn-ghost btn-small" data-folder-target="__root" style="margin:4px;color:var(--text-muted)">Root (no folder)</button></div>`;
+    overlay.classList.add('active');
+
+    const result = await new Promise(resolve => {
+      msgEl.querySelectorAll('[data-folder-target]').forEach(btn => {
+        btn.onclick = () => {
+          overlay.classList.remove('active');
+          resolve(btn.dataset.folderTarget === '__root' ? null : btn.dataset.folderTarget);
+        };
+      });
+      document.getElementById('confirm-cancel').onclick = () => {
+        overlay.classList.remove('active');
+        resolve(undefined); // cancelled
+      };
+      document.getElementById('confirm-ok').style.display = 'none';
+    });
+    document.getElementById('confirm-ok').style.display = '';
+
+    if (result === undefined) return; // cancelled
+    try {
+      await API.moveToFolder(docId, result);
+      this.toast('Moved!', 'success');
+      this.loadDocuments();
+    } catch {
+      this.toast('Failed to move document', 'error');
+    }
+  },
+
   openHistoryModal() {
-    const docs = this.documents.filter(d => !d.deleted && d.duration > 0);
-    const totalWords = docs.reduce((s, d) => s + (d.wordCount || 0), 0);
-    const totalSessions = docs.length;
-    const totalMinutes = Math.round(docs.reduce((s, d) => s + (d.duration || 0), 0) / 60);
-    const dangerousSessions = docs.filter(d => d.mode === 'dangerous').length;
+    // Include both completed AND failed/abandoned sessions
+    const completed = this.documents.filter(d => !d.deleted && d.duration > 0);
+    const failed = this.documents.filter(d => d.deleted && d.deletedBySystem);
+
+    const totalWords = completed.reduce((s, d) => s + (d.wordCount || 0), 0);
+    const totalSessions = completed.length;
+    const totalMinutes = Math.round(completed.reduce((s, d) => s + (d.duration || 0), 0) / 60);
+    const dangerousSessions = completed.filter(d => d.mode === 'dangerous').length;
+    const failedCount = failed.length;
 
     document.getElementById('history-stats').innerHTML = `
-      <div class="history-stat"><div class="history-stat-val">${totalSessions}</div><div class="history-stat-label">Sessions</div></div>
+      <div class="history-stat"><div class="history-stat-val">${totalSessions}</div><div class="history-stat-label">Completed</div></div>
       <div class="history-stat"><div class="history-stat-val">${totalWords.toLocaleString()}</div><div class="history-stat-label">Words</div></div>
-      <div class="history-stat"><div class="history-stat-val">${totalMinutes}m</div><div class="history-stat-label">Time Written</div></div>
-      <div class="history-stat"><div class="history-stat-val">${dangerousSessions}</div><div class="history-stat-label">Dangerous</div></div>`;
+      <div class="history-stat"><div class="history-stat-val">${totalMinutes}m</div><div class="history-stat-label">Written</div></div>
+      <div class="history-stat"><div class="history-stat-val">${failedCount}</div><div class="history-stat-label">Failed</div></div>`;
 
-    document.getElementById('history-sessions').innerHTML = docs.length === 0
+    // Merge and sort all sessions by date
+    const allSessions = [
+      ...completed.slice(0, 25).map(d => ({ ...d, _failed: false })),
+      ...failed.slice(0, 10).map(d => ({ ...d, _failed: true }))
+    ].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    document.getElementById('history-sessions').innerHTML = allSessions.length === 0
       ? '<p style="text-align:center;color:var(--text-muted);padding:20px">No sessions yet</p>'
-      : docs.slice(0, 30).map(d => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light);font-size:13px">
-          <div>
-            <div style="font-weight:600;color:var(--text-primary)">${this.escapeHtml(d.title)}</div>
-            <div style="color:var(--text-muted);font-size:11px;margin-top:2px">${this.formatDate(d.updatedAt)} · ${d.mode === 'dangerous' ? '⚡ Dangerous' : 'Normal'}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-weight:600">${(d.wordCount || 0).toLocaleString()} words</div>
-            <div style="color:var(--xp-color);font-size:11px">+${d.xpEarned || 0} XP</div>
-          </div>
-        </div>`).join('');
+      : allSessions.map(d => {
+          const failReason = d.failReason === 'typing_stopped'
+            ? '<span class="session-danger-tag">Stopped Typing</span>'
+            : d.failReason === 'tab_left'
+            ? '<span class="session-tab-tag">Left Tab</span>'
+            : d.failReason === 'left' || d.failReason === 'abandoned'
+            ? '<span class="session-left-tag">Left</span>'
+            : d._failed ? '<span class="session-left-tag">Left</span>' : '';
+          const modeTag = d.mode === 'dangerous'
+            ? '<span class="session-danger-tag" style="background:rgba(239,68,68,0.08)">⚡ Danger</span>' : '';
+
+          return `<div class="session-entry${d._failed ? ' failed-entry' : ''}">
+            <div>
+              <div style="font-weight:600;color:var(--text-primary);font-size:13px">${this.escapeHtml(d.title)}${d._failed ? failReason : modeTag}</div>
+              <div style="color:var(--text-muted);font-size:11px;margin-top:3px">${this.formatDate(d.updatedAt)}${d._failed && !failReason ? '&nbsp;· Failed' : ''}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              ${d._failed
+                ? `<div style="font-size:12px;color:var(--danger)">${(d.wordCount || 0)} words lost</div>`
+                : `<div style="font-weight:600;font-size:13px">${(d.wordCount || 0).toLocaleString()} words</div>
+                   <div style="color:var(--xp-color);font-size:11px">+${d.xpEarned || 0} XP</div>`}
+            </div>
+          </div>`;
+        }).join('');
 
     document.getElementById('history-modal').classList.add('active');
+    document.getElementById('history-sidebar-overlay').classList.add('active');
+  },
+
+  closeHistorySidebar() {
+    document.getElementById('history-modal').classList.remove('active');
+    document.getElementById('history-sidebar-overlay').classList.remove('active');
+  },
+
+  closeCommentHistorySidebar() {
+    document.getElementById('comment-history-modal').classList.remove('active');
+    document.getElementById('comment-history-sidebar-overlay').classList.remove('active');
   },
 
   challengeFriend(id) {
@@ -896,30 +1164,57 @@ const App = {
   },
 
   async openCommentHistory() {
-    const modal = document.getElementById('comment-history-modal');
+    if (!Editor.documentId) {
+      this.toast('No document open', 'error');
+      return;
+    }
+    const sidebar = document.getElementById('comment-history-modal');
+    const overlay = document.getElementById('comment-history-sidebar-overlay');
     const list = document.getElementById('comment-history-list');
     list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)">Loading...</div>';
-    modal.classList.add('active');
+    sidebar.classList.add('active');
+    overlay.classList.add('active');
 
     try {
       const history = await API.getCommentHistory(Editor.documentId);
-      if (history.length === 0) {
+      if (!history || history.length === 0) {
         list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">No resolved comments yet.</p>';
         return;
       }
       list.innerHTML = history.map(c => `
         <div style="padding:12px 0;border-bottom:1px solid var(--border-light)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-weight:600;font-size:13px">${this.escapeHtml(c.author)}</span>
+            <span style="font-weight:600;font-size:13px">${this.escapeHtml(c.author || 'Unknown')}</span>
             <span style="font-size:11px;color:var(--text-muted)">${new Date(c.resolvedAt || c.createdAt).toLocaleDateString()}</span>
           </div>
           ${c.highlightedText ? `<div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-bottom:4px">"${this.escapeHtml(c.highlightedText.substring(0, 80))}${c.highlightedText.length > 80 ? '...' : ''}"</div>` : ''}
-          <div style="font-size:13px;color:var(--text-secondary)">${this.escapeHtml(c.text)}</div>
-          <div style="margin-top:4px"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--success)">&#x2713; Done</span></div>
+          <div style="font-size:13px;color:var(--text-secondary)">${this.escapeHtml(c.text || '')}</div>
+          <div style="margin-top:4px">
+            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${c.status === 'rejected' ? 'var(--danger)' : 'var(--success)'}">
+              ${c.status === 'rejected' ? '✗ Rejected' : '✓ Resolved'}
+            </span>
+          </div>
         </div>`).join('');
-    } catch {
-      list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Failed to load comment history.</p>';
+    } catch (err) {
+      list.innerHTML = `<p style="text-align:center;color:var(--text-muted);padding:20px">No comment history found.</p>`;
     }
+  },
+
+  showConfirm(message) {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('confirm-overlay');
+      const msgEl = document.getElementById('confirm-message');
+      msgEl.textContent = message;
+      overlay.classList.add('active');
+      document.getElementById('confirm-ok').onclick = () => {
+        overlay.classList.remove('active');
+        resolve(true);
+      };
+      document.getElementById('confirm-cancel').onclick = () => {
+        overlay.classList.remove('active');
+        resolve(false);
+      };
+    });
   },
 
   toast(message, type = '') {

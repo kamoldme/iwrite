@@ -19,6 +19,8 @@ const Editor = {
   originalContent: '',
   originalTitle: '',
   _editChangeHandler: null,
+  _fullscreenActive: false,   // tracks whether we requested fullscreen
+  _blurCooldown: false,       // prevents blur firing on harmless clicks
 
   get textarea() { return document.getElementById('editor-textarea'); },
   get container() { return document.getElementById('editor-container'); },
@@ -67,7 +69,9 @@ const Editor = {
     document.getElementById('editor-edit-btn').style.display = 'none';
     document.getElementById('editor-save-edit-btn').style.display = 'none';
     document.getElementById('editor-comment-history-btn').style.display = 'none';
-    document.getElementById('formatting-toolbar').style.display = 'flex';
+    // Only show formatting bar in normal mode
+    document.getElementById('formatting-toolbar').style.display = mode === 'dangerous' ? 'none' : 'flex';
+    document.getElementById('status-bar').style.display = 'flex';
     this.titleInput.readOnly = false;
 
     this.modeBadge.textContent = mode === 'dangerous' ? 'Dangerous' : 'Normal';
@@ -85,7 +89,22 @@ const Editor = {
     this.textarea.addEventListener('input', this.onInput);
     this.textarea.addEventListener('keydown', this.onKeydown);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
-    this.bindFormatting();
+    document.addEventListener('fullscreenchange', this.onFullscreenChange);
+    window.addEventListener('blur', this.onWindowBlur);
+    window.addEventListener('focus', this.onWindowFocus);
+    if (mode !== 'dangerous') this.bindFormatting();
+    this.updateWordCount();
+
+    // Request fullscreen automatically
+    this._fullscreenActive = false;
+    this._blurCooldown = false;
+    try {
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (req) {
+        req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
+      }
+    } catch(e) {}
   },
 
   bindFormatting() {
@@ -163,6 +182,38 @@ const Editor = {
     }
   },
 
+  // Fired when the user exits fullscreen (ESC, browser UI, etc.)
+  onFullscreenChange: () => {
+    if (!Editor.active || Editor.abandoned) return;
+    const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
+    if (!inFS && Editor._fullscreenActive) {
+      // User left fullscreen — treat exactly like leaving the tab
+      Editor.onTabLeave();
+    } else if (inFS) {
+      Editor._fullscreenActive = true;
+      Editor.onTabReturn();
+    }
+  },
+
+  // Fired when the browser window loses focus (user switches app, clicks desktop, etc.)
+  onWindowBlur: () => {
+    if (!Editor.active || Editor.abandoned || Editor._blurCooldown) return;
+    // Only count as leaving if also not just switching within the browser UI
+    if (!document.hidden) {
+      Editor.onTabLeave();
+    }
+  },
+
+  // Fired when the browser window regains focus
+  onWindowFocus: () => {
+    if (!Editor.active || Editor.abandoned) return;
+    Editor._blurCooldown = true;
+    setTimeout(() => { Editor._blurCooldown = false; }, 300);
+    if (!document.hidden) {
+      Editor.onTabReturn();
+    }
+  },
+
   onTabLeave() {
     if (this.abandoned || !this.active) return;
     if (this.tabCountdown) return;
@@ -187,6 +238,15 @@ const Editor = {
     this.tabLeftTime = null;
     if (!this.abandoned) {
       this.textarea.focus();
+      // Re-enter fullscreen if they return in time
+      const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      if (this._fullscreenActive && !inFS) {
+        try {
+          const el = document.documentElement;
+          const req = el.requestFullscreen || el.webkitRequestFullscreen;
+          if (req) req.call(el).catch(() => {});
+        } catch(e) {}
+      }
     }
   },
 
@@ -195,13 +255,26 @@ const Editor = {
     clearInterval(this.tabCountdown);
     this.cleanup();
 
+    // Save to cache regardless of mode
+    const cacheKey = `iwrite_abandon_${Date.now()}`;
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        documentId: this.documentId,
+        title: this.titleInput.value,
+        content: this.textarea.innerHTML,
+        reason: 'tab_left',
+        failedAt: new Date().toISOString()
+      }));
+    } catch {}
+
     if (this.documentId) {
       try {
-        await API.abandonDocument(this.documentId);
+        await API.abandonDocument(this.documentId, 'tab_left');
       } catch {}
     }
 
     this.tabWarning.classList.remove('active');
+    document.getElementById('status-bar').style.display = 'none';
     this.container.classList.remove('active');
     App.showSessionFailed('You left the tab. Your writing is gone.');
   },
@@ -234,12 +307,25 @@ const Editor = {
     this.cleanup();
     this.abandoned = true;
 
+    // Save content to localStorage cache (admin-accessible, user-invisible)
+    const cacheKey = `iwrite_danger_fail_${Date.now()}`;
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        documentId: this.documentId,
+        title: this.titleInput.value,
+        content: this.textarea.innerHTML,
+        reason: 'typing_stopped',
+        failedAt: new Date().toISOString()
+      }));
+    } catch {}
+
     if (this.documentId) {
       try {
-        await API.abandonDocument(this.documentId);
+        await API.abandonDocument(this.documentId, 'typing_stopped');
       } catch {}
     }
 
+    document.getElementById('status-bar').style.display = 'none';
     this.container.classList.remove('active');
     App.showSessionFailed('You stopped typing. Your writing is gone.');
   },
@@ -276,12 +362,15 @@ const Editor = {
 
   updateWordCount() {
     const words = this.getWordCount();
-    this.wordCountEl.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+    const el = document.getElementById('editor-word-count');
+    if (el) el.textContent = `${words} word${words !== 1 ? 's' : ''}`;
 
-    const milestone = this.wordMilestones.find(m => words >= m && m > this.lastWordMilestone);
-    if (milestone) {
-      this.lastWordMilestone = milestone;
-      this.showXPFloat(milestone >= 500 ? '+25 XP' : milestone >= 100 ? '+10 XP' : '+5 XP');
+    if (this.active) {
+      const milestone = this.wordMilestones.find(m => words >= m && m > this.lastWordMilestone);
+      if (milestone) {
+        this.lastWordMilestone = milestone;
+        this.showXPFloat(milestone >= 500 ? '+25 XP' : milestone >= 100 ? '+10 XP' : '+5 XP');
+      }
     }
   },
 
@@ -335,7 +424,10 @@ const Editor = {
       return;
     }
 
+    document.getElementById('status-bar').style.display = 'none';
     this.container.classList.remove('active');
+    // Auto-refresh sessions tab so new doc appears immediately
+    try { await App.loadDocuments(); } catch {}
     this.showComplete(wordCount, duration, xpEarned, result.user);
   },
 
@@ -356,33 +448,44 @@ const Editor = {
 
   // ===== EDIT MODE FOR COMPLETED DOCS =====
 
-  showConfetti() {
-    const colors = ['#6c5ce7', '#a78bfa', '#22c55e', '#f59e0b', '#ef4444', '#00cec9', '#fd6db5'];
-    const anchor = document.getElementById('editor-save-edit-btn') || document.getElementById('editor-edit-btn');
-    const rect = anchor ? anchor.getBoundingClientRect() : { left: window.innerWidth / 2 - 40, top: 64, width: 80 };
-    const ox = rect.left + rect.width / 2;
-    const oy = rect.top + rect.height / 2;
+  showBanner(message) {
+    const banner = document.getElementById('in-app-banner');
+    if (!banner) return;
+    banner.textContent = message;
+    banner.classList.add('active');
+    setTimeout(() => banner.classList.remove('active'), 2800);
+  },
 
-    for (let i = 0; i < 36; i++) {
+  showConfetti() {
+    // Show in-app notification banner
+    this.showBanner('✅ Document saved successfully!');
+
+    const colors = ['#6c5ce7', '#a78bfa', '#22c55e', '#f59e0b', '#ef4444', '#00cec9', '#fd6db5'];
+    // Confetti bursts from top-center
+    const ox = window.innerWidth / 2;
+    const oy = 0;
+
+    for (let i = 0; i < 48; i++) {
       const el = document.createElement('div');
-      const size = 5 + Math.random() * 6;
+      const size = 5 + Math.random() * 7;
       el.style.cssText = `position:fixed;width:${size}px;height:${size}px;background:${colors[i % colors.length]};border-radius:${Math.random() > 0.5 ? '50%' : '3px'};left:${ox}px;top:${oy}px;pointer-events:none;z-index:99999`;
       document.body.appendChild(el);
-      const vx = (Math.random() - 0.5) * 10;
-      let vy = -(5 + Math.random() * 9);
-      let x = ox, y = oy, opacity = 1;
+      // Start at top-center, shoot downward with spread
+      const vx = (Math.random() - 0.5) * 18;
+      let vy = 2 + Math.random() * 8; // positive = downward
+      let x = ox + (Math.random() - 0.5) * 80, y = oy, opacity = 1;
       const step = () => {
-        vy += 0.45;
+        vy += 0.3; // gravity accelerates downward
         x += vx;
         y += vy;
-        opacity -= 0.022;
+        opacity -= 0.018;
         el.style.left = x + 'px';
         el.style.top = y + 'px';
         el.style.opacity = opacity;
         if (opacity > 0 && y < window.innerHeight) requestAnimationFrame(step);
         else el.remove();
       };
-      setTimeout(() => requestAnimationFrame(step), i * 12);
+      setTimeout(() => requestAnimationFrame(step), i * 10);
     }
   },
 
@@ -396,12 +499,18 @@ const Editor = {
 
     document.getElementById('editor-edit-btn').style.display = 'none';
     document.getElementById('editor-save-edit-btn').style.display = 'inline-flex';
+    document.getElementById('formatting-toolbar').style.display = 'flex';
+    document.getElementById('status-bar').style.display = 'flex';
     this.modeBadge.textContent = '● Editing';
     this.modeBadge.className = 'editor-mode-badge editing';
 
     this.bindFormatting();
+    this.updateWordCount();
 
-    const trackChanges = () => { Editor.isDirty = true; };
+    const trackChanges = () => {
+      Editor.isDirty = true;
+      Editor.updateWordCount();
+    };
     this.textarea.addEventListener('input', trackChanges);
     this.titleInput.addEventListener('input', trackChanges);
     this._editChangeHandler = trackChanges;
@@ -441,6 +550,8 @@ const Editor = {
     this.textarea.contentEditable = 'false';
     document.getElementById('editor-edit-btn').style.display = 'inline-flex';
     document.getElementById('editor-save-edit-btn').style.display = 'none';
+    document.getElementById('formatting-toolbar').style.display = 'none';
+    document.getElementById('status-bar').style.display = 'none';
     this.modeBadge.textContent = 'Viewing';
     this.modeBadge.className = 'editor-mode-badge normal';
 
@@ -465,28 +576,39 @@ const Editor = {
     this.textarea.removeEventListener('input', this.onInput);
     this.textarea.removeEventListener('keydown', this.onKeydown);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    document.removeEventListener('fullscreenchange', this.onFullscreenChange);
+    window.removeEventListener('blur', this.onWindowBlur);
+    window.removeEventListener('focus', this.onWindowFocus);
     document.removeEventListener('selectionchange', this._onSelectionChange);
     document.getElementById('formatting-toolbar').style.display = 'none';
+    // Exit fullscreen when session ends
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      try {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen;
+        if (exit) exit.call(document).catch(() => {});
+      } catch(e) {}
+    }
+    this._fullscreenActive = false;
   },
 
-  abort() {
+  async abort() {
     // Active writing session
     if (this.active) {
-      if (confirm('Are you sure? Leaving will save your current progress but end the session early.')) {
-        this.completeSession();
-      }
+      const ok = await App.showConfirm('Are you sure? Leaving will save your current progress but end the session early.');
+      if (ok) this.completeSession();
       return;
     }
 
     // Editing a completed document with unsaved changes
     if (this.isEditing && this.isDirty) {
-      if (confirm('Are you sure? New edits will not be saved.')) {
+      const ok = await App.showConfirm('Are you sure? New edits will not be saved.');
+      if (ok) {
         this.textarea.innerHTML = this.originalContent;
         this.titleInput.value = this.originalTitle;
         this.exitEditMode();
         this.container.classList.remove('active');
-        document.getElementById('formatting-toolbar').style.display = 'none';
         document.getElementById('editor-comment-history-btn').style.display = 'none';
+        document.getElementById('status-bar').style.display = 'none';
       }
       return;
     }
@@ -496,5 +618,6 @@ const Editor = {
     this.container.classList.remove('active');
     document.getElementById('formatting-toolbar').style.display = 'none';
     document.getElementById('editor-comment-history-btn').style.display = 'none';
+    document.getElementById('status-bar').style.display = 'none';
   }
 };

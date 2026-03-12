@@ -20,7 +20,8 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/', (req, res) => {
-  const docs = findMany('documents.json', d => d.userId === req.user.id && !d.deleted);
+  // Include system-deleted (failed) docs for history, but not manually deleted
+  const docs = findMany('documents.json', d => d.userId === req.user.id && (!d.deleted || d.deletedBySystem));
   res.json(docs.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)));
 });
 
@@ -69,6 +70,48 @@ router.get('/shared-with-me', (req, res) => {
   res.json(result);
 });
 
+// ===== FOLDER MANAGEMENT ===== (must be before /:id routes)
+router.get('/folders/list', (req, res) => {
+  const user = findOne('users.json', u => u.id === req.user.id);
+  res.json(user.folders || []);
+});
+
+router.post('/folders', (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Folder name required' });
+  const user = findOne('users.json', u => u.id === req.user.id);
+  const folders = user.folders || [];
+  if (folders.find(f => f.name.toLowerCase() === name.trim().toLowerCase())) {
+    return res.status(400).json({ error: 'Folder already exists' });
+  }
+  const folder = { id: uuid(), name: name.trim(), createdAt: new Date().toISOString() };
+  folders.push(folder);
+  updateOne('users.json', u => u.id === req.user.id, { folders });
+  res.status(201).json(folder);
+});
+
+router.patch('/folders/:folderId', (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Folder name required' });
+  const user = findOne('users.json', u => u.id === req.user.id);
+  const folders = user.folders || [];
+  const folder = folders.find(f => f.id === req.params.folderId);
+  if (!folder) return res.status(404).json({ error: 'Folder not found' });
+  folder.name = name.trim();
+  updateOne('users.json', u => u.id === req.user.id, { folders });
+  res.json(folder);
+});
+
+router.delete('/folders/:folderId', (req, res) => {
+  const user = findOne('users.json', u => u.id === req.user.id);
+  const folders = (user.folders || []).filter(f => f.id !== req.params.folderId);
+  updateOne('users.json', u => u.id === req.user.id, { folders });
+  // Un-folder all documents in this folder
+  const docs = findMany('documents.json', d => d.userId === req.user.id && d.folder === req.params.folderId);
+  docs.forEach(d => updateOne('documents.json', dd => dd.id === d.id, { folder: null }));
+  res.json({ success: true });
+});
+
 router.get('/:id', (req, res) => {
   const doc = findOne('documents.json', d => d.id === req.params.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
@@ -93,6 +136,7 @@ router.patch('/:id', (req, res) => {
     updates.content = req.body.content;
     updates.wordCount = req.body.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter(Boolean).length;
   }
+  if (req.body.folder !== undefined) updates.folder = req.body.folder;
   updates.updatedAt = new Date().toISOString();
 
   const updated = updateOne('documents.json', d => d.id === req.params.id, updates);
@@ -198,12 +242,15 @@ router.post('/:id/abandon', (req, res) => {
   const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
+  const { reason } = req.body; // 'typing_stopped' | 'tab_left'
   updateOne('documents.json', d => d.id === req.params.id, {
     deletedBySystem: true,
     deleted: true,
+    failReason: reason || 'unknown',
+    failedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });
-  res.json({ success: true, message: 'Document lost due to tab abandonment' });
+  res.json({ success: true, message: 'Document lost' });
 });
 
 module.exports = router;

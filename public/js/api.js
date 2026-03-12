@@ -79,8 +79,11 @@ const API = {
     });
   },
 
-  async abandonDocument(id) {
-    return this.request(`/documents/${id}/abandon`, { method: 'POST' });
+  async abandonDocument(id, reason) {
+    return this.request(`/documents/${id}/abandon`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason || 'unknown' })
+    });
   },
 
   async shareDocument(id, type) {
@@ -171,6 +174,28 @@ const API = {
 
   async getLeaderboard() {
     return this.request('/leaderboard');
+  },
+
+  async getFolders() {
+    return this.request('/documents/folders/list');
+  },
+
+  async createFolder(name) {
+    return this.request('/documents/folders', {
+      method: 'POST',
+      body: JSON.stringify({ name })
+    });
+  },
+
+  async deleteFolder(folderId) {
+    return this.request(`/documents/folders/${folderId}`, { method: 'DELETE' });
+  },
+
+  async moveToFolder(docId, folderId) {
+    return this.request(`/documents/${docId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ folder: folderId })
+    });
   },
 
   async getSharedDocuments() {

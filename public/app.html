@@ -11,6 +11,10 @@
 <body>
   <div id="auth-view" class="auth-container" style="display:none">
     <div class="auth-monsters-panel">
+      <div class="auth-brand-title">
+        <span class="auth-brand-i">i</span><span class="auth-brand-write">Write</span>
+      </div>
+      <p class="auth-brand-sub">Your distraction-free writing space</p>
       <div id="auth-monsters"></div>
     </div>
     <div class="auth-form-panel">
@@ -68,6 +72,15 @@
   </div>
 
   <div id="app-view" style="display:none">
+    <!-- Mobile hamburger button -->
+    <button class="mobile-sidebar-toggle" id="mobile-sidebar-toggle" aria-label="Toggle menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <!-- Mobile sidebar backdrop -->
+    <div class="mobile-sidebar-overlay" id="mobile-sidebar-overlay"></div>
+
     <div class="app-container">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -203,9 +216,16 @@
               <button class="doc-action-btn" id="history-btn" title="Session History" style="width:32px;height:32px">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
               </button>
+              <button class="doc-action-btn" id="create-folder-btn" title="Create Folder" style="width:32px;height:32px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+              </button>
               <button class="btn btn-primary btn-small" id="new-doc-btn-3">New Session</button>
             </div>
           </div>
+          <!-- Folder breadcrumb -->
+          <div id="folder-breadcrumb" class="folder-breadcrumb" style="display:none"></div>
+          <!-- Folder cards -->
+          <div id="folder-list" class="folder-list"></div>
           <div id="all-docs"></div>
           <div id="shared-docs-section" style="display:none;margin-top:32px">
             <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">&#x1F517; Shared With Me</h3>
@@ -457,6 +477,7 @@
 
     <!-- EDITOR -->
     <div class="editor-container" id="editor-container">
+      <!-- Row 1: Back / Title / Timer / Buttons -->
       <div class="editor-toolbar">
         <div class="editor-toolbar-left">
           <button class="editor-back-btn" id="editor-back">&larr;</button>
@@ -465,26 +486,11 @@
         <div class="editor-toolbar-center">
           <div class="editor-timer" id="editor-timer">--:--</div>
           <span class="editor-mode-badge normal" id="editor-mode-badge">Normal</span>
-          <div id="formatting-toolbar" style="display:none">
-            <div class="fmt-separator"></div>
-            <button class="fmt-btn" data-command="bold" title="Bold (Ctrl+B)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg>
-            </button>
-            <button class="fmt-btn" data-command="italic" title="Italic (Ctrl+I)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/></svg>
-            </button>
-            <button class="fmt-btn" data-command="underline" title="Underline (Ctrl+U)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z"/></svg>
-            </button>
-            <div class="fmt-separator"></div>
-            <button class="fmt-btn fmt-color-btn" data-color="#f0f0f5" title="White" style="color:#f0f0f5">A</button>
-            <button class="fmt-btn fmt-color-btn" data-color="#ef4444" title="Red" style="color:#ef4444">A</button>
-            <button class="fmt-btn fmt-color-btn" data-color="#22c55e" title="Green" style="color:#22c55e">A</button>
-            <button class="fmt-btn fmt-color-btn" data-color="#6c5ce7" title="Purple" style="color:#6c5ce7">A</button>
-            <button class="fmt-btn fmt-color-btn" data-color="#f59e0b" title="Yellow" style="color:#f59e0b">A</button>
-          </div>
         </div>
         <div class="editor-toolbar-right">
+          <button class="doc-action-btn" id="editor-copy-btn" title="Copy to clipboard" style="width:30px;height:30px;flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
           <button class="doc-action-btn" id="editor-comment-history-btn" title="Comment History" style="display:none;width:30px;height:30px;flex-shrink:0">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="9" y1="14" x2="13" y2="14"/></svg>
           </button>
@@ -493,16 +499,37 @@
           <button class="btn btn-primary btn-small" id="editor-save-edit-btn" style="display:none">Save</button>
         </div>
       </div>
+      <!-- Row 2: Formatting toolbar (hidden in danger mode) -->
+      <div class="editor-format-bar" id="formatting-toolbar" style="display:none">
+        <button class="fmt-btn" data-command="bold" title="Bold (Ctrl+B)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg>
+        </button>
+        <button class="fmt-btn" data-command="italic" title="Italic (Ctrl+I)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/></svg>
+        </button>
+        <button class="fmt-btn" data-command="underline" title="Underline (Ctrl+U)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z"/></svg>
+        </button>
+        <div class="fmt-separator"></div>
+        <button class="fmt-btn fmt-color-btn" data-color="#111111" title="Black" style="color:#111111; -webkit-text-stroke: 0.5px #555">A</button>
+        <button class="fmt-btn fmt-color-btn" data-color="#ffffff" title="White" style="color:#ffffff; -webkit-text-stroke: 0.5px #aaa">A</button>
+        <button class="fmt-btn fmt-color-btn" data-color="#ef4444" title="Red" style="color:#ef4444">A</button>
+        <button class="fmt-btn fmt-color-btn" data-color="#22c55e" title="Green" style="color:#22c55e">A</button>
+        <button class="fmt-btn fmt-color-btn" data-color="#6c5ce7" title="Purple" style="color:#6c5ce7">A</button>
+        <button class="fmt-btn fmt-color-btn" data-color="#f59e0b" title="Yellow" style="color:#f59e0b">A</button>
+      </div>
       <div class="danger-progress" id="danger-progress" style="display:none">
         <div class="danger-progress-bar" id="danger-progress-bar"></div>
       </div>
       <div class="screen-vignette" id="screen-vignette"></div>
       <div class="editor-area">
         <div class="editor-textarea" id="editor-textarea" contenteditable="true" data-placeholder="Start writing your thoughts..."></div>
-        <div class="editor-word-count-bar">
-          <span class="editor-word-count" id="editor-word-count">0 words</span>
-        </div>
       </div>
+    </div>
+
+    <!-- GLOBAL STATUS BAR (bottom-left, like Google Docs) -->
+    <div class="status-bar" id="status-bar" style="display:none">
+      <span id="editor-word-count">0 words</span>
     </div>
 
     <!-- TAB WARNING -->
@@ -519,6 +546,7 @@
         <p>Set your timer and choose your mode. Once started, there's no going back.</p>
         <div class="modal-field">
           <label>Session Duration</label>
+          <!-- Normal mode presets -->
           <div class="time-presets" id="time-presets">
             <button class="time-preset" data-minutes="5">5 min</button>
             <button class="time-preset active" data-minutes="15">15 min</button>
@@ -526,6 +554,13 @@
             <button class="time-preset" data-minutes="60">60 min</button>
             <button class="time-preset" data-minutes="0">Unlimited</button>
             <button class="time-preset time-preset-add" id="time-preset-add-btn" title="Custom time">+</button>
+          </div>
+          <!-- Danger mode presets (shown only in dangerous mode) -->
+          <div class="time-presets" id="danger-time-presets" style="display:none">
+            <button class="time-preset" data-minutes="3">3 min</button>
+            <button class="time-preset active" data-minutes="5">5 min</button>
+            <button class="time-preset" data-minutes="10">10 min</button>
+            <button class="time-preset" data-minutes="20">20 min</button>
           </div>
           <div class="time-custom-row" id="time-custom-row" style="display:none">
             <input type="number" id="custom-time-input" min="1" max="1440" placeholder="minutes">
@@ -633,28 +668,29 @@
     </div>
   </div>
 
-  <!-- HISTORY MODAL -->
-  <div class="modal-overlay" id="history-modal">
-    <div class="modal" style="max-width:560px">
-      <h2>&#x1F4CA; Session History</h2>
-      <p>Your writing stats across all sessions.</p>
+  <!-- HISTORY SIDEBAR (right panel) -->
+  <div class="right-sidebar-overlay" id="history-sidebar-overlay"></div>
+  <div class="right-sidebar" id="history-modal">
+    <div class="right-sidebar-header">
+      <h3>&#x1F4CA; Session History</h3>
+      <button class="right-sidebar-close" id="history-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="right-sidebar-body">
       <div id="history-stats" class="history-stats-grid"></div>
-      <div id="history-sessions" style="margin-top:24px;max-height:300px;overflow-y:auto"></div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost btn-full" id="history-close">Close</button>
-      </div>
+      <div id="history-sessions"></div>
     </div>
   </div>
 
-  <!-- COMMENT HISTORY MODAL -->
-  <div class="modal-overlay" id="comment-history-modal">
-    <div class="modal" style="max-width:520px">
-      <h2>&#x1F4AC; Comment History</h2>
-      <p>All resolved comments for this document.</p>
-      <div id="comment-history-list" style="margin-top:20px;max-height:360px;overflow-y:auto"></div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost btn-full" id="comment-history-close">Close</button>
-      </div>
+  <!-- COMMENT HISTORY SIDEBAR (right panel) -->
+  <div class="right-sidebar-overlay" id="comment-history-sidebar-overlay"></div>
+  <div class="right-sidebar" id="comment-history-modal">
+    <div class="right-sidebar-header">
+      <h3>&#x1F4AC; Comment History</h3>
+      <button class="right-sidebar-close" id="comment-history-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="right-sidebar-body">
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">Resolved comments for this document.</p>
+      <div id="comment-history-list"></div>
     </div>
   </div>
 
@@ -664,6 +700,20 @@
       <p class="danger-countdown-label">&#x26A1; Dangerous Mode</p>
       <div class="danger-countdown-num" id="danger-countdown-num">5</div>
       <p class="danger-countdown-sub">Stop typing and your work disappears</p>
+    </div>
+  </div>
+
+  <!-- IN-APP SUCCESS BANNER -->
+  <div class="in-app-banner" id="in-app-banner"></div>
+
+  <!-- IN-APP CONFIRM DIALOG -->
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-dialog">
+      <p class="confirm-message" id="confirm-message"></p>
+      <div class="confirm-actions">
+        <button class="btn btn-ghost btn-small" id="confirm-cancel">Cancel</button>
+        <button class="btn btn-primary btn-small" id="confirm-ok">OK</button>
+      </div>
     </div>
   </div>
 
