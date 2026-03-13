@@ -2941,6 +2941,7 @@ html.light .logo-img-light { display: inline; }
   display: grid;
   grid-template-columns: 1fr 320px;
   gap: 24px;
+  align-items: stretch;
   align-items: start;
 }
 
@@ -2949,8 +2950,17 @@ html.light .logo-img-light { display: inline; }
 }
 
 .dashboard-col-right {
-  position: sticky;
-  top: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-col-right .tree-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0;
 }
 
 /* ===== PROFILE GRID ===== */

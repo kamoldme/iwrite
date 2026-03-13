@@ -477,7 +477,7 @@ const App = {
     }
     // Only show non-failed, non-admin-deactivated docs in main lists
     const visibleDocs = this.documents.filter(d => !d.deletedBySystem && !d.deactivatedByAdmin);
-    this.renderDocumentList('recent-docs', visibleDocs.slice(0, 5));
+    this.renderDocumentList('recent-docs', visibleDocs.slice(0, 3));
   },
 
   async loadDocuments() {
