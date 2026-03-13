@@ -285,40 +285,34 @@ const App = {
     // Editor toolbar: fullscreen toggle
     document.getElementById('editor-fullscreen-btn').addEventListener('click', () => Editor.toggleFullscreen());
 
-    // Editor toolbar: font dropdown
-    const fontBtn = document.getElementById('editor-font-btn');
-    const fontDrop = document.getElementById('editor-font-dropdown');
-    fontBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      fontDrop.style.display = fontDrop.style.display === 'none' ? 'block' : 'none';
-      // Close audio dropdown if open
-      document.getElementById('editor-audio-dropdown').style.display = 'none';
-    });
-    document.querySelectorAll('.font-option').forEach(btn => {
-      btn.addEventListener('click', () => {
-        Editor.setFont(btn.dataset.font);
-        fontDrop.style.display = 'none';
+    // Format bar: font selector
+    const fmtFontSelect = document.getElementById('fmt-font-select');
+    if (fmtFontSelect) {
+      fmtFontSelect.addEventListener('change', () => {
+        Editor.setFont(fmtFontSelect.value);
       });
-    });
+    }
 
-    // Editor toolbar: audio dropdown
+    // Editor toolbar: audio dropdown — stop propagation inside so it stays open
     const audioBtn = document.getElementById('editor-audio-btn');
     const audioDrop = document.getElementById('editor-audio-dropdown');
     audioBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       audioDrop.style.display = audioDrop.style.display === 'none' ? 'block' : 'none';
-      fontDrop.style.display = 'none';
+    });
+    audioDrop.addEventListener('click', (e) => {
+      e.stopPropagation(); // Don't close when clicking inside the dropdown
     });
 
-    // Close dropdowns when clicking elsewhere
+    // Close audio dropdown when clicking elsewhere
     document.addEventListener('click', () => {
-      fontDrop.style.display = 'none';
       audioDrop.style.display = 'none';
     });
 
     // Restore saved font preference
     const savedFont = localStorage.getItem('iwrite_editor_font') || 'sans';
     if (savedFont !== 'sans') Editor.setFont(savedFont);
+    if (fmtFontSelect) fmtFontSelect.value = savedFont;
 
     // Init selection popup + audio
     Editor.initSelectionPopup();
@@ -760,7 +754,7 @@ const App = {
     this.closeSessionModal();
     const topic = document.getElementById('session-topic-input').value.trim();
     const targetWords = parseInt(document.getElementById('session-target-words').value) || 0;
-    document.getElementById('editor-title').value = topic ? topic.substring(0, 60) : 'Untitled';
+    document.getElementById('editor-title').value = 'Untitled';
     Editor.start(this.sessionDuration, this.sessionMode, { topic, targetWords });
   },
 

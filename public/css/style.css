@@ -1748,6 +1748,86 @@ html.light .logo-img-light { display: inline; }
   font-size: 15px;
   line-height: 1.8;
 }
+.editor-textarea.font-georgia {
+  font-family: Georgia, 'Times New Roman', serif;
+}
+.editor-textarea.font-garamond {
+  font-family: 'EB Garamond', Garamond, 'Times New Roman', serif;
+}
+.editor-textarea.font-courier {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+/* ===== FORMAT BAR FONT SELECT ===== */
+.fmt-font-wrap {
+  display: flex;
+  align-items: center;
+}
+.fmt-font-select {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  min-width: 110px;
+}
+.fmt-font-select:focus {
+  border-color: var(--accent);
+}
+
+/* ===== AUDIO TRACK ROWS ===== */
+.audio-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  transition: var(--transition);
+}
+.audio-track:hover { background: var(--hover-bg); }
+.audio-track.active { background: var(--accent-soft); }
+.audio-play-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: var(--hover-bg);
+  color: var(--text-secondary);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+.audio-play-btn:hover { background: var(--accent-soft); color: var(--accent); }
+.audio-track.active .audio-play-btn { background: var(--accent); color: white; }
+.audio-track-name {
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex: 1;
+}
+.audio-track.active .audio-track-name { color: var(--accent); font-weight: 500; }
+.audio-track-vol {
+  width: 60px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ===== BLOCKQUOTE STYLING ===== */
+.editor-textarea blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 8px 0;
+  padding: 4px 16px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
 
 /* ===== BOLD MORE VISIBLE ===== */
 .editor-textarea b,

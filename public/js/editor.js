@@ -804,6 +804,7 @@ const Editor = {
   },
 
   // --- Selection popup ---
+  _selPopupTimer: null,
   initSelectionPopup() {
     const popup = document.getElementById('selection-popup');
     if (!popup) return;
@@ -812,6 +813,7 @@ const Editor = {
     popup.querySelectorAll('.sel-btn').forEach(btn => {
       btn.onmousedown = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         const cmd = btn.dataset.cmd;
         if (cmd === 'createLink') {
           const url = prompt('Enter URL:');
@@ -825,7 +827,7 @@ const Editor = {
       };
     });
 
-    document.addEventListener('selectionchange', () => {
+    const showPopup = () => {
       if (!Editor.active && !Editor.isEditing) return;
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.rangeCount) {
@@ -835,7 +837,6 @@ const Editor = {
       const text = sel.toString().trim();
       if (!text) { popup.style.display = 'none'; return; }
       const range = sel.getRangeAt(0);
-      // Only show if selection is inside the editor textarea
       if (!Editor.textarea.contains(range.commonAncestorContainer)) {
         popup.style.display = 'none';
         return;
@@ -844,26 +845,38 @@ const Editor = {
       popup.style.display = 'flex';
       popup.style.left = Math.max(8, rect.left + rect.width / 2 - popup.offsetWidth / 2) + 'px';
       popup.style.top = (rect.top - popup.offsetHeight - 8) + 'px';
+    };
+
+    // Show popup on mouseup (after selection is final) instead of selectionchange
+    document.addEventListener('mouseup', () => {
+      clearTimeout(Editor._selPopupTimer);
+      Editor._selPopupTimer = setTimeout(showPopup, 50);
     });
 
-    // Hide on mousedown outside popup
+    // Also show on keyboard selection (shift+arrow)
+    document.addEventListener('keyup', (e) => {
+      if (e.shiftKey) {
+        clearTimeout(Editor._selPopupTimer);
+        Editor._selPopupTimer = setTimeout(showPopup, 50);
+      }
+    });
+
+    // Hide when clicking outside the popup and editor
     document.addEventListener('mousedown', (e) => {
-      if (!popup.contains(e.target)) {
-        setTimeout(() => { popup.style.display = 'none'; }, 200);
+      if (!popup.contains(e.target) && e.target !== Editor.textarea && !Editor.textarea.contains(e.target)) {
+        popup.style.display = 'none';
       }
     });
   },
 
   // --- Font switcher ---
+  _fontClasses: ['font-serif', 'font-mono', 'font-georgia', 'font-garamond', 'font-courier'],
   setFont(font) {
     this._currentFont = font;
-    this.textarea.classList.remove('font-serif', 'font-mono');
-    if (font === 'serif') this.textarea.classList.add('font-serif');
-    else if (font === 'mono') this.textarea.classList.add('font-mono');
-    // else sans = default, no extra class
-    document.querySelectorAll('.font-option').forEach(o => {
-      o.classList.toggle('active', o.dataset.font === font);
-    });
+    this._fontClasses.forEach(c => this.textarea.classList.remove(c));
+    if (font !== 'sans') this.textarea.classList.add('font-' + font);
+    const sel = document.getElementById('fmt-font-select');
+    if (sel) sel.value = font;
     localStorage.setItem('iwrite_editor_font', font);
   },
 
@@ -895,39 +908,11 @@ const Editor = {
     hz40: 'https://cdn.freesound.org/previews/178/178660_2394245-lq.mp3',
     rain: 'https://cdn.freesound.org/previews/531/531947_6574547-lq.mp3',
   },
+  _activeAudioKey: null,
 
   playAudio(key) {
-    this.stopAudio();
-    const src = this._audioSources[key];
-    if (!src) return;
-    this._audioElement = new Audio(src);
-    this._audioElement.loop = true;
-    this._audioElement.volume = (document.getElementById('audio-volume')?.value || 50) / 100;
-    this._audioElement.play().catch(() => {});
-    this._audioPlaying = true;
-    this._updateAudioUI(key);
-  },
-
-  playYouTube(url) {
-    this.stopAudio();
-    // Extract video ID
-    let videoId = '';
-    try {
-      const u = new URL(url);
-      if (u.hostname.includes('youtu.be')) videoId = u.pathname.slice(1);
-      else videoId = u.searchParams.get('v') || '';
-    } catch { return; }
-    if (!videoId) return;
-
-    const container = document.getElementById('yt-player-container');
-    container.innerHTML = `<iframe id="yt-iframe" width="1" height="1" src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1" allow="autoplay" frameborder="0"></iframe>`;
-    this._ytPlayer = document.getElementById('yt-iframe');
-    this._audioPlaying = true;
-    this._updateAudioUI('YouTube');
-  },
-
-  pauseAudio() {
-    if (this._audioElement) {
+    // If same track is playing, toggle pause/resume
+    if (this._activeAudioKey === key && this._audioElement) {
       if (this._audioElement.paused) {
         this._audioElement.play().catch(() => {});
         this._audioPlaying = true;
@@ -935,7 +920,38 @@ const Editor = {
         this._audioElement.pause();
         this._audioPlaying = false;
       }
+      this._updateTrackUI();
+      return;
     }
+    this.stopAudio();
+    const src = this._audioSources[key];
+    if (!src) return;
+    const track = document.querySelector(`.audio-track[data-audio="${key}"]`);
+    const vol = track ? track.querySelector('.audio-track-vol').value : 50;
+    this._audioElement = new Audio(src);
+    this._audioElement.loop = true;
+    this._audioElement.volume = vol / 100;
+    this._audioElement.play().catch(() => {});
+    this._audioPlaying = true;
+    this._activeAudioKey = key;
+    this._updateTrackUI();
+  },
+
+  playYouTube(url) {
+    this.stopAudio();
+    let videoId = '';
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtu.be')) videoId = u.pathname.slice(1);
+      else videoId = u.searchParams.get('v') || '';
+    } catch { return; }
+    if (!videoId) return;
+    const container = document.getElementById('yt-player-container');
+    container.innerHTML = `<iframe id="yt-iframe" width="1" height="1" src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1" allow="autoplay" frameborder="0"></iframe>`;
+    this._ytPlayer = document.getElementById('yt-iframe');
+    this._audioPlaying = true;
+    this._activeAudioKey = 'youtube';
+    this._updateTrackUI();
   },
 
   stopAudio() {
@@ -951,38 +967,43 @@ const Editor = {
     const container = document.getElementById('yt-player-container');
     if (container) container.innerHTML = '';
     this._audioPlaying = false;
-    document.querySelectorAll('.audio-option').forEach(o => o.classList.remove('active'));
-    const controls = document.getElementById('audio-controls');
-    if (controls) controls.style.display = 'none';
+    this._activeAudioKey = null;
+    this._updateTrackUI();
   },
 
-  _updateAudioUI(label) {
-    document.querySelectorAll('.audio-option').forEach(o => {
-      o.classList.toggle('active', o.dataset.audio === label);
+  _updateTrackUI() {
+    document.querySelectorAll('.audio-track').forEach(track => {
+      const key = track.dataset.audio;
+      const btn = track.querySelector('.audio-play-btn');
+      if (key === this._activeAudioKey && this._audioPlaying) {
+        track.classList.add('active');
+        btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+      } else if (key === this._activeAudioKey && !this._audioPlaying) {
+        track.classList.add('active');
+        btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>';
+      } else {
+        track.classList.remove('active');
+        btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>';
+      }
     });
-    const controls = document.getElementById('audio-controls');
-    const nowPlaying = document.getElementById('audio-now-playing');
-    if (controls) controls.style.display = 'flex';
-    const names = { lofi1: 'Lofi Chill', lofi2: 'Lofi Study', brown: 'Brown Noise', hz40: '40Hz Gamma', rain: 'Rain' };
-    if (nowPlaying) nowPlaying.textContent = names[label] || label;
   },
 
   initAudio() {
-    document.querySelectorAll('.audio-option').forEach(btn => {
-      btn.addEventListener('click', () => Editor.playAudio(btn.dataset.audio));
+    document.querySelectorAll('.audio-track').forEach(track => {
+      const key = track.dataset.audio;
+      const playBtn = track.querySelector('.audio-play-btn');
+      const volSlider = track.querySelector('.audio-track-vol');
+      playBtn.addEventListener('click', () => Editor.playAudio(key));
+      volSlider.addEventListener('input', () => {
+        if (Editor._activeAudioKey === key && Editor._audioElement) {
+          Editor._audioElement.volume = volSlider.value / 100;
+        }
+      });
     });
     const ytPlayBtn = document.getElementById('audio-yt-play');
     if (ytPlayBtn) ytPlayBtn.addEventListener('click', () => {
       const url = document.getElementById('audio-yt-input').value.trim();
       if (url) Editor.playYouTube(url);
-    });
-    const pauseBtn = document.getElementById('audio-pause-btn');
-    if (pauseBtn) pauseBtn.addEventListener('click', () => Editor.pauseAudio());
-    const stopBtn = document.getElementById('audio-stop-btn');
-    if (stopBtn) stopBtn.addEventListener('click', () => Editor.stopAudio());
-    const volSlider = document.getElementById('audio-volume');
-    if (volSlider) volSlider.addEventListener('input', () => {
-      if (Editor._audioElement) Editor._audioElement.volume = volSlider.value / 100;
     });
   },
 

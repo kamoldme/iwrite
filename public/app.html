@@ -441,12 +441,6 @@
           <span class="editor-mode-badge normal" id="editor-mode-badge">Normal</span>
         </div>
         <div class="editor-toolbar-right">
-          <button class="doc-action-btn" id="editor-font-btn" title="Change font" style="width:30px;height:30px;flex-shrink:0;font-size:13px;font-weight:600">Aa</button>
-          <div class="editor-font-dropdown" id="editor-font-dropdown" style="display:none">
-            <button class="font-option active" data-font="sans" style="font-family:'Inter',sans-serif">Sans Serif</button>
-            <button class="font-option" data-font="serif" style="font-family:'Playfair Display',Georgia,serif">Serif</button>
-            <button class="font-option" data-font="mono" style="font-family:'SF Mono','Menlo',monospace">Monospace</button>
-          </div>
           <button class="doc-action-btn" id="editor-theme-btn" title="Toggle dark/light mode" style="width:30px;height:30px;flex-shrink:0">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
           </button>
@@ -459,11 +453,31 @@
           <div class="editor-audio-dropdown" id="editor-audio-dropdown" style="display:none">
             <div class="audio-section">
               <div class="audio-section-label">Ambient Sounds</div>
-              <button class="audio-option" data-audio="lofi1">Lofi Chill</button>
-              <button class="audio-option" data-audio="lofi2">Lofi Study</button>
-              <button class="audio-option" data-audio="brown">Brown Noise</button>
-              <button class="audio-option" data-audio="hz40">40Hz Gamma</button>
-              <button class="audio-option" data-audio="rain">Rain</button>
+              <div class="audio-track" data-audio="lofi1">
+                <button class="audio-play-btn" title="Play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+                <span class="audio-track-name">Lofi Chill</span>
+                <input type="range" class="audio-track-vol" min="0" max="100" value="50" title="Volume">
+              </div>
+              <div class="audio-track" data-audio="lofi2">
+                <button class="audio-play-btn" title="Play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+                <span class="audio-track-name">Lofi Study</span>
+                <input type="range" class="audio-track-vol" min="0" max="100" value="50" title="Volume">
+              </div>
+              <div class="audio-track" data-audio="brown">
+                <button class="audio-play-btn" title="Play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+                <span class="audio-track-name">Brown Noise</span>
+                <input type="range" class="audio-track-vol" min="0" max="100" value="50" title="Volume">
+              </div>
+              <div class="audio-track" data-audio="hz40">
+                <button class="audio-play-btn" title="Play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+                <span class="audio-track-name">40Hz Gamma</span>
+                <input type="range" class="audio-track-vol" min="0" max="100" value="50" title="Volume">
+              </div>
+              <div class="audio-track" data-audio="rain">
+                <button class="audio-play-btn" title="Play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+                <span class="audio-track-name">Rain</span>
+                <input type="range" class="audio-track-vol" min="0" max="100" value="50" title="Volume">
+              </div>
             </div>
             <div class="audio-separator"></div>
             <div class="audio-section">
@@ -472,17 +486,6 @@
                 <input type="text" id="audio-yt-input" class="audio-yt-input" placeholder="Paste YouTube URL...">
                 <button class="btn btn-primary btn-small" id="audio-yt-play">Play</button>
               </div>
-            </div>
-            <div class="audio-separator"></div>
-            <div class="audio-controls" id="audio-controls" style="display:none">
-              <span class="audio-now-playing" id="audio-now-playing">Playing</span>
-              <button class="audio-ctrl-btn" id="audio-pause-btn" title="Pause/Resume">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-              </button>
-              <button class="audio-ctrl-btn" id="audio-stop-btn" title="Stop">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-              </button>
-              <input type="range" id="audio-volume" class="audio-volume" min="0" max="100" value="50" title="Volume">
             </div>
           </div>
           <button class="doc-action-btn" id="editor-copy-btn" title="Copy to clipboard" style="width:30px;height:30px;flex-shrink:0">
@@ -498,6 +501,18 @@
       </div>
       <!-- Row 2: Formatting toolbar (hidden in danger mode) -->
       <div class="editor-format-bar" id="formatting-toolbar" style="display:none">
+        <!-- Font selector -->
+        <div class="fmt-font-wrap">
+          <select class="fmt-font-select" id="fmt-font-select">
+            <option value="sans">Sans Serif</option>
+            <option value="serif">Serif</option>
+            <option value="mono">Monospace</option>
+            <option value="georgia">Georgia</option>
+            <option value="garamond">Garamond</option>
+            <option value="courier">Courier</option>
+          </select>
+        </div>
+        <div class="fmt-separator"></div>
         <button class="fmt-btn" data-command="bold" title="Bold (Ctrl+B)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg>
         </button>
@@ -532,8 +547,9 @@
     <div class="selection-popup" id="selection-popup" style="display:none">
       <button class="sel-btn" data-cmd="bold" title="Bold"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg></button>
       <button class="sel-btn" data-cmd="italic" title="Italic"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/></svg></button>
+      <button class="sel-btn" data-cmd="underline" title="Underline"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z"/></svg></button>
       <button class="sel-btn" data-cmd="createLink" title="Add link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></button>
-      <button class="sel-btn" data-cmd="formatBlock" data-value="blockquote" title="Quote"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg></button>
+      <button class="sel-btn" data-cmd="formatBlock" data-value="BLOCKQUOTE" title="Quote"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg></button>
     </div>
 
     <!-- GLOBAL STATUS BAR (bottom-left, like Google Docs) -->
