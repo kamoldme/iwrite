@@ -45,15 +45,21 @@ const App = {
     Monsters.init();
   },
 
-  showApp() {
+  async showApp() {
     Monsters.destroy();
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'block';
     this.updateUserUI();
     const savedTheme = localStorage.getItem('iwrite_theme') || 'dark';
     if (savedTheme === 'light') document.documentElement.classList.add('light');
-    const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
-    this.switchView(savedView);
+
+    // Check if there's a session to resume
+    const sessionResumed = await Editor.resumeSession();
+    if (!sessionResumed) {
+      const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
+      this.switchView(savedView);
+    }
+
     this.bindAppEvents();
     this.startNotifPolling();
   },

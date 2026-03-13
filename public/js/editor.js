@@ -7,6 +7,7 @@ const Editor = {
   autoSaveInterval: null,
   timerInterval: null,
   dangerInterval: null,
+  sessionSaveInterval: null,
   lastKeystroke: null,
   dangerThreshold: 6000,
   tabLeftTime: null,
@@ -21,6 +22,7 @@ const Editor = {
   _editChangeHandler: null,
   _fullscreenActive: false,   // tracks whether we requested fullscreen
   _blurCooldown: false,       // prevents blur firing on harmless clicks
+  tabCountdown: null,         // timeout for leaving the tab
 
   get textarea() { return document.getElementById('editor-textarea'); },
   get container() { return document.getElementById('editor-container'); },
@@ -33,6 +35,37 @@ const Editor = {
   get vignette() { return document.getElementById('screen-vignette'); },
   get tabWarning() { return document.getElementById('tab-warning'); },
   get tabWarningTimer() { return document.getElementById('tab-warning-timer'); },
+
+  _saveSessionState() {
+    if (!this.active || !this.documentId) return;
+    try {
+      sessionStorage.setItem('editor_session', JSON.stringify({
+        active: true,
+        documentId: this.documentId,
+        startTime: this.startTime,
+        duration: this.duration,
+        mode: this.mode,
+        lastKeystroke: this.lastKeystroke,
+        title: this.titleInput.value,
+        content: this.textarea.innerHTML
+      }));
+    } catch {}
+  },
+
+  _clearSessionState() {
+    try {
+      sessionStorage.removeItem('editor_session');
+    } catch {}
+  },
+
+  _getSessionState() {
+    try {
+      const data = sessionStorage.getItem('editor_session');
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  },
 
   async start(duration, mode) {
     this.duration = duration;
@@ -96,7 +129,11 @@ const Editor = {
     if (mode !== 'dangerous') this.bindFormatting();
     this.updateWordCount();
 
-    // Request fullscreen automatically
+    // Save session state periodically so it survives page refresh
+    this.sessionSaveInterval = setInterval(() => this._saveSessionState(), 5000);
+    this._saveSessionState();
+
+    // Request fullscreen automatically for both normal and dangerous mode
     this._fullscreenActive = false;
     this._blurCooldown = false;
     try {
@@ -188,11 +225,14 @@ const Editor = {
     if (!Editor.active || Editor.abandoned) return;
     const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
     if (!inFS && Editor._fullscreenActive) {
-      // User left fullscreen — treat exactly like leaving the tab
-      Editor.onTabLeave();
+      // User left fullscreen — this is OK as long as they're still on the tab
+      Editor._fullscreenActive = false;
+      // If tab is still visible, don't fail
+      if (!document.hidden) {
+        return;
+      }
     } else if (inFS) {
       Editor._fullscreenActive = true;
-      Editor.onTabReturn();
     }
   },
 
@@ -396,7 +436,91 @@ const Editor = {
         title: this.titleInput.value,
         content: this.textarea.innerHTML
       });
+      // Also save session state on each auto-save
+      this._saveSessionState();
     } catch {}
+  },
+
+  async resumeSession() {
+    const state = this._getSessionState();
+    if (!state || !state.active) return false;
+
+    try {
+      // Try to update the document to verify it still exists
+      await API.updateDocument(state.documentId, {
+        title: state.title,
+        content: state.content
+      });
+
+      // Restore session state
+      this.documentId = state.documentId;
+      this.duration = state.duration;
+      this.mode = state.mode;
+      this.startTime = state.startTime;
+      this.lastKeystroke = state.lastKeystroke;
+      this.abandoned = false;
+      this.lastWordMilestone = 0;
+      this.isEditing = false;
+      this.isDirty = false;
+
+      // Show editor
+      this.container.classList.add('active');
+      this.titleInput.value = state.title;
+      this.textarea.innerHTML = state.content;
+      this.textarea.contentEditable = 'true';
+      this.textarea.focus();
+      this.active = true;
+
+      // Show correct buttons and badges
+      document.getElementById('editor-save-btn').style.display = this.mode === 'dangerous' ? 'none' : 'inline-flex';
+      document.getElementById('editor-edit-btn').style.display = 'none';
+      document.getElementById('editor-save-edit-btn').style.display = 'none';
+      document.getElementById('editor-comment-history-btn').style.display = 'none';
+      document.getElementById('formatting-toolbar').style.display = this.mode === 'dangerous' ? 'none' : 'flex';
+      document.getElementById('status-bar').style.display = 'flex';
+      this.titleInput.readOnly = false;
+
+      this.modeBadge.textContent = this.mode === 'dangerous' ? 'Dangerous' : 'Normal';
+      this.modeBadge.className = `editor-mode-badge ${this.mode}`;
+
+      // Setup mode-specific UI
+      if (this.mode === 'dangerous') {
+        this.container.classList.add('dangerous-active');
+        this.dangerProgress.style.display = 'block';
+        this.startDangerMode();
+      }
+
+      // Rebind event listeners
+      this.timerInterval = setInterval(() => this.updateTimer(), 100);
+      this.autoSaveInterval = setInterval(() => this.autoSave(), 10000);
+      this.sessionSaveInterval = setInterval(() => this._saveSessionState(), 5000);
+
+      this.textarea.addEventListener('input', this.onInput);
+      this.textarea.addEventListener('keydown', this.onKeydown);
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+      document.addEventListener('fullscreenchange', this.onFullscreenChange);
+      window.addEventListener('blur', this.onWindowBlur);
+      window.addEventListener('focus', this.onWindowFocus);
+      if (this.mode !== 'dangerous') this.bindFormatting();
+      this.updateWordCount();
+
+      this._fullscreenActive = false;
+      this._blurCooldown = false;
+
+      // Request fullscreen again (user was in fullscreen before refresh)
+      try {
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (req) {
+          req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
+        }
+      } catch(e) {}
+
+      return true;
+    } catch {
+      this._clearSessionState();
+      return false;
+    }
   },
 
   async completeSession() {
@@ -569,6 +693,8 @@ const Editor = {
     clearInterval(this.autoSaveInterval);
     clearInterval(this.dangerInterval);
     clearInterval(this.tabCountdown);
+    clearInterval(this.sessionSaveInterval);
+    this._clearSessionState();
     this.container.classList.remove('dangerous-active');
     this.dangerProgress.style.display = 'none';
     this.vignette.classList.remove('active');
