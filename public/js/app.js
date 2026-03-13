@@ -1222,60 +1222,68 @@ const App = {
     // Exclude the item itself and its descendants (if folder)
     const excludeIds = itemType === 'folder' ? this.getDescendantFolderIds(itemId) : new Set();
 
-    let pickerCurrent = null; // start at root
-
-    const renderPicker = () => {
-      const childFolders = this.folders.filter(f =>
-        (f.parentFolder || null) === pickerCurrent && !excludeIds.has(f.id)
+    // Build flat indented tree
+    const buildTree = (parentId, depth) => {
+      const children = this.folders.filter(f =>
+        (f.parentFolder || null) === parentId && !excludeIds.has(f.id)
       );
-
-      let html = `<div class="finder-picker">`;
-      html += `<div class="finder-header">`;
-      if (pickerCurrent) {
-        const parentFolder = this.folders.find(f => f.id === pickerCurrent);
-        html += `<button class="finder-back" data-picker-back="${parentFolder?.parentFolder || ''}">← Back</button>`;
-        html += `<span class="finder-title">${this.escapeHtml(parentFolder?.name || '')}</span>`;
-      } else {
-        html += `<span class="finder-title">All Sessions (Root)</span>`;
-      }
-      html += `</div>`;
-      html += `<div class="finder-list">`;
-      if (childFolders.length === 0) {
-        html += `<div class="finder-empty">No subfolders here</div>`;
-      }
-      childFolders.forEach(f => {
-        const hasChildren = this.folders.some(c => c.parentFolder === f.id && !excludeIds.has(c.id));
-        html += `<div class="finder-row" data-picker-open="${f.id}">
-          <span class="finder-row-icon">📁</span>
-          <span class="finder-row-name">${this.escapeHtml(f.name)}</span>
-          ${hasChildren ? '<span class="finder-row-arrow">›</span>' : ''}
-        </div>`;
+      let rows = [];
+      children.forEach(f => {
+        rows.push({ id: f.id, name: f.name, depth });
+        rows = rows.concat(buildTree(f.id, depth + 1));
       });
-      html += `</div></div>`;
-
-      msgEl.innerHTML = `<span style="font-weight:600">Move to:</span>${html}`;
-
-      // Bind navigation
-      msgEl.querySelectorAll('[data-picker-open]').forEach(row => {
-        row.ondblclick = () => {
-          pickerCurrent = row.dataset.pickerOpen;
-          renderPicker();
-        };
-        row.onclick = () => {
-          msgEl.querySelectorAll('.finder-row').forEach(r => r.classList.remove('selected'));
-          row.classList.add('selected');
-        };
-      });
-      const backBtn = msgEl.querySelector('[data-picker-back]');
-      if (backBtn) {
-        backBtn.onclick = () => {
-          pickerCurrent = backBtn.dataset.pickerBack || null;
-          renderPicker();
-        };
-      }
+      return rows;
     };
 
-    renderPicker();
+    const treeRows = buildTree(null, 0);
+
+    // Determine where the item currently lives
+    let currentFolderId = null;
+    if (itemType === 'doc') {
+      const doc = this.documents.find(d => d.id === itemId);
+      currentFolderId = doc?.folder || null;
+    } else {
+      const folder = this.folders.find(f => f.id === itemId);
+      currentFolderId = folder?.parentFolder || null;
+    }
+    const currentFolderName = currentFolderId
+      ? (this.folders.find(f => f.id === currentFolderId)?.name || 'Unknown')
+      : 'All Sessions (Root)';
+    const isRootCurrent = !currentFolderId;
+
+    let html = `<div class="finder-picker">`;
+    html += `<div class="finder-current-loc">Currently in: <strong>${this.escapeHtml(currentFolderName)}</strong></div>`;
+    html += `<div class="finder-list">`;
+    // Root option
+    html += `<div class="finder-row${isRootCurrent ? ' selected current' : ''}" data-picker-id="">
+      <span class="finder-row-icon">📂</span>
+      <span class="finder-row-name">All Sessions (Root)</span>
+      ${isRootCurrent ? '<span class="finder-row-current">Current</span>' : ''}
+    </div>`;
+    treeRows.forEach(r => {
+      const pad = 12 + r.depth * 16;
+      const isCurrent = r.id === currentFolderId;
+      html += `<div class="finder-row${isCurrent ? ' selected current' : ''}" data-picker-id="${r.id}" style="padding-left:${pad}px">
+        <span class="finder-row-icon">📁</span>
+        <span class="finder-row-name">${this.escapeHtml(r.name)}</span>
+        ${isCurrent ? '<span class="finder-row-current">Current</span>' : ''}
+      </div>`;
+    });
+    if (treeRows.length === 0) {
+      html += `<div class="finder-empty">No folders yet</div>`;
+    }
+    html += `</div></div>`;
+
+    msgEl.innerHTML = `<span style="font-weight:600">Move to:</span>${html}`;
+
+    // Bind selection
+    msgEl.querySelectorAll('.finder-row[data-picker-id]').forEach(row => {
+      row.onclick = () => {
+        msgEl.querySelectorAll('.finder-row').forEach(r => r.classList.remove('selected'));
+        row.classList.add('selected');
+      };
+    });
+
     okBtn.textContent = 'Move Here';
     overlay.classList.add('active');
 
@@ -1285,9 +1293,8 @@ const App = {
       okBtn.onclick = async () => {
         overlay.classList.remove('active');
         cleanup();
-        // Check if a specific subfolder is selected
         const selected = msgEl.querySelector('.finder-row.selected');
-        const target = selected ? selected.dataset.pickerOpen : pickerCurrent;
+        const target = selected ? (selected.dataset.pickerId || null) : null;
         try {
           if (itemType === 'folder') {
             await API.moveFolderTo(itemId, target);
@@ -1583,15 +1590,17 @@ const App = {
         return;
       }
       list.innerHTML = tickets.map(t => `
-        <div class="doc-card" style="margin-bottom:12px;flex-direction:column;text-align:center;align-items:center;padding:20px 24px">
-          <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:8px">
-            <span class="badge badge-${t.type === 'bug' ? 'deleted' : t.type === 'suggestion' ? 'premium' : 'active'}" style="font-size:10px">${t.type}</span>
-            <strong style="font-size:14px">${this._esc(t.subject)}</strong>
-            <span class="badge badge-${t.status === 'open' ? 'active' : t.status === 'closed' ? 'deleted' : 'premium'}" style="font-size:10px">${t.status}</span>
+        <div class="doc-card support-ticket">
+          <div class="support-ticket-main">
+            <div class="support-ticket-header">
+              <span class="badge badge-${t.type === 'bug' ? 'deleted' : t.type === 'suggestion' ? 'premium' : 'active'}">${t.type}</span>
+              <strong class="support-ticket-subject">${this._esc(t.subject)}</strong>
+              <span class="badge badge-${t.status === 'open' ? 'active' : t.status === 'closed' ? 'deleted' : 'premium'}">${t.status}</span>
+            </div>
+            <p class="support-ticket-message">${this._esc(t.message)}</p>
+            ${t.adminReply ? `<div class="support-ticket-reply"><strong>Admin reply:</strong> ${this._esc(t.adminReply)}</div>` : ''}
           </div>
-          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">${this._esc(t.message)}</p>
-          ${t.adminReply ? `<div style="margin-top:8px;padding:8px 12px;background:var(--accent-soft);border-radius:var(--radius-sm);font-size:13px;text-align:center"><strong>Admin reply:</strong> ${this._esc(t.adminReply)}</div>` : ''}
-          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${new Date(t.createdAt).toLocaleDateString()}</div>
+          <div class="support-ticket-date">${new Date(t.createdAt).toLocaleDateString()}</div>
         </div>
       `).join('');
     } catch {

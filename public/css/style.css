@@ -2523,7 +2523,8 @@ a {
 
 /* ===== LEADERBOARD ===== */
 .leaderboard-container {
-  max-width: 900px;
+  width: 100%;
+  max-width: none;
 }
 
 .leaderboard-podium {
@@ -2533,6 +2534,7 @@ a {
   gap: 16px;
   margin-bottom: 40px;
   padding: 20px;
+  width: 100%;
 }
 
 .podium-slot {
@@ -2655,6 +2657,47 @@ a {
 
 .leaderboard-me td {
   background: rgba(108,92,231,0.08) !important;
+}
+
+/* ===== SUPPORT TICKETS ===== */
+.support-ticket {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+.support-ticket-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.support-ticket-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.support-ticket-subject {
+  font-size: 14px;
+}
+.support-ticket-message {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.support-ticket-reply {
+  padding: 8px 12px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+.support-ticket-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .lb-rank {
@@ -3988,14 +4031,24 @@ a {
   font-weight: 600;
   color: var(--text-primary);
 }
+.finder-current-loc {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+.finder-current-loc strong {
+  color: var(--text-secondary);
+}
 .finder-list {
-  max-height: 220px;
+  max-height: 260px;
   overflow-y: auto;
 }
 .finder-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 9px 14px;
   cursor: pointer;
   transition: var(--transition);
@@ -4021,6 +4074,17 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.finder-row-current {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  flex-shrink: 0;
 }
 .finder-row-arrow {
   color: var(--text-muted);
