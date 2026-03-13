@@ -17,7 +17,7 @@ const App = {
     while (totalWords >= wordsUsed + threshold) {
       wordsUsed += threshold;
       level++;
-      threshold = Math.round(threshold * 1.4); // 40% harder each level
+      threshold = Math.round(threshold * 1.25); // 25% harder each level
     }
     return { level, xpInLevel: totalWords - wordsUsed, xpForNextLevel: threshold };
   },
@@ -585,29 +585,19 @@ const App = {
             ${doc.xpEarned ? `<span class="xp-gained">+${doc.xpEarned} XP</span>` : ''}
           </div>
         </div>
-        <div class="doc-card-actions">
-          ${isFailed ? '' : `
-          <button class="doc-action-btn" data-action="move" data-doc-id="${doc.id}" title="Move to folder">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-          </button>
-          <button class="doc-action-btn" data-action="share" data-doc-id="${doc.id}" title="Share">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-          </button>`}
-          <button class="doc-action-btn delete" data-action="delete" data-doc-id="${doc.id}" title="Delete">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-          </button>
-        </div>
+        <button class="doc-card-menu-btn" data-doc-id="${doc.id}" title="Options">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
       </div>`;
     }).join('');
 
     container.onclick = (e) => {
-      const actionBtn = e.target.closest('.doc-action-btn');
-      if (actionBtn) {
+      const menuBtn = e.target.closest('.doc-card-menu-btn');
+      if (menuBtn) {
         e.stopPropagation();
-        const docId = actionBtn.dataset.docId;
-        if (actionBtn.dataset.action === 'share') this.shareDoc(docId);
-        else if (actionBtn.dataset.action === 'move') this.moveDocToFolder(docId);
-        else if (actionBtn.dataset.action === 'delete') this.deleteDoc(docId);
+        const docId = menuBtn.dataset.docId;
+        const doc = docs.find(d => d.id === docId);
+        this.showDocMenu(menuBtn, doc);
         return;
       }
       const card = e.target.closest('.doc-card');
@@ -1108,6 +1098,35 @@ const App = {
     };
     collect(folderId);
     return ids;
+  },
+
+  showDocMenu(anchorEl, doc) {
+    document.querySelectorAll('.folder-context-menu').forEach(m => m.remove());
+
+    const isFailed = doc.deletedBySystem;
+    const menu = document.createElement('div');
+    menu.className = 'folder-context-menu';
+    menu.innerHTML = `
+      ${isFailed ? '' : `<button data-action="move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Move to folder</button>`}
+      ${isFailed ? '' : `<button data-action="share"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Share</button>`}
+      <button data-action="delete" style="color:var(--danger)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg> Delete</button>
+    `;
+
+    const rect = anchorEl.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.top = `${rect.bottom + 4}px`;
+    menu.style.right = `${window.innerWidth - rect.right}px`;
+    menu.style.left = 'auto';
+    document.body.appendChild(menu);
+
+    const close = () => { menu.remove(); document.removeEventListener('click', close); };
+    setTimeout(() => document.addEventListener('click', close), 0);
+
+    if (!isFailed) {
+      menu.querySelector('[data-action="move"]').onclick = (e) => { e.stopPropagation(); close(); this.moveDocToFolder(doc.id); };
+      menu.querySelector('[data-action="share"]').onclick = (e) => { e.stopPropagation(); close(); this.shareDoc(doc.id); };
+    }
+    menu.querySelector('[data-action="delete"]').onclick = (e) => { e.stopPropagation(); close(); this.deleteDoc(doc.id); };
   },
 
   showFolderMenu(folderId, anchorEl) {

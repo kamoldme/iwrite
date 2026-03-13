@@ -3928,6 +3928,31 @@ a {
 .folder-context-menu button:hover {
   background: var(--hover-bg);
 }
+.folder-context-menu button svg {
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+
+/* Document card three-dots menu */
+.doc-card-menu-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: var(--transition);
+}
+.doc-card-menu-btn:hover {
+  color: var(--text-primary);
+  background: var(--hover-bg);
+}
 
 /* Finder-style folder picker */
 .finder-picker {

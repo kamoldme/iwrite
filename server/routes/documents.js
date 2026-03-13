@@ -11,7 +11,7 @@ function calcLevel(totalWords) {
   while (totalWords >= wordsUsed + threshold) {
     wordsUsed += threshold;
     level++;
-    threshold = Math.round(threshold * 1.4);
+    threshold = Math.round(threshold * 1.25);
   }
   return level;
 }
