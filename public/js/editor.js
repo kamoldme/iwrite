@@ -576,6 +576,19 @@ const Editor = {
 
     const wordCount = this.getWordCount();
     const duration = Math.floor((Date.now() - this.startTime) / 1000);
+
+    // If no words were written, silently discard — no XP, no streak, no stats
+    if (wordCount === 0) {
+      if (this.documentId) {
+        try { await API.abandonDocument(this.documentId, 'empty_session'); } catch {}
+      }
+      document.getElementById('status-bar').style.display = 'none';
+      this.container.classList.remove('active');
+      App.toast('Session discarded — no words written', 'info');
+      try { await App.loadDocuments(); } catch {}
+      return;
+    }
+
     const baseXP = Math.floor(wordCount * 0.5);
     const timeBonus = Math.floor(duration / 60) * 2;
     const modeBonus = this.mode === 'dangerous' ? Math.floor(baseXP * 0.5) : 0;

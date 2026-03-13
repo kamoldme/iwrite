@@ -161,6 +161,12 @@ router.post('/:id/complete', (req, res) => {
   const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
+  // Don't count empty sessions — no XP, no streak, no stats
+  if (!wordCount || wordCount <= 0) {
+    const { password: _, ...safeUser } = findOne('users.json', u => u.id === req.user.id);
+    return res.json({ document: doc, user: safeUser });
+  }
+
   updateOne('documents.json', d => d.id === req.params.id, {
     wordCount: wordCount || doc.wordCount,
     duration: duration || 0,
