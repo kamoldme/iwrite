@@ -45,7 +45,7 @@ const App = {
     Monsters.init();
   },
 
-  async showApp() {
+  showApp() {
     Monsters.destroy();
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'block';
@@ -53,12 +53,16 @@ const App = {
     const savedTheme = localStorage.getItem('iwrite_theme') || 'dark';
     if (savedTheme === 'light') document.documentElement.classList.add('light');
 
-    // Check if there's a session to resume
-    const sessionResumed = await Editor.resumeSession();
-    if (!sessionResumed) {
+    // Try to resume session in background (non-blocking)
+    Editor.resumeSession().then(sessionResumed => {
+      if (!sessionResumed) {
+        const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
+        this.switchView(savedView);
+      }
+    }).catch(() => {
       const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
       this.switchView(savedView);
-    }
+    });
 
     this.bindAppEvents();
     this.startNotifPolling();
