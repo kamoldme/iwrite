@@ -24,7 +24,30 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/share', require('./routes/share'));
 app.use('/api/support', require('./routes/support'));
 
-const { findMany } = require('./utils/storage');
+const { findOne, findMany, insertOne } = require('./utils/storage');
+const bcrypt = require('bcryptjs');
+const { v4: uuid } = require('uuid');
+
+// Seed admin account
+(async () => {
+  const admin = findOne('users.json', u => u.email === 'admin@iwrite.app');
+  if (!admin) {
+    const hash = await bcrypt.hash('Admin1234', 12);
+    insertOne('users.json', {
+      id: uuid(),
+      name: 'Admin',
+      email: 'admin@iwrite.app',
+      password: hash,
+      role: 'admin',
+      plan: 'free',
+      xp: 0, level: 0, streak: 0, longestStreak: 0,
+      lastWritingDate: null, treeStage: 0, totalWords: 0, totalSessions: 0,
+      achievements: [], friends: [], friendRequests: [], sentRequests: [], sharedTokens: [],
+      createdAt: new Date().toISOString()
+    });
+    console.log('Admin account seeded');
+  }
+})();
 app.get('/api/stats/public', (req, res) => {
   const users = findMany('users.json');
   const docs = findMany('documents.json');
