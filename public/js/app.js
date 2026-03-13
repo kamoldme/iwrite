@@ -172,6 +172,10 @@ const App = {
     const supportBtn = document.getElementById('support-submit-btn');
     if (supportBtn) supportBtn.addEventListener('click', () => this.submitSupportTicket());
 
+    // Help popup close
+    document.getElementById('help-popup-close').addEventListener('click', () => this.closeHelpPopup());
+    document.getElementById('help-popup-overlay').addEventListener('click', () => this.closeHelpPopup());
+
     document.getElementById('new-doc-btn').addEventListener('click', () => this.openSessionModal());
     document.getElementById('new-doc-btn-2').addEventListener('click', () => this.openSessionModal());
     document.getElementById('new-doc-btn-3').addEventListener('click', () => this.openSessionModal());
@@ -381,8 +385,8 @@ const App = {
     } catch {
       this.documents = [];
     }
-    // Only show non-failed docs in main lists
-    const visibleDocs = this.documents.filter(d => !d.deletedBySystem);
+    // Only show non-failed, non-admin-deactivated docs in main lists
+    const visibleDocs = this.documents.filter(d => !d.deletedBySystem && !d.deactivatedByAdmin);
     this.renderDocumentList('recent-docs', visibleDocs.slice(0, 5));
   },
 
@@ -398,8 +402,8 @@ const App = {
       this.folders = [];
     }
 
-    // Only show non-failed docs in main list; failed ones appear in session history
-    const visibleDocs = this.documents.filter(d => !d.deletedBySystem);
+    // Only show non-failed, non-admin-deactivated docs in main list
+    const visibleDocs = this.documents.filter(d => !d.deletedBySystem && !d.deactivatedByAdmin);
 
     // Render breadcrumb
     const bc = document.getElementById('folder-breadcrumb');
@@ -493,10 +497,20 @@ const App = {
   renderDocumentList(containerId, docs) {
     const container = document.getElementById(containerId);
     if (docs.length === 0) {
+      // Don't show "No documents yet" on the Sessions view if folders exist at root level
+      const hasFolders = !this.currentFolder && this.folders && this.folders.length > 0;
+      if (hasFolders && containerId === 'all-docs') {
+        container.innerHTML = '';
+        return;
+      }
+      // Inside a folder, say "No documents in this folder"
+      const emptyMsg = this.currentFolder
+        ? { title: 'No documents in this folder', sub: 'Move documents here or start a new session.' }
+        : { title: 'No documents yet', sub: 'Start a new writing session to create your first document.' };
       container.innerHTML = `
         <div class="empty-state">
-          <h3>No documents yet</h3>
-          <p>Start a new writing session to create your first document.</p>
+          <h3>${emptyMsg.title}</h3>
+          <p>${emptyMsg.sub}</p>
           <button class="btn btn-primary btn-small" onclick="App.openSessionModal()">New Session</button>
         </div>`;
       return;
@@ -1060,14 +1074,14 @@ const App = {
   },
 
   openHistoryModal() {
-    // Include both completed AND failed/abandoned sessions
-    const completed = this.documents.filter(d => !d.deleted && d.duration > 0);
-    const failed = this.documents.filter(d => d.deleted && d.deletedBySystem);
+    // Include completed, failed/abandoned, AND admin-deactivated sessions
+    const completed = this.documents.filter(d => !d.deleted && !d.deactivatedByAdmin && d.duration > 0);
+    const failed = this.documents.filter(d => d.deleted && d.deletedBySystem && !d.deactivatedByAdmin);
+    const adminDeactivated = this.documents.filter(d => d.deactivatedByAdmin);
 
     const totalWords = completed.reduce((s, d) => s + (d.wordCount || 0), 0);
     const totalSessions = completed.length;
     const totalMinutes = Math.round(completed.reduce((s, d) => s + (d.duration || 0), 0) / 60);
-    const dangerousSessions = completed.filter(d => d.mode === 'dangerous').length;
     const failedCount = failed.length;
 
     document.getElementById('history-stats').innerHTML = `
@@ -1078,13 +1092,16 @@ const App = {
 
     // Merge and sort all sessions by date
     const allSessions = [
-      ...completed.slice(0, 25).map(d => ({ ...d, _failed: false })),
-      ...failed.slice(0, 10).map(d => ({ ...d, _failed: true }))
+      ...completed.slice(0, 25).map(d => ({ ...d, _failed: false, _adminDeactivated: false })),
+      ...failed.slice(0, 10).map(d => ({ ...d, _failed: true, _adminDeactivated: false })),
+      ...adminDeactivated.slice(0, 10).map(d => ({ ...d, _failed: false, _adminDeactivated: true }))
     ].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
     document.getElementById('history-sessions').innerHTML = allSessions.length === 0
       ? '<p style="text-align:center;color:var(--text-muted);padding:20px">No sessions yet</p>'
       : allSessions.map(d => {
+          const adminTag = d._adminDeactivated
+            ? '<span class="session-admin-tag">Deactivated by Admin</span>' : '';
           const failReason = d.failReason === 'typing_stopped'
             ? '<span class="session-danger-tag">Stopped Typing</span>'
             : d.failReason === 'tab_left'
@@ -1095,13 +1112,18 @@ const App = {
           const modeTag = d.mode === 'dangerous'
             ? '<span class="session-danger-tag" style="background:rgba(239,68,68,0.08)">⚡ Danger</span>' : '';
 
-          return `<div class="session-entry${d._failed ? ' failed-entry' : ''}">
+          const statusTag = d._adminDeactivated ? adminTag : d._failed ? failReason : modeTag;
+
+          return `<div class="session-entry${d._failed ? ' failed-entry' : ''}${d._adminDeactivated ? ' admin-deactivated-entry' : ''}">
             <div>
-              <div style="font-weight:600;color:var(--text-primary);font-size:13px">${this.escapeHtml(d.title)}${d._failed ? failReason : modeTag}</div>
-              <div style="color:var(--text-muted);font-size:11px;margin-top:3px">${this.formatDate(d.updatedAt)}${d._failed && !failReason ? '&nbsp;· Failed' : ''}</div>
+              <div style="font-weight:600;color:var(--text-primary);font-size:13px">${this.escapeHtml(d.title)}${statusTag}</div>
+              <div style="color:var(--text-muted);font-size:11px;margin-top:3px">${this.formatDate(d.updatedAt)}${d._failed && !failReason ? '&nbsp;· Failed' : ''}${d._adminDeactivated ? '&nbsp;· Admin action' : ''}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">
-              ${d._failed
+              ${d._adminDeactivated
+                ? `<div style="font-size:12px;color:var(--warning)">${(d.wordCount || 0)} words</div>
+                   <div style="font-size:11px;color:var(--text-muted)">Deactivated</div>`
+                : d._failed
                 ? `<div style="font-size:12px;color:var(--danger)">${(d.wordCount || 0)} words lost</div>`
                 : `<div style="font-weight:600;font-size:13px">${(d.wordCount || 0).toLocaleString()} words</div>
                    <div style="color:var(--xp-color);font-size:11px">+${d.xpEarned || 0} XP</div>`}
@@ -1242,16 +1264,14 @@ const App = {
         return;
       }
       list.innerHTML = tickets.map(t => `
-        <div class="doc-card" style="margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-            <div>
-              <span class="badge badge-${t.type === 'bug' ? 'deleted' : t.type === 'suggestion' ? 'premium' : 'active'}" style="font-size:10px;margin-right:6px">${t.type}</span>
-              <strong style="font-size:14px">${this._esc(t.subject)}</strong>
-            </div>
+        <div class="doc-card" style="margin-bottom:12px;flex-direction:column;text-align:center;align-items:center;padding:20px 24px">
+          <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:8px">
+            <span class="badge badge-${t.type === 'bug' ? 'deleted' : t.type === 'suggestion' ? 'premium' : 'active'}" style="font-size:10px">${t.type}</span>
+            <strong style="font-size:14px">${this._esc(t.subject)}</strong>
             <span class="badge badge-${t.status === 'open' ? 'active' : t.status === 'closed' ? 'deleted' : 'premium'}" style="font-size:10px">${t.status}</span>
           </div>
           <p style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">${this._esc(t.message)}</p>
-          ${t.adminReply ? `<div style="margin-top:8px;padding:8px 12px;background:var(--accent-soft);border-radius:var(--radius-sm);font-size:13px"><strong>Admin reply:</strong> ${this._esc(t.adminReply)}</div>` : ''}
+          ${t.adminReply ? `<div style="margin-top:8px;padding:8px 12px;background:var(--accent-soft);border-radius:var(--radius-sm);font-size:13px;text-align:center"><strong>Admin reply:</strong> ${this._esc(t.adminReply)}</div>` : ''}
           <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${new Date(t.createdAt).toLocaleDateString()}</div>
         </div>
       `).join('');
@@ -1283,6 +1303,67 @@ const App = {
     const d = document.createElement('div');
     d.textContent = str || '';
     return d.innerHTML;
+  },
+
+  // ===== HELP POPUP =====
+  _helpTopics: {
+    'how-it-works': {
+      title: 'How It Works',
+      html: `<p>iWrite is a distraction-free writing tool built on one rule: <strong>write it or lose it</strong>.</p>
+        <ol><li>Set a timer and choose a mode.</li><li>The editor opens — tab switching is locked.</li><li>Leave the tab and a 10-second countdown starts. Don't come back in time and your writing is deleted forever.</li><li>Complete the session to save your document and earn XP.</li></ol>`
+    },
+    'writing-modes': {
+      title: 'Writing Modes',
+      html: `<p>Choose your level of risk before each session.</p>
+        <p><strong>Normal</strong> — Tab-lock only. Leave the tab and your writing gets a 10-second grace period. Come back before it runs out.</p>
+        <p><strong>Dangerous</strong> — Stop typing for <strong>5 seconds</strong> and the session fails automatically. Your writing is deleted. No exceptions.</p>`
+    },
+    'xp-levels': {
+      title: 'XP & Levels',
+      html: `<p>Every completed session earns you XP based on your output:</p>
+        <ul><li><strong>Base XP</strong> — 0.5 XP per word written</li><li><strong>Time bonus</strong> — 2 XP per minute of writing</li><li><strong>Dangerous bonus</strong> — +50% of base XP for completing Dangerous mode</li></ul>
+        <p>You <strong>level up at increasing XP thresholds</strong> (100, 115, 133, ...). There's no level cap — keep writing.</p>`
+    },
+    'streaks': {
+      title: 'Streaks',
+      html: `<p>Write at least one session every day to maintain your streak.</p>
+        <ul><li>Miss a day and your streak resets to 0.</li><li>Your longest streak is always saved on your profile.</li><li>Streak milestones unlock achievements.</li></ul>`
+    },
+    'tree': {
+      title: 'Your Writing Tree',
+      html: `<p>Your tree is a visual reflection of your consistency. It grows one stage each day you complete a session.</p>
+        <ul><li>12 stages: Seed, Sprout, Seedling, Sapling, Young Tree, Growing Tree, Mature Tree, Strong Tree, Grand Tree, Ancient Tree, World Tree, <strong>Forest</strong></li><li>Break your streak and your tree <strong>resets back to a seed</strong>.</li><li>Active streaks give your tree a warm golden glow.</li></ul>`
+    },
+    'leaderboard': {
+      title: 'Leaderboard',
+      html: `<p>The public leaderboard ranks all writers by total words written, showing the top 50.</p>
+        <ul><li>Total words are cumulative across all sessions — they never reset.</li><li>The podium shows the top 3 writers.</li><li>Your row is highlighted so you can see where you stand.</li></ul>`
+    },
+    'friends-duels': {
+      title: 'Friends & Duels',
+      html: `<p>Add friends by their email address to challenge them to writing duels.</p>
+        <ul><li><strong>Duels</strong> — a timed head-to-head battle. Most words written in the time limit wins.</li><li><strong>Adding friends</strong> — enter their email in the Friends tab. They'll appear in your friends list.</li></ul>
+        <p style="color:var(--text-muted);font-size:13px">Live duel matchmaking is coming soon.</p>`
+    },
+    'sharing': {
+      title: 'Sharing Documents',
+      html: `<p>Completed documents can be shared with a unique link.</p>
+        <ul><li><strong>View</strong> — recipient can read your document.</li><li><strong>Comment</strong> — recipient can leave comments.</li><li><strong>Edit</strong> — recipient can edit the content.</li></ul>
+        <p>Click the share icon on any document card to copy a view link to clipboard.</p>`
+    }
+  },
+
+  openHelpTopic(key) {
+    const topic = this._helpTopics[key];
+    if (!topic) return;
+    document.getElementById('help-popup-body').innerHTML = `<h3>${topic.title}</h3>${topic.html}`;
+    document.getElementById('help-popup-overlay').classList.add('visible');
+    document.getElementById('help-popup').classList.add('visible');
+  },
+
+  closeHelpPopup() {
+    document.getElementById('help-popup-overlay').classList.remove('visible');
+    document.getElementById('help-popup').classList.remove('visible');
   }
 };
 

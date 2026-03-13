@@ -65,7 +65,8 @@ const Editor = {
     this.active = true;
 
     // Show correct buttons for active session
-    document.getElementById('editor-save-btn').style.display = 'inline-flex';
+    // In dangerous mode, hide the Complete button — session ends only when time runs out
+    document.getElementById('editor-save-btn').style.display = mode === 'dangerous' ? 'none' : 'inline-flex';
     document.getElementById('editor-edit-btn').style.display = 'none';
     document.getElementById('editor-save-edit-btn').style.display = 'none';
     document.getElementById('editor-comment-history-btn').style.display = 'none';

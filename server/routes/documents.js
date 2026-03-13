@@ -21,8 +21,8 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/', (req, res) => {
-  // Include system-deleted (failed) docs for history, but not manually deleted
-  const docs = findMany('documents.json', d => d.userId === req.user.id && (!d.deleted || d.deletedBySystem));
+  // Include system-deleted (failed) docs for history, admin-deactivated docs, but not manually deleted
+  const docs = findMany('documents.json', d => d.userId === req.user.id && (!d.deleted || d.deletedBySystem || d.deactivatedByAdmin));
   res.json(docs.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)));
 });
 

@@ -297,7 +297,7 @@
             <p>Add friends by their email to challenge them to writing duels.</p>
           </div>
           <div style="display:flex;gap:12px;margin-bottom:32px;max-width:480px">
-            <input type="email" id="friend-email-input" placeholder="Enter friend's email" style="flex:1;padding:12px 16px;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-sm);font-family:var(--font-sans);font-size:14px;outline:none;background:rgba(255,255,255,0.06);color:inherit">
+            <input type="email" id="friend-email-input" placeholder="Enter friend's email" style="flex:1;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font-sans);font-size:14px;outline:none;background:var(--bg-card);color:var(--text-primary)">
             <button class="btn btn-primary btn-small" id="add-friend-btn">Send Request</button>
           </div>
           <div id="friend-requests-section" style="display:none;margin-bottom:32px">
@@ -409,102 +409,47 @@
             <p>Everything you need to know about iWrite.</p>
           </div>
 
-          <div class="help-grid">
-
-            <div class="help-card">
-              <div class="help-icon">&#x270F;&#xFE0F;</div>
-              <h3>How It Works</h3>
-              <p>iWrite is a distraction-free writing tool built on one rule: <strong>write it or lose it</strong>.</p>
-              <ol class="help-list">
-                <li>Set a timer and choose a mode.</li>
-                <li>The editor opens — tab switching is locked.</li>
-                <li>Leave the tab and a 10-second countdown starts. Don't come back in time and your writing is deleted forever.</li>
-                <li>Complete the session to save your document and earn XP.</li>
-              </ol>
-            </div>
-
-            <div class="help-card">
-              <div class="help-icon">&#x26A1;</div>
-              <h3>Writing Modes</h3>
-              <div class="help-mode">
-                <span class="help-mode-badge normal-badge">Normal</span>
-                <p>Tab-lock only. Leave the tab and your writing gets a 10-second grace period. Come back before it runs out.</p>
-              </div>
-              <div class="help-mode" style="margin-top:16px">
-                <span class="help-mode-badge danger-badge">Dangerous</span>
-                <p>Stop typing for <strong>6 seconds</strong> and the session fails automatically. Your writing is deleted. No exceptions.</p>
-              </div>
-            </div>
-
-            <div class="help-card">
-              <div class="help-icon">&#x2B50;</div>
-              <h3>XP &amp; Levels</h3>
-              <p>Every completed session earns you XP based on your output:</p>
-              <ul class="help-list">
-                <li><strong>Base XP</strong> — 0.5 XP per word written</li>
-                <li><strong>Time bonus</strong> — 2 XP per minute of writing</li>
-                <li><strong>Dangerous bonus</strong> — +50% of base XP for completing Dangerous mode</li>
-              </ul>
-              <p style="margin-top:12px">You <strong>level up at increasing XP thresholds</strong> (100, 115, 133, ...). There's no level cap — keep writing.</p>
-            </div>
-
-            <div class="help-card">
-              <div class="help-icon">&#x1F525;</div>
-              <h3>Streaks</h3>
-              <p>Write at least one session every day to maintain your streak. Your streak counter increases by 1 each day you write.</p>
-              <ul class="help-list">
-                <li>Miss a day and your streak resets to 0.</li>
-                <li>Your longest streak is always saved on your profile.</li>
-                <li>Streak milestones unlock achievements.</li>
-              </ul>
-            </div>
-
-            <div class="help-card">
-              <div class="help-icon">&#x1F333;</div>
-              <h3>Your Writing Tree</h3>
-              <p>Your tree is a visual reflection of your consistency. It grows one stage each day you complete a session.</p>
-              <ul class="help-list">
-                <li>12 stages: Seed → Sprout → Seedling → Sapling → Young Tree → Growing Tree → Mature Tree → Strong Tree → Grand Tree → Ancient Tree → World Tree → <strong>Forest</strong></li>
-                <li>Break your streak and your tree <strong>resets back to a seed</strong>.</li>
-                <li>Active streaks give your tree a warm golden glow.</li>
-              </ul>
-            </div>
-
-            <div class="help-card">
-              <div class="help-icon">&#x1F3C6;</div>
-              <h3>Leaderboard</h3>
-              <p>The public leaderboard ranks all writers by total words written, showing the top 50.</p>
-              <ul class="help-list">
-                <li>Total words are cumulative across all sessions — they never reset.</li>
-                <li>The podium shows the top 3 writers.</li>
-                <li>Your row is highlighted so you can see where you stand.</li>
-              </ul>
-            </div>
-
-            <div class="help-card">
-              <div class="help-icon">&#x1F46B;</div>
-              <h3>Friends &amp; Duels</h3>
-              <p>Add friends by their email address to challenge them to writing duels.</p>
-              <ul class="help-list">
-                <li><strong>Duels</strong> — a timed head-to-head battle. Most words written in the time limit wins.</li>
-                <li><strong>Adding friends</strong> — enter their email in the Friends tab. They'll appear in your friends list.</li>
-              </ul>
-              <p style="margin-top:12px;color:var(--text-muted);font-size:13px">&#x1F6A7; Live duel matchmaking is coming soon.</p>
-            </div>
-
-            <div class="help-card">
-              <div class="help-icon">&#x1F4E4;</div>
-              <h3>Sharing Documents</h3>
-              <p>Completed documents can be shared with a unique link.</p>
-              <ul class="help-list">
-                <li><strong>View</strong> — recipient can read your document.</li>
-                <li><strong>Comment</strong> — recipient can leave comments.</li>
-                <li><strong>Edit</strong> — recipient can edit the content.</li>
-              </ul>
-              <p style="margin-top:12px">Click the share icon on any document card to copy a view link to clipboard.</p>
-            </div>
-
+          <div class="help-buttons-grid">
+            <button class="help-topic-btn" onclick="App.openHelpTopic('how-it-works')">
+              <span class="help-topic-icon">&#x270F;&#xFE0F;</span>
+              <span class="help-topic-title">How It Works</span>
+            </button>
+            <button class="help-topic-btn" onclick="App.openHelpTopic('writing-modes')">
+              <span class="help-topic-icon">&#x26A1;</span>
+              <span class="help-topic-title">Writing Modes</span>
+            </button>
+            <button class="help-topic-btn" onclick="App.openHelpTopic('xp-levels')">
+              <span class="help-topic-icon">&#x2B50;</span>
+              <span class="help-topic-title">XP &amp; Levels</span>
+            </button>
+            <button class="help-topic-btn" onclick="App.openHelpTopic('streaks')">
+              <span class="help-topic-icon">&#x1F525;</span>
+              <span class="help-topic-title">Streaks</span>
+            </button>
+            <button class="help-topic-btn" onclick="App.openHelpTopic('tree')">
+              <span class="help-topic-icon">&#x1F333;</span>
+              <span class="help-topic-title">Your Writing Tree</span>
+            </button>
+            <button class="help-topic-btn" onclick="App.openHelpTopic('leaderboard')">
+              <span class="help-topic-icon">&#x1F3C6;</span>
+              <span class="help-topic-title">Leaderboard</span>
+            </button>
+            <button class="help-topic-btn" onclick="App.openHelpTopic('friends-duels')">
+              <span class="help-topic-icon">&#x1F46B;</span>
+              <span class="help-topic-title">Friends &amp; Duels</span>
+            </button>
+            <button class="help-topic-btn" onclick="App.openHelpTopic('sharing')">
+              <span class="help-topic-icon">&#x1F4E4;</span>
+              <span class="help-topic-title">Sharing Documents</span>
+            </button>
           </div>
+        </div>
+
+        <!-- HELP TOPIC POPUP -->
+        <div class="help-popup-overlay" id="help-popup-overlay"></div>
+        <div class="help-popup" id="help-popup">
+          <button class="help-popup-close" id="help-popup-close">&times;</button>
+          <div class="help-popup-body" id="help-popup-body"></div>
         </div>
 
       </main>
@@ -611,7 +556,7 @@
             </div>
             <div class="mode-option dangerous-opt" data-mode="dangerous">
               <h4>Dangerous</h4>
-              <p>Stop typing for 6s and the session fails.</p>
+              <p>Stop typing for 5s and the session fails.</p>
             </div>
           </div>
         </div>

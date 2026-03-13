@@ -113,6 +113,15 @@ router.patch('/documents/:id', (req, res) => {
   for (const field of allowedFields) {
     if (req.body[field] !== undefined) updates[field] = req.body[field];
   }
+  // If admin is setting deleted to true (deactivating), mark it
+  if (req.body.deleted === true) {
+    updates.deactivatedByAdmin = true;
+    updates.deactivatedAt = new Date().toISOString();
+  }
+  // If admin is restoring (deleted = false), clear the admin flag
+  if (req.body.deleted === false) {
+    updates.deactivatedByAdmin = false;
+  }
   updates.updatedAt = new Date().toISOString();
 
   const updated = updateOne('documents.json', d => d.id === req.params.id, updates);
