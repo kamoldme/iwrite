@@ -121,7 +121,7 @@ const App = {
 
     // Initialize level tracking if not set (prevents false level-up on first visit)
     if (!localStorage.getItem('iwrite_last_level')) {
-      const { level } = this.calcXPLevel(this.user.totalWords || 0);
+      const { level } = this.calcXPLevel(this.user.xp || 0);
       localStorage.setItem('iwrite_last_level', level.toString());
     }
 
@@ -370,7 +370,7 @@ const App = {
   updateUserUI() {
     if (!this.user) return;
     document.getElementById('user-name').textContent = this.user.name;
-    const { level } = this.calcXPLevel(this.user.totalWords || 0);
+    const { level } = this.calcXPLevel(this.user.xp || 0);
     document.getElementById('user-level').textContent = `Level ${level}`;
     document.getElementById('user-avatar').textContent = this.user.name.charAt(0).toUpperCase();
 
@@ -413,12 +413,18 @@ const App = {
     document.getElementById('xp-progress-text').textContent = `${xpInLevel.toLocaleString()} / ${xpForNextLevel.toLocaleString()} XP`;
     document.getElementById('xp-bar-fill').style.width = `${Math.min(100, (xpInLevel / xpForNextLevel) * 100)}%`;
 
-    // Level-up celebration check
+    // Queue level-up celebrations (layer by layer)
     const prevLevel = parseInt(localStorage.getItem('iwrite_last_level') || '0');
     if (level > prevLevel && prevLevel > 0) {
-      this.showLevelUpCelebration(level);
+      const pendingLevels = [];
+      for (let l = prevLevel + 1; l <= level; l++) {
+        pendingLevels.push(l);
+      }
+      localStorage.setItem('iwrite_last_level', level.toString());
+      this._showLevelUpQueue(pendingLevels);
+    } else {
+      localStorage.setItem('iwrite_last_level', level.toString());
     }
-    localStorage.setItem('iwrite_last_level', level.toString());
 
     const canvas = document.getElementById('tree-canvas');
     const stage = this.user.treeStage || 0;
@@ -1494,36 +1500,43 @@ const App = {
     document.getElementById('streak-popup-overlay').classList.remove('active');
   },
 
-  showLevelUpCelebration(newLevel) {
-    // Confetti burst
+  _showLevelUpQueue(levels) {
+    if (!levels || levels.length === 0) return;
+    const level = levels[0];
+    const remaining = levels.slice(1);
+
     this.launchConfetti();
 
-    // Create level-up modal
     const overlay = document.createElement('div');
     overlay.className = 'levelup-overlay';
+    const queueText = remaining.length > 0 ? `<p class="levelup-queue">${remaining.length} more level-up${remaining.length > 1 ? 's' : ''} waiting...</p>` : '';
     overlay.innerHTML = `
       <div class="levelup-modal">
         <div class="levelup-glow"></div>
-        <div class="levelup-badge">${newLevel}</div>
+        <div class="levelup-badge">${level}</div>
         <h2 class="levelup-title">Level Up!</h2>
-        <p class="levelup-sub">You've reached <strong>Level ${newLevel}</strong></p>
+        <p class="levelup-sub">You've reached <strong>Level ${level}</strong></p>
         <p class="levelup-msg">Keep writing to unlock the next level. Every word counts!</p>
-        <button class="btn btn-primary levelup-btn">Keep Writing</button>
+        ${queueText}
+        <button class="btn btn-primary levelup-btn">${remaining.length > 0 ? 'Next' : 'Keep Writing'}</button>
       </div>
     `;
     document.body.appendChild(overlay);
-
     requestAnimationFrame(() => overlay.classList.add('active'));
 
-    overlay.querySelector('.levelup-btn').onclick = () => {
+    const dismiss = () => {
       overlay.classList.remove('active');
-      setTimeout(() => overlay.remove(), 400);
+      setTimeout(() => {
+        overlay.remove();
+        if (remaining.length > 0) {
+          setTimeout(() => this._showLevelUpQueue(remaining), 300);
+        }
+      }, 400);
     };
+
+    overlay.querySelector('.levelup-btn').onclick = dismiss;
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        overlay.classList.remove('active');
-        setTimeout(() => overlay.remove(), 400);
-      }
+      if (e.target === overlay) dismiss();
     });
   },
 
@@ -1654,22 +1667,22 @@ const App = {
         list.innerHTML = '<div class="empty-state"><p>No tickets yet. Submit one above!</p></div>';
         return;
       }
-      list.innerHTML = tickets.map(t => `
-        <div class="doc-card support-ticket">
-          <div class="support-ticket-main">
-            <div class="support-ticket-header">
-              <span class="badge badge-${t.type === 'bug' ? 'deleted' : t.type === 'suggestion' ? 'premium' : 'active'}">${t.type}</span>
-              <strong class="support-ticket-subject">${this._esc(t.subject)}</strong>
-              <span class="support-ticket-right">
-                <span class="support-ticket-date">${new Date(t.createdAt).toLocaleDateString()}</span>
-                <span class="badge badge-${t.status === 'open' ? 'active' : t.status === 'closed' ? 'deleted' : 'premium'}">${t.status}</span>
-              </span>
-            </div>
-            <p class="support-ticket-message">${this._esc(t.message)}</p>
-            ${t.adminReply ? `<div class="support-ticket-reply"><strong>Admin reply:</strong> ${this._esc(t.adminReply)}</div>` : ''}
+      list.innerHTML = tickets.map(t => {
+        const statusClass = t.status === 'open' ? 'open' : t.status === 'replied' ? 'replied' : 'closed';
+        return `
+        <div class="ticket">
+          <div class="ticket-row">
+            <span class="ticket-type ticket-type--${t.type}">${t.type}</span>
+            <strong class="ticket-subject">${this._esc(t.subject)}</strong>
+            <span class="ticket-meta">
+              <span class="ticket-date">${new Date(t.createdAt).toLocaleDateString()}</span>
+              <span class="ticket-status ticket-status--${statusClass}">${t.status}</span>
+            </span>
           </div>
-        </div>
-      `).join('');
+          <p class="ticket-body">${this._esc(t.message)}</p>
+          ${t.adminReply ? `<div class="ticket-reply"><span class="ticket-reply-label">Reply</span> ${this._esc(t.adminReply)}</div>` : ''}
+        </div>`;
+      }).join('');
     } catch {
       list.innerHTML = '<div class="empty-state"><p>Failed to load tickets.</p></div>';
     }
