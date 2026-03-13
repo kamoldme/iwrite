@@ -68,17 +68,8 @@ const App = {
 
       // Render buttons
       const loginBtn = document.getElementById('google-login-btn');
-      const registerBtn = document.getElementById('google-register-btn');
       if (loginBtn) {
         window.google.accounts.id.renderButton(loginBtn, {
-          type: 'standard',
-          theme: 'outline',
-          size: 'large',
-          width: '100%'
-        });
-      }
-      if (registerBtn) {
-        window.google.accounts.id.renderButton(registerBtn, {
           type: 'standard',
           theme: 'outline',
           size: 'large',
@@ -91,7 +82,7 @@ const App = {
   },
 
   async handleGoogleCredential(response) {
-    const errorEl = document.getElementById('login-error') || document.getElementById('register-error');
+    const errorEl = document.getElementById('login-error');
     try {
       const res = await fetch('/api/auth/google', {
         method: 'POST',
@@ -141,68 +132,7 @@ const App = {
   },
 
   bindAuthEvents() {
-    document.getElementById('show-register').addEventListener('click', (e) => {
-      e.preventDefault();
-      document.getElementById('login-form').style.display = 'none';
-      document.getElementById('register-form').style.display = 'block';
-    });
-
-    document.getElementById('show-login').addEventListener('click', (e) => {
-      e.preventDefault();
-      document.getElementById('register-form').style.display = 'none';
-      document.getElementById('login-form').style.display = 'block';
-    });
-
-    document.getElementById('login-btn').addEventListener('click', async () => {
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
-      const errorEl = document.getElementById('login-error');
-      try {
-        const data = await API.login(email, password);
-        this.user = data.user;
-        this.showApp();
-      } catch (err) {
-        errorEl.textContent = err.message;
-        errorEl.classList.add('visible');
-      }
-    });
-
-    document.getElementById('register-btn').addEventListener('click', async () => {
-      const name = document.getElementById('register-name').value;
-      const email = document.getElementById('register-email').value;
-      const password = document.getElementById('register-password').value;
-      const errorEl = document.getElementById('register-error');
-      try {
-        const data = await API.register(name, email, password);
-        this.user = data.user;
-        this.showApp();
-      } catch (err) {
-        errorEl.textContent = err.message;
-        errorEl.classList.add('visible');
-      }
-    });
-
-    document.querySelectorAll('.auth-field input').forEach(input => {
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          const form = input.closest('[id$="-form"]');
-          form.querySelector('button').click();
-        }
-      });
-    });
-
-    ['login-pw-eye', 'register-pw-eye'].forEach(btnId => {
-      const btn = document.getElementById(btnId);
-      if (!btn) return;
-      btn.addEventListener('click', () => {
-        const input = btn.closest('.auth-pw-wrap').querySelector('input');
-        const isHiding = input.type === 'text';
-        input.type = isHiding ? 'password' : 'text';
-        btn.querySelector('.eye-open').style.display = isHiding ? '' : 'none';
-        btn.querySelector('.eye-closed').style.display = isHiding ? 'none' : '';
-        Monsters.setLookAway(!isHiding);
-      });
-    });
+    // Google Sign-In only — no email/password bindings needed
   },
 
   bindAppEvents() {
@@ -892,6 +822,8 @@ const App = {
   loadProfile() {
     document.getElementById('profile-name').value = this.user.name;
     document.getElementById('profile-email').value = this.user.email;
+    const pwSection = document.getElementById('change-password-section');
+    if (pwSection) pwSection.style.display = this.user.provider === 'google' ? 'none' : '';
     document.getElementById('profile-plan').value = this.user.plan === 'premium' ? 'Pro' : 'Free';
     document.getElementById('profile-since').value = new Date(this.user.createdAt).toLocaleDateString('en-US', {
       year: 'numeric', month: 'long', day: 'numeric'
