@@ -1031,7 +1031,7 @@ const App = {
 
       // Friends list
       if (friends.length === 0) {
-        container.innerHTML = `<div class="empty-state"><h3>No friends yet</h3><p>Send a request to someone by their email above.</p></div>`;
+        container.innerHTML = `<div class="empty-state"><p>Add friends by their email above to start challenging them to duels.</p></div>`;
       } else {
         container.innerHTML = friends.map(f => `
           <div class="doc-card">

@@ -2808,8 +2808,8 @@ html.light .logo-img-light { display: inline; }
   pointer-events: none;
   z-index: 2001;
   opacity: 0;
-  transition: opacity 0.3s ease;
-  background: radial-gradient(ellipse at center, transparent 50%, rgba(239, 68, 68, 0.15) 100%);
+  transition: opacity 0.15s ease;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(239, 68, 68, 0.35) 100%);
 }
 
 .screen-vignette.active {

@@ -123,7 +123,7 @@ const Editor = {
 
     if (mode === 'dangerous') {
       this.container.classList.add('dangerous-active');
-      this.dangerProgress.style.display = 'block';
+      this.dangerProgress.style.display = 'none';
       this.startDangerMode();
     }
 
@@ -225,9 +225,12 @@ const Editor = {
     Editor.updateWordCount();
     Editor._updateWordsRemaining();
     Editor._checkMotivation();
+    Editor.textarea.style.filter = '';
     Editor.textarea.style.opacity = '1';
     Editor.textarea.classList.remove('fading');
     Editor.vignette.classList.remove('active');
+    Editor.vignette.style.opacity = 0;
+    Editor.container.style.backgroundColor = '';
   },
 
   onKeydown: (e) => {
@@ -370,18 +373,31 @@ const Editor = {
     this.dangerInterval = setInterval(() => {
       if (!this.active) return;
       const elapsed = Date.now() - this.lastKeystroke;
-      const progressRatio = Math.min(elapsed / this.dangerThreshold, 1);
-      const barPercent = Math.min((elapsed / (this.dangerThreshold - 1000)) * 100, 100);
-      this.dangerProgressBar.style.width = `${barPercent}%`;
+      const ratio = Math.min(elapsed / this.dangerThreshold, 1);
 
-      if (progressRatio > 0.5) {
+      // Progressive red vignette — starts subtle, intensifies
+      if (ratio > 0.15) {
         this.vignette.classList.add('active');
+        this.vignette.style.opacity = Math.min((ratio - 0.15) / 0.85, 1);
       } else {
         this.vignette.classList.remove('active');
+        this.vignette.style.opacity = 0;
       }
 
-      if (progressRatio > 0.6 && !this.textarea.classList.contains('fading')) {
-        this.textarea.classList.add('fading');
+      // Progressive text blur — starts at 30%, maxes near threshold
+      if (ratio > 0.3) {
+        const blurAmount = ((ratio - 0.3) / 0.7) * 6; // 0px to 6px
+        this.textarea.style.filter = `blur(${blurAmount}px)`;
+      } else {
+        this.textarea.style.filter = '';
+      }
+
+      // Red-tinted background that intensifies
+      if (ratio > 0.2) {
+        const redIntensity = Math.min((ratio - 0.2) / 0.8, 1);
+        this.container.style.backgroundColor = `rgba(239, 68, 68, ${redIntensity * 0.12})`;
+      } else {
+        this.container.style.backgroundColor = '';
       }
 
       if (elapsed >= this.dangerThreshold) {
@@ -532,7 +548,7 @@ const Editor = {
       // Setup mode-specific UI
       if (this.mode === 'dangerous') {
         this.container.classList.add('dangerous-active');
-        this.dangerProgress.style.display = 'block';
+        this.dangerProgress.style.display = 'none';
         this.startDangerMode();
       }
 
@@ -1018,8 +1034,11 @@ const Editor = {
     this.container.classList.remove('dangerous-active');
     this.dangerProgress.style.display = 'none';
     this.vignette.classList.remove('active');
+    this.vignette.style.opacity = 0;
     this.textarea.classList.remove('fading');
+    this.textarea.style.filter = '';
     this.textarea.style.opacity = '1';
+    this.container.style.backgroundColor = '';
     this.textarea.removeEventListener('input', this.onInput);
     this.textarea.removeEventListener('keydown', this.onKeydown);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
