@@ -88,10 +88,13 @@
           </button>
         </nav>
         <div class="sidebar-footer">
-          <div class="user-info">
+          <div class="user-info" id="user-info-btn" style="cursor:pointer" title="View plans">
             <div class="user-avatar" id="user-avatar">?</div>
             <div class="user-details">
-              <div class="user-name" id="user-name">Loading...</div>
+              <div class="user-name-row">
+                <span id="user-name">Loading...</span>
+                <span class="plan-badge" id="plan-badge">Free</span>
+              </div>
               <div class="user-level" id="user-level">Level 1</div>
             </div>
           </div>
@@ -659,6 +662,52 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <!-- PRICING MODAL -->
+  <div class="pricing-overlay" id="pricing-overlay">
+    <div class="pricing-modal">
+      <button class="pricing-close" id="pricing-close">&times;</button>
+      <h2 class="pricing-title">Choose Your Plan</h2>
+      <p class="pricing-sub">Unlock the full iWrite experience</p>
+      <div class="pricing-cards">
+        <div class="pricing-card" id="pricing-free">
+          <div class="pricing-card-header">
+            <h3>Free</h3>
+            <div class="pricing-price">$0<span>/mo</span></div>
+          </div>
+          <ul class="pricing-features">
+            <li class="yes">Unlimited writing sessions</li>
+            <li class="yes">Basic XP & leveling</li>
+            <li class="yes">Tree growth tracking</li>
+            <li class="yes">Session history</li>
+            <li class="no">Priority support</li>
+            <li class="no">Custom themes</li>
+            <li class="no">Advanced analytics</li>
+            <li class="no">Longer streak protection</li>
+          </ul>
+          <button class="btn btn-ghost btn-full pricing-btn" id="plan-free-btn">Current Plan</button>
+        </div>
+        <div class="pricing-card pro" id="pricing-pro">
+          <div class="pricing-popular">Most Popular</div>
+          <div class="pricing-card-header">
+            <h3>Pro</h3>
+            <div class="pricing-price"><span class="pricing-original">$4.99</span> $2.99<span>/mo</span></div>
+          </div>
+          <ul class="pricing-features">
+            <li class="yes">Unlimited writing sessions</li>
+            <li class="yes">2x XP multiplier</li>
+            <li class="yes">Tree growth tracking</li>
+            <li class="yes">Full session history</li>
+            <li class="yes">Priority support</li>
+            <li class="yes">Custom themes</li>
+            <li class="yes">Advanced analytics</li>
+            <li class="yes">Longer streak protection</li>
+          </ul>
+          <button class="btn btn-primary btn-full pricing-btn" id="plan-pro-btn">Upgrade to Pro</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="/js/api.js"></script>
   <script src="/js/tree.js"></script>

@@ -78,38 +78,43 @@ router.get('/folders/list', (req, res) => {
 });
 
 router.post('/folders', (req, res) => {
-  const { name } = req.body;
+  const { name, parentFolder } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Folder name required' });
   const user = findOne('users.json', u => u.id === req.user.id);
   const folders = user.folders || [];
-  if (folders.find(f => f.name.toLowerCase() === name.trim().toLowerCase())) {
-    return res.status(400).json({ error: 'Folder already exists' });
-  }
-  const folder = { id: uuid(), name: name.trim(), createdAt: new Date().toISOString() };
+  const folder = { id: uuid(), name: name.trim(), parentFolder: parentFolder || null, createdAt: new Date().toISOString() };
   folders.push(folder);
   updateOne('users.json', u => u.id === req.user.id, { folders });
   res.status(201).json(folder);
 });
 
 router.patch('/folders/:folderId', (req, res) => {
-  const { name } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Folder name required' });
   const user = findOne('users.json', u => u.id === req.user.id);
   const folders = user.folders || [];
   const folder = folders.find(f => f.id === req.params.folderId);
   if (!folder) return res.status(404).json({ error: 'Folder not found' });
-  folder.name = name.trim();
+  if (req.body.name !== undefined) folder.name = req.body.name.trim();
+  if (req.body.parentFolder !== undefined) folder.parentFolder = req.body.parentFolder;
   updateOne('users.json', u => u.id === req.user.id, { folders });
   res.json(folder);
 });
 
 router.delete('/folders/:folderId', (req, res) => {
   const user = findOne('users.json', u => u.id === req.user.id);
-  const folders = (user.folders || []).filter(f => f.id !== req.params.folderId);
+  let folders = user.folders || [];
+  // Collect folder and all descendants
+  const toDelete = new Set();
+  const collect = (id) => {
+    toDelete.add(id);
+    folders.filter(f => f.parentFolder === id).forEach(f => collect(f.id));
+  };
+  collect(req.params.folderId);
+  const parent = folders.find(f => f.id === req.params.folderId)?.parentFolder || null;
+  folders = folders.filter(f => !toDelete.has(f.id));
   updateOne('users.json', u => u.id === req.user.id, { folders });
-  // Un-folder all documents in this folder
-  const docs = findMany('documents.json', d => d.userId === req.user.id && d.folder === req.params.folderId);
-  docs.forEach(d => updateOne('documents.json', dd => dd.id === d.id, { folder: null }));
+  // Move docs from deleted folders to the parent folder
+  const docs = findMany('documents.json', d => d.userId === req.user.id && toDelete.has(d.folder));
+  docs.forEach(d => updateOne('documents.json', dd => dd.id === d.id, { folder: parent }));
   res.json({ success: true });
 });
 

@@ -180,10 +180,24 @@ const API = {
     return this.request('/documents/folders/list');
   },
 
-  async createFolder(name) {
+  async createFolder(name, parentFolder) {
     return this.request('/documents/folders', {
       method: 'POST',
+      body: JSON.stringify({ name, parentFolder: parentFolder || null })
+    });
+  },
+
+  async renameFolder(folderId, name) {
+    return this.request(`/documents/folders/${folderId}`, {
+      method: 'PATCH',
       body: JSON.stringify({ name })
+    });
+  },
+
+  async moveFolderTo(folderId, parentFolder) {
+    return this.request(`/documents/folders/${folderId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ parentFolder })
     });
   },
 

@@ -145,6 +145,13 @@ const App = {
 
     document.getElementById('logout-btn').addEventListener('click', () => API.logout());
 
+    // Pricing modal
+    document.getElementById('user-info-btn').addEventListener('click', () => this.openPricing());
+    document.getElementById('pricing-close').addEventListener('click', () => this.closePricing());
+    document.getElementById('pricing-overlay').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) this.closePricing();
+    });
+
     // Mobile sidebar toggle
     const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
     const mobileSidebarOverlay = document.getElementById('mobile-sidebar-overlay');
@@ -356,6 +363,13 @@ const App = {
     document.getElementById('user-level').textContent = `Level ${level}`;
     document.getElementById('user-avatar').textContent = this.user.name.charAt(0).toUpperCase();
 
+    const badge = document.getElementById('plan-badge');
+    if (badge) {
+      const isPro = this.user.plan === 'premium';
+      badge.textContent = isPro ? 'Pro' : 'Free';
+      badge.className = 'plan-badge' + (isPro ? ' pro' : '');
+    }
+
     if (this.user.streak > 0) {
       document.getElementById('streak-badge').style.display = 'flex';
       document.getElementById('streak-count').textContent = this.user.streak;
@@ -418,37 +432,51 @@ const App = {
     // Only show non-failed, non-admin-deactivated docs in main list
     const visibleDocs = this.documents.filter(d => !d.deletedBySystem && !d.deactivatedByAdmin);
 
-    // Render breadcrumb
+    // Build breadcrumb path
     const bc = document.getElementById('folder-breadcrumb');
     if (this.currentFolder) {
-      const folder = this.folders.find(f => f.id === this.currentFolder);
+      const path = this.getFolderPath(this.currentFolder);
       bc.style.display = 'flex';
-      bc.innerHTML = `<button class="folder-breadcrumb-link" id="bc-root">All Sessions</button>
-        <span class="folder-breadcrumb-sep">›</span>
-        <span style="color:var(--text-primary);font-weight:600">${this.escapeHtml(folder?.name || 'Folder')}</span>`;
-      document.getElementById('bc-root').onclick = () => { this.currentFolder = null; this.loadDocuments(); };
+      let html = `<button class="folder-breadcrumb-link" data-bc-folder="">All Sessions</button>`;
+      path.forEach((f, i) => {
+        const isLast = i === path.length - 1;
+        html += `<span class="folder-breadcrumb-sep">›</span>`;
+        if (isLast) {
+          html += `<span style="color:var(--text-primary);font-weight:600">${this.escapeHtml(f.name)}</span>`;
+        } else {
+          html += `<button class="folder-breadcrumb-link" data-bc-folder="${f.id}">${this.escapeHtml(f.name)}</button>`;
+        }
+      });
+      bc.innerHTML = html;
+      bc.querySelectorAll('[data-bc-folder]').forEach(btn => {
+        btn.onclick = () => {
+          this.currentFolder = btn.dataset.bcFolder || null;
+          this.loadDocuments();
+        };
+      });
     } else {
       bc.style.display = 'none';
     }
 
-    // Render folders (only when at root)
+    // Render folders for current level
     const folderContainer = document.getElementById('folder-list');
-    if (!this.currentFolder && this.folders.length > 0) {
-      folderContainer.innerHTML = this.folders.map(f => {
-        const count = visibleDocs.filter(d => d.folder === f.id).length;
+    const childFolders = this.folders.filter(f => (f.parentFolder || null) === this.currentFolder);
+    if (childFolders.length > 0) {
+      folderContainer.innerHTML = childFolders.map(f => {
+        const count = this.countDocsInFolder(f.id, visibleDocs);
         return `<div class="folder-card" data-folder-id="${f.id}">
           <span class="folder-card-icon">📁</span>
           <span class="folder-card-name">${this.escapeHtml(f.name)}</span>
           <span class="folder-card-count">${count}</span>
-          <button class="folder-card-delete" data-delete-folder="${f.id}" title="Delete folder">&times;</button>
+          <button class="folder-card-menu" data-folder-menu="${f.id}" title="Options">⋯</button>
         </div>`;
       }).join('');
 
       folderContainer.onclick = (e) => {
-        const delBtn = e.target.closest('[data-delete-folder]');
-        if (delBtn) {
+        const menuBtn = e.target.closest('[data-folder-menu]');
+        if (menuBtn) {
           e.stopPropagation();
-          this.deleteFolder(delBtn.dataset.deleteFolder);
+          this.showFolderMenu(menuBtn.dataset.folderMenu, menuBtn);
           return;
         }
         const card = e.target.closest('.folder-card');
@@ -510,8 +538,9 @@ const App = {
   renderDocumentList(containerId, docs) {
     const container = document.getElementById(containerId);
     if (docs.length === 0) {
-      // Don't show "No documents yet" on the Sessions view if folders exist at root level
-      const hasFolders = !this.currentFolder && this.folders && this.folders.length > 0;
+      // Don't show "No documents yet" if there are child folders at this level
+      const childFolders = this.folders.filter(f => (f.parentFolder || null) === this.currentFolder);
+      const hasFolders = childFolders.length > 0;
       if (hasFolders && containerId === 'all-docs') {
         container.innerHTML = '';
         return;
@@ -1028,7 +1057,7 @@ const App = {
 
     if (!result) return;
     try {
-      await API.createFolder(result);
+      await API.createFolder(result, this.currentFolder);
       this.toast('Folder created', 'success');
       this.loadDocuments();
     } catch (err) {
@@ -1036,11 +1065,113 @@ const App = {
     }
   },
 
+  getFolderPath(folderId) {
+    const path = [];
+    let id = folderId;
+    while (id) {
+      const f = this.folders.find(fl => fl.id === id);
+      if (!f) break;
+      path.unshift(f);
+      id = f.parentFolder || null;
+    }
+    return path;
+  },
+
+  countDocsInFolder(folderId, docs) {
+    let count = docs.filter(d => d.folder === folderId).length;
+    const children = this.folders.filter(f => f.parentFolder === folderId);
+    children.forEach(c => { count += this.countDocsInFolder(c.id, docs); });
+    return count;
+  },
+
+  getDescendantFolderIds(folderId) {
+    const ids = new Set([folderId]);
+    const collect = (id) => {
+      this.folders.filter(f => f.parentFolder === id).forEach(f => {
+        ids.add(f.id);
+        collect(f.id);
+      });
+    };
+    collect(folderId);
+    return ids;
+  },
+
+  showFolderMenu(folderId, anchorEl) {
+    // Remove existing menu
+    document.querySelectorAll('.folder-context-menu').forEach(m => m.remove());
+
+    const menu = document.createElement('div');
+    menu.className = 'folder-context-menu';
+    menu.innerHTML = `
+      <button data-action="rename">Rename</button>
+      <button data-action="move">Move to...</button>
+      <button data-action="delete" style="color:var(--danger)">Delete</button>
+    `;
+
+    const rect = anchorEl.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.top = `${rect.bottom + 4}px`;
+    menu.style.left = `${rect.left}px`;
+    document.body.appendChild(menu);
+
+    const close = () => { menu.remove(); document.removeEventListener('click', close); };
+    setTimeout(() => document.addEventListener('click', close), 0);
+
+    menu.querySelector('[data-action="rename"]').onclick = (e) => {
+      e.stopPropagation();
+      close();
+      this.renameFolder(folderId);
+    };
+    menu.querySelector('[data-action="move"]').onclick = (e) => {
+      e.stopPropagation();
+      close();
+      this.openFolderPicker(folderId, 'folder');
+    };
+    menu.querySelector('[data-action="delete"]').onclick = (e) => {
+      e.stopPropagation();
+      close();
+      this.deleteFolder(folderId);
+    };
+  },
+
+  async renameFolder(folderId) {
+    const folder = this.folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    const overlay = document.getElementById('confirm-overlay');
+    const msgEl = document.getElementById('confirm-message');
+    msgEl.innerHTML = `<span>Rename folder:</span><br><input id="folder-rename-input" value="${this.escapeHtml(folder.name)}" style="margin-top:10px;width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-elevated);color:var(--text-primary);font-family:var(--font-sans);font-size:13px" autofocus>`;
+    overlay.classList.add('active');
+    setTimeout(() => { const inp = document.getElementById('folder-rename-input'); inp?.focus(); inp?.select(); }, 100);
+
+    const result = await new Promise(resolve => {
+      document.getElementById('confirm-ok').onclick = () => {
+        const val = document.getElementById('folder-rename-input')?.value?.trim();
+        overlay.classList.remove('active');
+        resolve(val || null);
+      };
+      document.getElementById('confirm-cancel').onclick = () => {
+        overlay.classList.remove('active');
+        resolve(null);
+      };
+    });
+
+    if (!result || result === folder.name) return;
+    try {
+      await API.renameFolder(folderId, result);
+      this.toast('Folder renamed', 'success');
+      this.loadDocuments();
+    } catch (err) {
+      this.toast(err.message || 'Failed to rename', 'error');
+    }
+  },
+
   async deleteFolder(folderId) {
-    const ok = await this.showConfirm('Delete this folder? Documents inside will be moved to the root.');
+    const ok = await this.showConfirm('Delete this folder? Documents inside will be moved to the parent folder.');
     if (!ok) return;
     try {
       await API.deleteFolder(folderId);
+      if (this.currentFolder === folderId) this.currentFolder = null;
       this.toast('Folder deleted', 'success');
       this.loadDocuments();
     } catch {
@@ -1048,44 +1179,109 @@ const App = {
     }
   },
 
+  // Finder-style folder picker for moving docs or folders
+  openFolderPicker(itemId, itemType) {
+    const overlay = document.getElementById('confirm-overlay');
+    const msgEl = document.getElementById('confirm-message');
+    const okBtn = document.getElementById('confirm-ok');
+    const cancelBtn = document.getElementById('confirm-cancel');
+
+    // Exclude the item itself and its descendants (if folder)
+    const excludeIds = itemType === 'folder' ? this.getDescendantFolderIds(itemId) : new Set();
+
+    let pickerCurrent = null; // start at root
+
+    const renderPicker = () => {
+      const childFolders = this.folders.filter(f =>
+        (f.parentFolder || null) === pickerCurrent && !excludeIds.has(f.id)
+      );
+
+      let html = `<div class="finder-picker">`;
+      html += `<div class="finder-header">`;
+      if (pickerCurrent) {
+        const parentFolder = this.folders.find(f => f.id === pickerCurrent);
+        html += `<button class="finder-back" data-picker-back="${parentFolder?.parentFolder || ''}">← Back</button>`;
+        html += `<span class="finder-title">${this.escapeHtml(parentFolder?.name || '')}</span>`;
+      } else {
+        html += `<span class="finder-title">All Sessions (Root)</span>`;
+      }
+      html += `</div>`;
+      html += `<div class="finder-list">`;
+      if (childFolders.length === 0) {
+        html += `<div class="finder-empty">No subfolders here</div>`;
+      }
+      childFolders.forEach(f => {
+        const hasChildren = this.folders.some(c => c.parentFolder === f.id && !excludeIds.has(c.id));
+        html += `<div class="finder-row" data-picker-open="${f.id}">
+          <span class="finder-row-icon">📁</span>
+          <span class="finder-row-name">${this.escapeHtml(f.name)}</span>
+          ${hasChildren ? '<span class="finder-row-arrow">›</span>' : ''}
+        </div>`;
+      });
+      html += `</div></div>`;
+
+      msgEl.innerHTML = `<span style="font-weight:600">Move to:</span>${html}`;
+
+      // Bind navigation
+      msgEl.querySelectorAll('[data-picker-open]').forEach(row => {
+        row.ondblclick = () => {
+          pickerCurrent = row.dataset.pickerOpen;
+          renderPicker();
+        };
+        row.onclick = () => {
+          msgEl.querySelectorAll('.finder-row').forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+        };
+      });
+      const backBtn = msgEl.querySelector('[data-picker-back]');
+      if (backBtn) {
+        backBtn.onclick = () => {
+          pickerCurrent = backBtn.dataset.pickerBack || null;
+          renderPicker();
+        };
+      }
+    };
+
+    renderPicker();
+    okBtn.textContent = 'Move Here';
+    overlay.classList.add('active');
+
+    const cleanup = () => { okBtn.textContent = 'OK'; };
+
+    return new Promise(resolve => {
+      okBtn.onclick = async () => {
+        overlay.classList.remove('active');
+        cleanup();
+        // Check if a specific subfolder is selected
+        const selected = msgEl.querySelector('.finder-row.selected');
+        const target = selected ? selected.dataset.pickerOpen : pickerCurrent;
+        try {
+          if (itemType === 'folder') {
+            await API.moveFolderTo(itemId, target);
+          } else {
+            await API.moveToFolder(itemId, target);
+          }
+          this.toast('Moved!', 'success');
+          this.loadDocuments();
+        } catch {
+          this.toast('Failed to move', 'error');
+        }
+        resolve();
+      };
+      cancelBtn.onclick = () => {
+        overlay.classList.remove('active');
+        cleanup();
+        resolve();
+      };
+    });
+  },
+
   async moveDocToFolder(docId) {
-    // Show a folder selection popup
     if (this.folders.length === 0) {
       this.toast('Create a folder first', 'error');
       return;
     }
-
-    const overlay = document.getElementById('confirm-overlay');
-    const msgEl = document.getElementById('confirm-message');
-    const optionsHtml = this.folders.map(f =>
-      `<button class="btn btn-ghost btn-small" data-folder-target="${f.id}" style="margin:4px">${this.escapeHtml(f.name)}</button>`
-    ).join('');
-    msgEl.innerHTML = `<span>Move to folder:</span><br><div style="margin-top:10px;display:flex;flex-wrap:wrap;justify-content:center">${optionsHtml}<button class="btn btn-ghost btn-small" data-folder-target="__root" style="margin:4px;color:var(--text-muted)">Root (no folder)</button></div>`;
-    overlay.classList.add('active');
-
-    const result = await new Promise(resolve => {
-      msgEl.querySelectorAll('[data-folder-target]').forEach(btn => {
-        btn.onclick = () => {
-          overlay.classList.remove('active');
-          resolve(btn.dataset.folderTarget === '__root' ? null : btn.dataset.folderTarget);
-        };
-      });
-      document.getElementById('confirm-cancel').onclick = () => {
-        overlay.classList.remove('active');
-        resolve(undefined); // cancelled
-      };
-      document.getElementById('confirm-ok').style.display = 'none';
-    });
-    document.getElementById('confirm-ok').style.display = '';
-
-    if (result === undefined) return; // cancelled
-    try {
-      await API.moveToFolder(docId, result);
-      this.toast('Moved!', 'success');
-      this.loadDocuments();
-    } catch {
-      this.toast('Failed to move document', 'error');
-    }
+    this.openFolderPicker(docId, 'doc');
   },
 
   openHistoryModal() {
@@ -1175,6 +1371,22 @@ const App = {
     } catch {
       this.toast('Failed to update profile', 'error');
     }
+  },
+
+  openPricing() {
+    const overlay = document.getElementById('pricing-overlay');
+    overlay.classList.add('active');
+    const isPro = this.user && this.user.plan === 'premium';
+    document.getElementById('pricing-free').classList.toggle('current', !isPro);
+    document.getElementById('pricing-pro').classList.toggle('current', isPro);
+    document.getElementById('plan-free-btn').textContent = !isPro ? 'Current Plan' : 'Downgrade';
+    document.getElementById('plan-free-btn').disabled = !isPro;
+    document.getElementById('plan-pro-btn').textContent = isPro ? 'Current Plan' : 'Upgrade to Pro';
+    document.getElementById('plan-pro-btn').disabled = isPro;
+  },
+
+  closePricing() {
+    document.getElementById('pricing-overlay').classList.remove('active');
   },
 
   formatDate(dateStr) {
