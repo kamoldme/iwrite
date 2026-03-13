@@ -1656,14 +1656,14 @@ const App = {
       }
       list.innerHTML = tickets.map(t => `
         <div class="doc-card support-ticket">
-          <div class="support-ticket-status-row">
-            <span class="badge badge-${t.status === 'open' ? 'active' : t.status === 'closed' ? 'deleted' : 'premium'}">${t.status}</span>
-            <span class="support-ticket-date">${new Date(t.createdAt).toLocaleDateString()}</span>
-          </div>
           <div class="support-ticket-main">
             <div class="support-ticket-header">
               <span class="badge badge-${t.type === 'bug' ? 'deleted' : t.type === 'suggestion' ? 'premium' : 'active'}">${t.type}</span>
               <strong class="support-ticket-subject">${this._esc(t.subject)}</strong>
+              <span class="support-ticket-right">
+                <span class="support-ticket-date">${new Date(t.createdAt).toLocaleDateString()}</span>
+                <span class="badge badge-${t.status === 'open' ? 'active' : t.status === 'closed' ? 'deleted' : 'premium'}">${t.status}</span>
+              </span>
             </div>
             <p class="support-ticket-message">${this._esc(t.message)}</p>
             ${t.adminReply ? `<div class="support-ticket-reply"><strong>Admin reply:</strong> ${this._esc(t.adminReply)}</div>` : ''}
