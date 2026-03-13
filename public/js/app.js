@@ -10,16 +10,16 @@ const App = {
   toastTimer: null,
   notifInterval: null,
 
-  calcXPLevel(totalXP) {
+  calcXPLevel(totalWords) {
     let level = 0;
-    let xpUsed = 0;
-    let threshold = 100;
-    while (totalXP >= xpUsed + threshold) {
-      xpUsed += threshold;
+    let wordsUsed = 0;
+    let threshold = 500; // Level 1 = 500 words
+    while (totalWords >= wordsUsed + threshold) {
+      wordsUsed += threshold;
       level++;
-      threshold = Math.round(100 * Math.pow(1.15, level));
+      threshold = Math.round(threshold * 1.4); // 40% harder each level
     }
-    return { level, xpInLevel: totalXP - xpUsed, xpForNextLevel: threshold };
+    return { level, xpInLevel: totalWords - wordsUsed, xpForNextLevel: threshold };
   },
 
   async init() {
@@ -114,6 +114,13 @@ const App = {
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'block';
     this.updateUserUI();
+
+    // Initialize level tracking if not set (prevents false level-up on first visit)
+    if (!localStorage.getItem('iwrite_last_level')) {
+      const { level } = this.calcXPLevel(this.user.totalWords || 0);
+      localStorage.setItem('iwrite_last_level', level.toString());
+    }
+
     const savedTheme = localStorage.getItem('iwrite_theme') || 'dark';
     if (savedTheme === 'light') document.documentElement.classList.add('light');
 
@@ -359,7 +366,7 @@ const App = {
   updateUserUI() {
     if (!this.user) return;
     document.getElementById('user-name').textContent = this.user.name;
-    const { level } = this.calcXPLevel(this.user.xp || 0);
+    const { level } = this.calcXPLevel(this.user.totalWords || 0);
     document.getElementById('user-level').textContent = `Level ${level}`;
     document.getElementById('user-avatar').textContent = this.user.name.charAt(0).toUpperCase();
 
@@ -397,10 +404,17 @@ const App = {
     document.getElementById('longest-streak-text').textContent = `Best: ${this.user.longestStreak || 0}`;
     document.getElementById('total-xp').textContent = (this.user.xp || 0).toLocaleString();
 
-    const { level, xpInLevel, xpForNextLevel } = this.calcXPLevel(this.user.xp || 0);
+    const { level, xpInLevel, xpForNextLevel } = this.calcXPLevel(this.user.totalWords || 0);
     document.getElementById('xp-level-text').innerHTML = `&#x1F396;&#xFE0F; Level ${level}`;
-    document.getElementById('xp-progress-text').textContent = `${xpInLevel} / ${xpForNextLevel} XP`;
+    document.getElementById('xp-progress-text').textContent = `${xpInLevel.toLocaleString()} / ${xpForNextLevel.toLocaleString()} words`;
     document.getElementById('xp-bar-fill').style.width = `${Math.min(100, (xpInLevel / xpForNextLevel) * 100)}%`;
+
+    // Level-up celebration check
+    const prevLevel = parseInt(localStorage.getItem('iwrite_last_level') || '0');
+    if (level > prevLevel && prevLevel > 0) {
+      this.showLevelUpCelebration(level);
+    }
+    localStorage.setItem('iwrite_last_level', level.toString());
 
     const canvas = document.getElementById('tree-canvas');
     const stage = this.user.treeStage || 0;
@@ -727,7 +741,7 @@ const App = {
             <td><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
             <td>${entry.totalSessions || 0}</td>
             <td>${entry.minutesWritten || 0}m</td>
-            <td><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
+            <td><span class="lb-level">Lv.${this.calcXPLevel(entry.totalWords || 0).level}</span></td>
             <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
           </tr>`;
       }).join('');
@@ -904,7 +918,7 @@ const App = {
           <div class="doc-card" style="margin-bottom:8px">
             <div class="doc-card-info">
               <h4>${this.escapeHtml(r.name)}</h4>
-              <div class="doc-card-meta"><span>${r.email}</span><span>Level ${this.calcXPLevel(r.xp || 0).level}</span></div>
+              <div class="doc-card-meta"><span>${r.email}</span><span>Level ${this.calcXPLevel(r.totalWords || 0).level}</span></div>
             </div>
             <div class="doc-card-actions">
               <button class="btn btn-small btn-primary" onclick="App.acceptRequest('${r.id}')">Accept</button>
@@ -924,7 +938,7 @@ const App = {
           <div class="doc-card" style="margin-bottom:8px">
             <div class="doc-card-info">
               <h4>${this.escapeHtml(s.name)}</h4>
-              <div class="doc-card-meta"><span>${s.mutualCount} mutual friend${s.mutualCount !== 1 ? 's' : ''}</span><span>Level ${this.calcXPLevel(s.xp || 0).level}</span></div>
+              <div class="doc-card-meta"><span>${s.mutualCount} mutual friend${s.mutualCount !== 1 ? 's' : ''}</span><span>Level ${this.calcXPLevel(s.totalWords || 0).level}</span></div>
             </div>
             <div class="doc-card-actions">
               <button class="btn btn-small" onclick="App.addFriendById('${s.email}')">Add</button>
@@ -942,7 +956,7 @@ const App = {
           <div class="doc-card">
             <div class="doc-card-info">
               <h4>${this.escapeHtml(f.name)}</h4>
-              <div class="doc-card-meta"><span>${f.email}</span><span>Level ${this.calcXPLevel(f.xp || 0).level}</span></div>
+              <div class="doc-card-meta"><span>${f.email}</span><span>Level ${this.calcXPLevel(f.totalWords || 0).level}</span></div>
             </div>
             <div class="doc-card-actions">
               <button class="btn btn-small" onclick="App.challengeFriend('${f.id}')">Challenge</button>
@@ -1387,6 +1401,65 @@ const App = {
 
   closePricing() {
     document.getElementById('pricing-overlay').classList.remove('active');
+  },
+
+  showLevelUpCelebration(newLevel) {
+    // Confetti burst
+    this.launchConfetti();
+
+    // Create level-up modal
+    const overlay = document.createElement('div');
+    overlay.className = 'levelup-overlay';
+    overlay.innerHTML = `
+      <div class="levelup-modal">
+        <div class="levelup-glow"></div>
+        <div class="levelup-badge">${newLevel}</div>
+        <h2 class="levelup-title">Level Up!</h2>
+        <p class="levelup-sub">You've reached <strong>Level ${newLevel}</strong></p>
+        <p class="levelup-msg">Keep writing to unlock the next level. Every word counts!</p>
+        <button class="btn btn-primary levelup-btn">Keep Writing</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    requestAnimationFrame(() => overlay.classList.add('active'));
+
+    overlay.querySelector('.levelup-btn').onclick = () => {
+      overlay.classList.remove('active');
+      setTimeout(() => overlay.remove(), 400);
+    };
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.classList.remove('active');
+        setTimeout(() => overlay.remove(), 400);
+      }
+    });
+  },
+
+  launchConfetti() {
+    const colors = ['#6c5ce7', '#a78bfa', '#f59e0b', '#22c55e', '#ef4444', '#3b82f6', '#ec4899'];
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:30000;overflow:hidden';
+    document.body.appendChild(container);
+
+    for (let i = 0; i < 80; i++) {
+      const piece = document.createElement('div');
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const x = 50 + (Math.random() - 0.5) * 40;
+      const rotation = Math.random() * 360;
+      const delay = Math.random() * 0.3;
+      const size = 6 + Math.random() * 6;
+      const shape = Math.random() > 0.5 ? '50%' : '2px';
+
+      piece.style.cssText = `
+        position:absolute;left:${x}%;top:40%;width:${size}px;height:${size * 1.4}px;
+        background:${color};border-radius:${shape};opacity:1;
+        animation:confetti-fall ${1.5 + Math.random()}s ease-out ${delay}s forwards;
+      `;
+      container.appendChild(piece);
+    }
+
+    setTimeout(() => container.remove(), 3000);
   },
 
   formatDate(dateStr) {
