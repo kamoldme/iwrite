@@ -66,14 +66,15 @@ const App = {
         callback: this.handleGoogleCredential.bind(this)
       });
 
-      // Render buttons
+      // Render button at the width of the auth card
       const loginBtn = document.getElementById('google-login-btn');
       if (loginBtn) {
+        const cardWidth = loginBtn.closest('.auth-card')?.offsetWidth || 380;
         window.google.accounts.id.renderButton(loginBtn, {
           type: 'standard',
           theme: 'outline',
           size: 'large',
-          width: '100%'
+          width: cardWidth
         });
       }
     } catch (err) {

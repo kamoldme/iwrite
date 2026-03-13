@@ -3955,38 +3955,10 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 40px;
-  border-radius: 8px;
-  background: white;
-  border: 1px solid #dadce0;
-  color: #3c4043;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--transition);
 }
-.google-signin-btn:hover {
-  background: #f8f9fa;
-  border-color: #d2d3d4;
+.google-signin-btn > div {
+  width: 100% !important;
 }
-.light .google-signin-btn {
-  background: white;
-  color: #3c4043;
-}
-
-.auth-divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--text-muted);
-  font-size: 13px;
-  margin: 12px 0;
-  text-align: center;
-}
-.auth-divider::before,
-.auth-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--border);
+.google-signin-btn iframe {
+  width: 100% !important;
 }
