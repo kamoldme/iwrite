@@ -179,7 +179,34 @@ const Editor = {
       };
     });
 
+    // Font size +/- in format bar
+    const sizeDown = document.getElementById('fmt-size-down');
+    const sizeUp = document.getElementById('fmt-size-up');
+    if (sizeDown) sizeDown.onmousedown = (e) => { e.preventDefault(); this._changeFontSize(-1, 'fmt-size-label'); };
+    if (sizeUp) sizeUp.onmousedown = (e) => { e.preventDefault(); this._changeFontSize(1, 'fmt-size-label'); };
+
     document.addEventListener('selectionchange', this._onSelectionChange);
+  },
+
+  _changeFontSize(dir, labelId) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    let current = 3;
+    let node = sel.anchorNode;
+    while (node && node !== this.textarea) {
+      if (node.nodeType === 1 && node.tagName === 'FONT' && node.size) {
+        current = parseInt(node.size);
+        break;
+      }
+      node = node.parentNode;
+    }
+    const newSize = Math.max(1, Math.min(7, current + dir));
+    document.execCommand('fontSize', false, newSize);
+    // Update both labels
+    const fmtLabel = document.getElementById('fmt-size-label');
+    const selLabel = document.getElementById('sel-size-label');
+    if (fmtLabel) fmtLabel.textContent = newSize;
+    if (selLabel) selLabel.textContent = newSize;
   },
 
   _onSelectionChange() {
@@ -842,23 +869,7 @@ const Editor = {
           }
           document.execCommand('formatBlock', false, btn.dataset.value);
         } else if (cmd === 'fontSize') {
-          const dir = parseInt(btn.dataset.value);
-          const sel = window.getSelection();
-          if (sel && sel.rangeCount) {
-            let current = 3;
-            let node = sel.anchorNode;
-            while (node && node !== Editor.textarea) {
-              if (node.nodeType === 1 && node.tagName === 'FONT' && node.size) {
-                current = parseInt(node.size);
-                break;
-              }
-              node = node.parentNode;
-            }
-            const newSize = Math.max(1, Math.min(7, current + dir));
-            document.execCommand('fontSize', false, newSize);
-            const label = document.getElementById('sel-size-label');
-            if (label) label.textContent = newSize;
-          }
+          Editor._changeFontSize(parseInt(btn.dataset.value), 'sel-size-label');
         } else {
           document.execCommand(cmd, false, null);
         }

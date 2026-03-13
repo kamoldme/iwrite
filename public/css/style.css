@@ -1467,6 +1467,14 @@ html.light .logo-img-light { display: inline; }
   background: var(--accent-soft);
   color: var(--accent);
 }
+.fmt-size-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 16px;
+  text-align: center;
+  font-weight: 600;
+  line-height: 32px;
+}
 .fmt-separator {
   width: 1px;
   height: 20px;
@@ -1685,6 +1693,7 @@ html.light .logo-img-light { display: inline; }
   box-shadow: var(--shadow-lg);
   padding: 4px;
   display: flex;
+  align-items: center;
   gap: 2px;
   animation: selPopIn 0.12s ease-out;
 }
