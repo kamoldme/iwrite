@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -48,6 +49,14 @@ const { v4: uuid } = require('uuid');
     console.log('Admin account seeded');
   }
 })();
+app.get('/api/auth/google-client-id', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID || '';
+  if (!clientId) {
+    return res.status(500).json({ error: 'Google Client ID not configured' });
+  }
+  res.json({ clientId });
+});
+
 app.get('/api/stats/public', (req, res) => {
   const users = findMany('users.json');
   const docs = findMany('documents.json');

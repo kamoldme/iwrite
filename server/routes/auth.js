@@ -4,6 +4,7 @@ const { v4: uuid } = require('uuid');
 const { findOne, insertOne, updateOne } = require('../utils/storage');
 const { generateToken, authenticate } = require('../middleware/auth');
 const { logAction } = require('../utils/logger');
+const { OAuth2Client } = require('google-auth-library');
 
 const router = express.Router();
 
@@ -98,13 +99,17 @@ router.patch('/me', authenticate, (req, res) => {
 
 router.post('/change-password', authenticate, async (req, res) => {
   try {
+    const user = findOne('users.json', u => u.id === req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (user.provider === 'google') {
+      return res.status(400).json({ error: 'Google accounts cannot change password' });
+    }
+
     const { currentPassword, newPassword, confirmPassword } = req.body;
     if (!currentPassword || !newPassword || !confirmPassword) {
       return res.status(400).json({ error: 'All fields are required' });
     }
-
-    const user = findOne('users.json', u => u.id === req.user.id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
 
     const valid = await bcrypt.compare(currentPassword, user.password);
     if (!valid) {
@@ -125,6 +130,80 @@ router.post('/change-password', authenticate, async (req, res) => {
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ===== GOOGLE OAUTH =====
+router.post('/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ error: 'Credential is required' });
+    }
+
+    // Verify the credential with Google
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    const payload = ticket.getPayload();
+    const googleId = payload.sub;
+    const email = payload.email;
+    const name = payload.name;
+
+    // Find user by googleId first
+    let user = findOne('users.json', u => u.googleId === googleId);
+
+    // If not found by googleId, try email
+    if (!user) {
+      user = findOne('users.json', u => u.email === email);
+      if (user && !user.googleId) {
+        // Link Google to existing email account
+        updateOne('users.json', u => u.id === user.id, {
+          googleId,
+          provider: 'google'
+        });
+        user = findOne('users.json', u => u.id === user.id);
+      }
+    }
+
+    // If still not found, create new user
+    if (!user) {
+      user = {
+        id: uuid(),
+        name,
+        email,
+        password: null,
+        googleId,
+        provider: 'google',
+        role: 'user',
+        plan: 'free',
+        xp: 0,
+        level: 0,
+        streak: 0,
+        longestStreak: 0,
+        lastWritingDate: null,
+        treeStage: 0,
+        totalWords: 0,
+        totalSessions: 0,
+        achievements: [],
+        friends: [],
+        friendRequests: [],
+        sentRequests: [],
+        sharedTokens: [],
+        createdAt: new Date().toISOString()
+      };
+      insertOne('users.json', user);
+      logAction('user_registered_google', { name: user.name, email: user.email }, user.id);
+    }
+
+    const token = generateToken(user);
+    const { password: _, ...safeUser } = user;
+    res.json({ token, user: safeUser });
+  } catch (err) {
+    console.error('Google OAuth error:', err);
+    res.status(401).json({ error: 'Google authentication failed' });
   }
 });
 

@@ -23,6 +23,14 @@ const App = {
   },
 
   async init() {
+    // Check for token in URL (from Google OAuth redirect)
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    if (urlToken) {
+      API.setToken(urlToken);
+      window.history.replaceState({}, document.title, '/app');
+    }
+
     const token = API.getToken();
     if (!token) {
       this.showAuth();
@@ -42,7 +50,71 @@ const App = {
     document.getElementById('auth-view').style.display = 'flex';
     document.getElementById('app-view').style.display = 'none';
     this.bindAuthEvents();
+    this.initGoogleSignIn();
     Monsters.init();
+  },
+
+  async initGoogleSignIn() {
+    try {
+      const res = await fetch('/api/auth/google-client-id');
+      const { clientId } = await res.json();
+      if (!clientId) return;
+
+      // Initialize Google Sign-In
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: this.handleGoogleCredential.bind(this)
+      });
+
+      // Render buttons
+      const loginBtn = document.getElementById('google-login-btn');
+      const registerBtn = document.getElementById('google-register-btn');
+      if (loginBtn) {
+        window.google.accounts.id.renderButton(loginBtn, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          width: '100%'
+        });
+      }
+      if (registerBtn) {
+        window.google.accounts.id.renderButton(registerBtn, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          width: '100%'
+        });
+      }
+    } catch (err) {
+      console.error('Failed to initialize Google Sign-In:', err);
+    }
+  },
+
+  async handleGoogleCredential(response) {
+    const errorEl = document.getElementById('login-error') || document.getElementById('register-error');
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential })
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        if (errorEl) errorEl.textContent = error.error || 'Google sign-in failed';
+        if (errorEl) errorEl.classList.add('visible');
+        return;
+      }
+
+      const data = await res.json();
+      API.setToken(data.token);
+      this.user = data.user;
+      this.showApp();
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+      if (errorEl) errorEl.textContent = 'Google sign-in failed';
+      if (errorEl) errorEl.classList.add('visible');
+    }
   },
 
   showApp() {
