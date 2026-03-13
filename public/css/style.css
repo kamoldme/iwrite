@@ -1535,10 +1535,19 @@ html.light .logo-img-light { display: inline; }
   border-bottom: 1px solid var(--border);
   text-align: center;
 }
-.editor-topic-text {
+.editor-topic-input {
   font-size: 12px;
   color: var(--text-secondary);
   font-style: italic;
+  background: none;
+  border: none;
+  outline: none;
+  width: 100%;
+  text-align: center;
+  font-family: inherit;
+}
+.editor-topic-input::placeholder {
+  color: var(--text-muted);
 }
 
 /* ===== EDITOR FONT DROPDOWN ===== */
@@ -1698,6 +1707,20 @@ html.light .logo-img-light { display: inline; }
 }
 .sel-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
 .sel-btn.active { background: var(--accent-soft); color: var(--accent); }
+.sel-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+.sel-size-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 14px;
+  text-align: center;
+  font-weight: 600;
+}
 
 /* ===== STATUS BAR EXTRAS ===== */
 .status-separator {

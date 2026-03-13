@@ -27,7 +27,6 @@ const Editor = {
   sessionTopic: '',           // essay question / topic
   _lastMotivateAt: 0,         // last word count when motivate was shown
   _currentFont: 'sans',       // current font family
-  _audioElement: null,        // current audio element
   _audioPlaying: false,       // whether audio is playing
   _ytPlayer: null,            // YouTube iframe
 
@@ -146,12 +145,8 @@ const Editor = {
     // Show topic bar if set
     const topicBar = document.getElementById('editor-topic-bar');
     const topicText = document.getElementById('editor-topic-text');
-    if (this.sessionTopic) {
-      topicText.textContent = this.sessionTopic;
-      topicBar.style.display = 'block';
-    } else {
-      topicBar.style.display = 'none';
-    }
+    topicText.value = this.sessionTopic || '';
+    topicBar.style.display = 'block';
 
     // Show target word count in status bar
     this._updateWordsRemaining();
@@ -831,11 +826,39 @@ const Editor = {
         e.preventDefault();
         e.stopPropagation();
         const cmd = btn.dataset.cmd;
-        if (cmd === 'createLink') {
-          const url = prompt('Enter URL:');
-          if (url) document.execCommand('createLink', false, url);
-        } else if (cmd === 'formatBlock') {
+        if (cmd === 'formatBlock') {
+          // Toggle blockquote: if already inside one, remove it
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount) {
+            let node = sel.anchorNode;
+            while (node && node !== Editor.textarea) {
+              if (node.nodeName === 'BLOCKQUOTE') {
+                document.execCommand('formatBlock', false, 'DIV');
+                Editor.updateFormatButtons();
+                return;
+              }
+              node = node.parentNode;
+            }
+          }
           document.execCommand('formatBlock', false, btn.dataset.value);
+        } else if (cmd === 'fontSize') {
+          const dir = parseInt(btn.dataset.value);
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount) {
+            let current = 3;
+            let node = sel.anchorNode;
+            while (node && node !== Editor.textarea) {
+              if (node.nodeType === 1 && node.tagName === 'FONT' && node.size) {
+                current = parseInt(node.size);
+                break;
+              }
+              node = node.parentNode;
+            }
+            const newSize = Math.max(1, Math.min(7, current + dir));
+            document.execCommand('fontSize', false, newSize);
+            const label = document.getElementById('sel-size-label');
+            if (label) label.textContent = newSize;
+          }
         } else {
           document.execCommand(cmd, false, null);
         }
@@ -917,40 +940,28 @@ const Editor = {
   },
 
   // --- Audio system ---
-  _audioSources: {
-    lofi1: 'https://cdn.freesound.org/previews/612/612095_5674468-lq.mp3',
-    lofi2: 'https://cdn.freesound.org/previews/467/467058_4397472-lq.mp3',
-    brown: 'https://cdn.freesound.org/previews/253/253684_4068345-lq.mp3',
-    hz40: 'https://cdn.freesound.org/previews/178/178660_2394245-lq.mp3',
-    rain: 'https://cdn.freesound.org/previews/531/531947_6574547-lq.mp3',
+  // All audio tracks use YouTube embeds for reliability
+  _audioYouTubeIds: {
+    lofi1: 'jfKfPfyJRdk',   // lofi hip hop radio
+    lofi2: '4xDzrJKXOOY',   // synthwave radio
+    brown: 'GSaJXDsb3N8',   // brown noise
+    hz40: 'ZjFoBm1U1qg',    // 40Hz gamma binaural
+    rain: '8plwv25NYRo',     // rain sounds
   },
   _activeAudioKey: null,
 
+  _ytPaused: false,
+
   playAudio(key) {
-    // If same track is playing, toggle pause/resume
-    if (this._activeAudioKey === key && this._audioElement) {
-      if (this._audioElement.paused) {
-        this._audioElement.play().catch(() => {});
-        this._audioPlaying = true;
-      } else {
-        this._audioElement.pause();
-        this._audioPlaying = false;
-      }
-      this._updateTrackUI();
+    // If same track, toggle pause/resume
+    if (this._activeAudioKey === key && this._ytPlayer) {
+      this._toggleYTPause();
       return;
     }
     this.stopAudio();
-    const src = this._audioSources[key];
-    if (!src) return;
-    const track = document.querySelector(`.audio-track[data-audio="${key}"]`);
-    const vol = track ? track.querySelector('.audio-track-vol').value : 50;
-    this._audioElement = new Audio(src);
-    this._audioElement.loop = true;
-    this._audioElement.volume = vol / 100;
-    this._audioElement.play().catch(() => {});
-    this._audioPlaying = true;
-    this._activeAudioKey = key;
-    this._updateTrackUI();
+    const videoId = this._audioYouTubeIds[key];
+    if (!videoId) return;
+    this._startYTEmbed(videoId, key);
   },
 
   playYouTube(url) {
@@ -962,20 +973,55 @@ const Editor = {
       else videoId = u.searchParams.get('v') || '';
     } catch { return; }
     if (!videoId) return;
+    this._startYTEmbed(videoId, 'youtube');
+    // Show pause button
+    const pauseBtn = document.getElementById('audio-yt-pause');
+    if (pauseBtn) pauseBtn.style.display = '';
+  },
+
+  _startYTEmbed(videoId, key) {
     const container = document.getElementById('yt-player-container');
-    container.innerHTML = `<iframe id="yt-iframe" width="1" height="1" src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1" allow="autoplay" frameborder="0"></iframe>`;
+    const track = document.querySelector(`.audio-track[data-audio="${key}"]`);
+    const vol = track ? track.querySelector('.audio-track-vol').value : 50;
+    container.innerHTML = `<iframe id="yt-iframe" width="1" height="1" src="https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}&enablejsapi=1" allow="autoplay" frameborder="0"></iframe>`;
     this._ytPlayer = document.getElementById('yt-iframe');
     this._audioPlaying = true;
-    this._activeAudioKey = 'youtube';
+    this._ytPaused = false;
+    this._activeAudioKey = key;
+    // Apply volume via postMessage after iframe loads
+    this._ytPlayer.onload = () => {
+      const volVal = Math.round(vol);
+      this._ytPlayer.contentWindow.postMessage(JSON.stringify({
+        event: 'command', func: 'setVolume', args: [volVal]
+      }), '*');
+    };
     this._updateTrackUI();
   },
 
-  stopAudio() {
-    if (this._audioElement) {
-      this._audioElement.pause();
-      this._audioElement.src = '';
-      this._audioElement = null;
+  _toggleYTPause() {
+    if (!this._ytPlayer) return;
+    if (this._ytPaused) {
+      this._ytPlayer.contentWindow.postMessage(JSON.stringify({
+        event: 'command', func: 'playVideo', args: []
+      }), '*');
+      this._audioPlaying = true;
+      this._ytPaused = false;
+    } else {
+      this._ytPlayer.contentWindow.postMessage(JSON.stringify({
+        event: 'command', func: 'pauseVideo', args: []
+      }), '*');
+      this._audioPlaying = false;
+      this._ytPaused = true;
     }
+    this._updateTrackUI();
+    // Update YT pause button text if it's the youtube custom link
+    const pauseBtn = document.getElementById('audio-yt-pause');
+    if (pauseBtn && this._activeAudioKey === 'youtube') {
+      pauseBtn.textContent = this._ytPaused ? 'Resume' : 'Pause';
+    }
+  },
+
+  stopAudio() {
     if (this._ytPlayer) {
       this._ytPlayer.remove();
       this._ytPlayer = null;
@@ -983,7 +1029,11 @@ const Editor = {
     const container = document.getElementById('yt-player-container');
     if (container) container.innerHTML = '';
     this._audioPlaying = false;
+    this._ytPaused = false;
     this._activeAudioKey = null;
+    // Hide YT pause button
+    const pauseBtn = document.getElementById('audio-yt-pause');
+    if (pauseBtn) pauseBtn.style.display = 'none';
     this._updateTrackUI();
   },
 
@@ -1011,8 +1061,10 @@ const Editor = {
       const volSlider = track.querySelector('.audio-track-vol');
       playBtn.addEventListener('click', () => Editor.playAudio(key));
       volSlider.addEventListener('input', () => {
-        if (Editor._activeAudioKey === key && Editor._audioElement) {
-          Editor._audioElement.volume = volSlider.value / 100;
+        if (Editor._activeAudioKey === key && Editor._ytPlayer) {
+          Editor._ytPlayer.contentWindow.postMessage(JSON.stringify({
+            event: 'command', func: 'setVolume', args: [Math.round(volSlider.value)]
+          }), '*');
         }
       });
     });
@@ -1020,6 +1072,10 @@ const Editor = {
     if (ytPlayBtn) ytPlayBtn.addEventListener('click', () => {
       const url = document.getElementById('audio-yt-input').value.trim();
       if (url) Editor.playYouTube(url);
+    });
+    const ytPauseBtn = document.getElementById('audio-yt-pause');
+    if (ytPauseBtn) ytPauseBtn.addEventListener('click', () => {
+      Editor._toggleYTPause();
     });
   },
 
