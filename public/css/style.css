@@ -2523,8 +2523,12 @@ a {
 
 /* ===== LEADERBOARD ===== */
 .leaderboard-container {
-  width: 100%;
+  width: calc(100% + 80px);
   max-width: none;
+  margin-left: -40px;
+  margin-right: -40px;
+  padding-left: 40px;
+  padding-right: 40px;
 }
 
 .leaderboard-podium {
@@ -2908,6 +2912,14 @@ a {
 
   .podium-slot {
     min-width: 90px;
+  }
+
+  .leaderboard-container {
+    width: calc(100% + 40px);
+    margin-left: -20px;
+    margin-right: -20px;
+    padding-left: 20px;
+    padding-right: 20px;
   }
 }
 
@@ -4086,6 +4098,14 @@ a {
   text-transform: uppercase;
   flex-shrink: 0;
 }
+.finder-row.current {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+}
+.finder-row-depth-0 .finder-row-name {
+  font-weight: 600;
+  font-size: 14px;
+}
 .finder-row-arrow {
   color: var(--text-muted);
   font-size: 16px;
@@ -4155,7 +4175,8 @@ a {
   width: 100% !important;
 }
 .google-signin-btn iframe {
-  width: 95% !important;
+  width: 100% !important;
+  border-radius: 8px !important;
 }
 
 /* ===== PLAN BADGE ===== */

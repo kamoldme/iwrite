@@ -1255,18 +1255,18 @@ const App = {
     html += `<div class="finder-current-loc">Currently in: <strong>${this.escapeHtml(currentFolderName)}</strong></div>`;
     html += `<div class="finder-list">`;
     // Root option
-    html += `<div class="finder-row${isRootCurrent ? ' selected current' : ''}" data-picker-id="">
+    html += `<div class="finder-row finder-row-depth-0${isRootCurrent ? ' current' : ''}" data-picker-id="">
       <span class="finder-row-icon">📂</span>
       <span class="finder-row-name">All Sessions (Root)</span>
-      ${isRootCurrent ? '<span class="finder-row-current">Current</span>' : ''}
+      ${isRootCurrent ? '<span class="finder-row-current">📍 Here</span>' : ''}
     </div>`;
     treeRows.forEach(r => {
-      const pad = 12 + r.depth * 16;
+      const pad = 12 + r.depth * 24;
       const isCurrent = r.id === currentFolderId;
-      html += `<div class="finder-row${isCurrent ? ' selected current' : ''}" data-picker-id="${r.id}" style="padding-left:${pad}px">
-        <span class="finder-row-icon">📁</span>
+      html += `<div class="finder-row finder-row-depth-${r.depth}${isCurrent ? ' current' : ''}" data-picker-id="${r.id}" style="padding-left:${pad}px">
+        <span class="finder-row-icon">${r.depth === 0 ? '📂' : '📁'}</span>
         <span class="finder-row-name">${this.escapeHtml(r.name)}</span>
-        ${isCurrent ? '<span class="finder-row-current">Current</span>' : ''}
+        ${isCurrent ? '<span class="finder-row-current">📍 Here</span>' : ''}
       </div>`;
     });
     if (treeRows.length === 0) {
