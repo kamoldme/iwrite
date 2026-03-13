@@ -10,16 +10,16 @@ const App = {
   toastTimer: null,
   notifInterval: null,
 
-  calcXPLevel(totalWords) {
+  calcXPLevel(xp) {
     let level = 0;
-    let wordsUsed = 0;
-    let threshold = 500; // Level 1 = 500 words
-    while (totalWords >= wordsUsed + threshold) {
-      wordsUsed += threshold;
+    let xpUsed = 0;
+    let threshold = 300; // Level 1 = 300 XP
+    while (xp >= xpUsed + threshold) {
+      xpUsed += threshold;
       level++;
       threshold = Math.round(threshold * 1.25); // 25% harder each level
     }
-    return { level, xpInLevel: totalWords - wordsUsed, xpForNextLevel: threshold };
+    return { level, xpInLevel: xp - xpUsed, xpForNextLevel: threshold };
   },
 
   async init() {
@@ -60,13 +60,17 @@ const App = {
       const { clientId } = await res.json();
       if (!clientId) return;
 
-      // Initialize Google Sign-In
+      // Initialize Google Sign-In with auto-select for returning users
       window.google.accounts.id.initialize({
         client_id: clientId,
-        callback: this.handleGoogleCredential.bind(this)
+        callback: this.handleGoogleCredential.bind(this),
+        auto_select: true
       });
 
-      // Render button at the width of the auth card
+      // Try One Tap auto-sign-in first (silent for returning users)
+      window.google.accounts.id.prompt();
+
+      // Render button as fallback
       const loginBtn = document.getElementById('google-login-btn');
       if (loginBtn) {
         const cardWidth = loginBtn.closest('.auth-card')?.offsetWidth || 380;
@@ -404,9 +408,9 @@ const App = {
     document.getElementById('longest-streak-text').textContent = `Best: ${this.user.longestStreak || 0}`;
     document.getElementById('total-xp').textContent = (this.user.xp || 0).toLocaleString();
 
-    const { level, xpInLevel, xpForNextLevel } = this.calcXPLevel(this.user.totalWords || 0);
+    const { level, xpInLevel, xpForNextLevel } = this.calcXPLevel(this.user.xp || 0);
     document.getElementById('xp-level-text').innerHTML = `&#x1F396;&#xFE0F; Level ${level}`;
-    document.getElementById('xp-progress-text').textContent = `${xpInLevel.toLocaleString()} / ${xpForNextLevel.toLocaleString()} words`;
+    document.getElementById('xp-progress-text').textContent = `${xpInLevel.toLocaleString()} / ${xpForNextLevel.toLocaleString()} XP`;
     document.getElementById('xp-bar-fill').style.width = `${Math.min(100, (xpInLevel / xpForNextLevel) * 100)}%`;
 
     // Level-up celebration check
@@ -470,6 +474,24 @@ const App = {
       });
     } else {
       bc.style.display = 'none';
+    }
+
+    // Add back button when inside a folder
+    const backBtnContainer = document.getElementById('folder-back-btn');
+    if (backBtnContainer) {
+      if (this.currentFolder) {
+        const currentFolderObj = this.folders.find(f => f.id === this.currentFolder);
+        const parentId = currentFolderObj?.parentFolder || null;
+        const parentName = parentId ? (this.folders.find(f => f.id === parentId)?.name || 'Parent') : 'All Sessions';
+        backBtnContainer.style.display = 'flex';
+        backBtnContainer.innerHTML = `<button class="folder-back-link" id="folder-back-action">← Back to ${this.escapeHtml(parentName)}</button>`;
+        document.getElementById('folder-back-action').onclick = () => {
+          this.currentFolder = parentId;
+          this.loadDocuments();
+        };
+      } else {
+        backBtnContainer.style.display = 'none';
+      }
     }
 
     // Render folders for current level
@@ -877,14 +899,33 @@ const App = {
   getAchievements() {
     const u = this.user;
     return [
+      // Session milestones
       { icon: '&#x1F331;', name: 'First Seed', description: 'Complete your first session', earned: (u.totalSessions || 0) >= 1 },
+      { icon: '&#x270D;&#xFE0F;', name: 'Getting Started', description: 'Complete 5 sessions', earned: (u.totalSessions || 0) >= 5 },
+      { icon: '&#x1F4DD;', name: 'Regular Writer', description: 'Complete 25 sessions', earned: (u.totalSessions || 0) >= 25 },
+      { icon: '&#x1F58B;&#xFE0F;', name: 'Session Master', description: 'Complete 100 sessions', earned: (u.totalSessions || 0) >= 100 },
+      // Streak milestones
       { icon: '&#x1F525;', name: 'On Fire', description: '3-day writing streak', earned: (u.longestStreak || 0) >= 3 },
-      { icon: '&#x26A1;', name: 'Speed Writer', description: 'Write 500 words in one session', earned: (u.totalWords || 0) >= 500 },
       { icon: '&#x1F3AF;', name: 'Consistent', description: '7-day writing streak', earned: (u.longestStreak || 0) >= 7 },
-      { icon: '&#x1F4DA;', name: 'Prolific', description: 'Write 10,000 total words', earned: (u.totalWords || 0) >= 10000 },
-      { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode session', earned: false },
-      { icon: '&#x1F333;', name: 'Forest', description: 'Grow your tree to max stage', earned: (u.treeStage || 0) >= 11 },
+      { icon: '&#x1F4AA;', name: 'Dedicated', description: '14-day writing streak', earned: (u.longestStreak || 0) >= 14 },
       { icon: '&#x1F3C6;', name: 'Legend', description: '30-day writing streak', earned: (u.longestStreak || 0) >= 30 },
+      { icon: '&#x1F451;', name: 'Unstoppable', description: '60-day writing streak', earned: (u.longestStreak || 0) >= 60 },
+      { icon: '&#x1F30D;', name: 'World Writer', description: '100-day writing streak', earned: (u.longestStreak || 0) >= 100 },
+      // Word milestones
+      { icon: '&#x26A1;', name: 'Speed Writer', description: 'Write 500 total words', earned: (u.totalWords || 0) >= 500 },
+      { icon: '&#x1F4D6;', name: 'Storyteller', description: 'Write 2,500 total words', earned: (u.totalWords || 0) >= 2500 },
+      { icon: '&#x1F4DA;', name: 'Prolific', description: 'Write 10,000 total words', earned: (u.totalWords || 0) >= 10000 },
+      { icon: '&#x1F4D5;', name: 'Novelist', description: 'Write 50,000 total words', earned: (u.totalWords || 0) >= 50000 },
+      { icon: '&#x1F3DB;&#xFE0F;', name: 'Epic Author', description: 'Write 100,000 total words', earned: (u.totalWords || 0) >= 100000 },
+      // Level milestones
+      { icon: '&#x2B50;', name: 'Rising Star', description: 'Reach Level 5', earned: (u.level || 0) >= 5 },
+      { icon: '&#x1F31F;', name: 'Shining Bright', description: 'Reach Level 10', earned: (u.level || 0) >= 10 },
+      { icon: '&#x1F48E;', name: 'Diamond Writer', description: 'Reach Level 25', earned: (u.level || 0) >= 25 },
+      // Special
+      { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode session', earned: (u.achievements || []).includes('danger_zone') },
+      { icon: '&#x1F333;', name: 'Forest', description: 'Grow your tree to max stage', earned: (u.treeStage || 0) >= 11 },
+      { icon: '&#x1F91D;', name: 'Social Writer', description: 'Add your first friend', earned: (u.friends || []).length >= 1 },
+      { icon: '&#x1F465;', name: 'Writing Circle', description: 'Have 5 friends', earned: (u.friends || []).length >= 5 },
     ];
   },
 
@@ -1429,6 +1470,30 @@ const App = {
     document.getElementById('pricing-overlay').classList.remove('active');
   },
 
+  openStreakPopup() {
+    const overlay = document.getElementById('streak-popup-overlay');
+    const streak = this.user?.streak || 0;
+    const best = this.user?.longestStreak || 0;
+    document.getElementById('streak-popup-count').textContent = streak;
+    document.getElementById('streak-popup-best').textContent = `Best: ${best} days`;
+    // Dynamic motivational message
+    let msg = 'Start writing today to begin your streak!';
+    if (streak >= 100) msg = 'Absolutely legendary. You are a writing machine!';
+    else if (streak >= 60) msg = 'Two months strong! Nothing can stop you!';
+    else if (streak >= 30) msg = 'A full month! You\'re a writing legend!';
+    else if (streak >= 14) msg = 'Two weeks! Your dedication is inspiring!';
+    else if (streak >= 7) msg = 'A whole week! Keep the momentum going!';
+    else if (streak >= 3) msg = 'You\'re on fire! Don\'t break the chain!';
+    else if (streak >= 1) msg = 'Great start! Come back tomorrow to keep it going!';
+    document.getElementById('streak-popup-message').textContent = msg;
+    overlay.classList.add('active');
+    overlay.onclick = (e) => { if (e.target === overlay) this.closeStreakPopup(); };
+  },
+
+  closeStreakPopup() {
+    document.getElementById('streak-popup-overlay').classList.remove('active');
+  },
+
   showLevelUpCelebration(newLevel) {
     // Confetti burst
     this.launchConfetti();
@@ -1591,16 +1656,18 @@ const App = {
       }
       list.innerHTML = tickets.map(t => `
         <div class="doc-card support-ticket">
+          <div class="support-ticket-status-row">
+            <span class="badge badge-${t.status === 'open' ? 'active' : t.status === 'closed' ? 'deleted' : 'premium'}">${t.status}</span>
+            <span class="support-ticket-date">${new Date(t.createdAt).toLocaleDateString()}</span>
+          </div>
           <div class="support-ticket-main">
             <div class="support-ticket-header">
               <span class="badge badge-${t.type === 'bug' ? 'deleted' : t.type === 'suggestion' ? 'premium' : 'active'}">${t.type}</span>
               <strong class="support-ticket-subject">${this._esc(t.subject)}</strong>
-              <span class="badge badge-${t.status === 'open' ? 'active' : t.status === 'closed' ? 'deleted' : 'premium'}">${t.status}</span>
             </div>
             <p class="support-ticket-message">${this._esc(t.message)}</p>
             ${t.adminReply ? `<div class="support-ticket-reply"><strong>Admin reply:</strong> ${this._esc(t.adminReply)}</div>` : ''}
           </div>
-          <div class="support-ticket-date">${new Date(t.createdAt).toLocaleDateString()}</div>
         </div>
       `).join('');
     } catch {
@@ -1650,7 +1717,7 @@ const App = {
       title: 'XP & Levels',
       html: `<p>Every completed session earns you XP based on your output:</p>
         <ul><li><strong>Base XP</strong> — 0.5 XP per word written</li><li><strong>Time bonus</strong> — 2 XP per minute of writing</li><li><strong>Dangerous bonus</strong> — +50% of base XP for completing Dangerous mode</li></ul>
-        <p>You <strong>level up at increasing XP thresholds</strong> (100, 115, 133, ...). There's no level cap — keep writing.</p>`
+        <p>You level up at increasing XP thresholds. Level 1 = <strong>300 XP</strong>, each next level requires <strong>25% more</strong> (375, 469, 586...). There's no level cap — keep writing.</p>`
     },
     'streaks': {
       title: 'Streaks',

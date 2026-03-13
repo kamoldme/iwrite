@@ -4,12 +4,12 @@ const { findOne, findMany, insertOne, updateOne, deleteOne } = require('../utils
 const { authenticate } = require('../middleware/auth');
 const { logAction } = require('../utils/logger');
 
-function calcLevel(totalWords) {
+function calcLevel(xp) {
   let level = 0;
-  let wordsUsed = 0;
-  let threshold = 500;
-  while (totalWords >= wordsUsed + threshold) {
-    wordsUsed += threshold;
+  let xpUsed = 0;
+  let threshold = 300;
+  while (xp >= xpUsed + threshold) {
+    xpUsed += threshold;
     level++;
     threshold = Math.round(threshold * 1.25);
   }
@@ -194,7 +194,7 @@ router.post('/:id/complete', (req, res) => {
   const newXP = user.xp + (xpEarned || 0);
   const updatedUser = updateOne('users.json', u => u.id === req.user.id, {
     xp: newXP,
-    level: calcLevel(totalWords),
+    level: calcLevel(newXP),
     streak: newStreak,
     longestStreak: Math.max(user.longestStreak, newStreak),
     lastWritingDate: today,

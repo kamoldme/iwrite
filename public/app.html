@@ -46,8 +46,8 @@
     <div class="app-container">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-          <a href="/" class="logo">iWrite</a>
-          <div class="streak-indicator" id="streak-badge" style="display:none">
+          <a href="/" class="logo"><img src="/iWrite logo.png" alt="" class="logo-img">iWrite</a>
+          <div class="streak-indicator" id="streak-badge" style="display:none;cursor:pointer" onclick="App.openStreakPopup()">
             <span class="streak-fire">&#x1F525;</span>
             <span id="streak-count">0</span>
           </div>
@@ -135,7 +135,7 @@
               <div class="dash-stat-value" id="total-sessions">0</div>
               <div class="dash-stat-label">Sessions Done</div>
             </div>
-            <div class="dash-stat-card dash-stat-streak">
+            <div class="dash-stat-card dash-stat-streak" style="cursor:pointer" onclick="App.openStreakPopup()">
               <div class="dash-stat-emoji">&#x1F525;</div>
               <div class="dash-stat-value" id="current-streak">0</div>
               <div class="dash-stat-label">Day Streak</div>
@@ -191,6 +191,8 @@
               <button class="btn btn-primary btn-small" id="new-doc-btn-3">New Session</button>
             </div>
           </div>
+          <!-- Folder back button -->
+          <div id="folder-back-btn" style="display:none"></div>
           <!-- Folder breadcrumb -->
           <div id="folder-breadcrumb" class="folder-breadcrumb" style="display:none"></div>
           <!-- Folder cards -->
@@ -707,6 +709,22 @@
           <button class="btn btn-primary btn-full pricing-btn" id="plan-pro-btn">Upgrade to Pro</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- STREAK POPUP -->
+  <div class="streak-popup-overlay" id="streak-popup-overlay">
+    <div class="streak-popup">
+      <button class="streak-popup-close" onclick="App.closeStreakPopup()">&times;</button>
+      <div class="streak-popup-fire" id="streak-popup-fire">
+        <div class="streak-flame flame-1">&#x1F525;</div>
+        <div class="streak-flame flame-2">&#x1F525;</div>
+        <div class="streak-flame flame-3">&#x1F525;</div>
+      </div>
+      <div class="streak-popup-count" id="streak-popup-count">0</div>
+      <div class="streak-popup-label">Day Streak!</div>
+      <div class="streak-popup-message" id="streak-popup-message">Keep writing every day!</div>
+      <div class="streak-popup-best" id="streak-popup-best">Best: 0 days</div>
     </div>
   </div>
 
