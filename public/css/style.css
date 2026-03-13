@@ -4623,7 +4623,9 @@ html.light .logo-img-light { display: inline; }
   font-weight: 600;
 }
 .levelup-btn {
-  min-width: 160px;
+  min-width: 200px;
+  padding: 14px 32px;
+  font-size: 16px;
 }
 
 /* Confetti animation */
