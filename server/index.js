@@ -75,6 +75,6 @@ app.get('/shared/:token', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'shared.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`iWrite running at http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`iWrite running on port ${PORT}`);
 });
