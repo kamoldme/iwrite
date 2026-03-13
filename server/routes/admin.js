@@ -134,7 +134,8 @@ router.patch('/documents/:id', (req, res) => {
 router.post('/documents/:id/restore', (req, res) => {
   const updated = updateOne('documents.json', d => d.id === req.params.id, {
     deleted: false,
-    deletedBySystem: false
+    deletedBySystem: false,
+    deactivatedByAdmin: false
   });
   if (!updated) return res.status(404).json({ error: 'Document not found' });
 

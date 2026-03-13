@@ -493,13 +493,18 @@
     });
 
     // ===== TAB SWITCHING =====
+    function switchAdminTab(tabName) {
+      document.querySelectorAll('.admin-nav-item[data-tab]').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.querySelector(`.admin-nav-item[data-tab="${tabName}"]`);
+      if (activeBtn) activeBtn.classList.add('active');
+      document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
+      const tabEl = document.getElementById(`tab-${tabName}`);
+      if (tabEl) tabEl.style.display = 'block';
+      localStorage.setItem('iwrite_admin_tab', tabName);
+    }
+
     document.querySelectorAll('[data-tab]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.admin-nav-item[data-tab]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
-        document.getElementById(`tab-${btn.dataset.tab}`).style.display = 'block';
-      });
+      btn.addEventListener('click', () => switchAdminTab(btn.dataset.tab));
     });
 
     document.getElementById('admin-logout').addEventListener('click', () => {
@@ -553,6 +558,8 @@
     async function showPanel() {
       document.getElementById('admin-auth').style.display = 'none';
       document.getElementById('admin-panel').style.display = 'block';
+      const savedTab = localStorage.getItem('iwrite_admin_tab') || 'overview';
+      switchAdminTab(savedTab);
       await Promise.all([loadOverview(), loadUsers(), loadDocs(), loadLogs(), loadSupport()]);
     }
 
