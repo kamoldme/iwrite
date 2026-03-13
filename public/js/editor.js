@@ -23,6 +23,13 @@ const Editor = {
   _fullscreenActive: false,   // tracks whether we requested fullscreen
   _blurCooldown: false,       // prevents blur firing on harmless clicks
   tabCountdown: null,         // timeout for leaving the tab
+  targetWords: 0,             // target word count (0 = no target)
+  sessionTopic: '',           // essay question / topic
+  _lastMotivateAt: 0,         // last word count when motivate was shown
+  _currentFont: 'sans',       // current font family
+  _audioElement: null,        // current audio element
+  _audioPlaying: false,       // whether audio is playing
+  _ytPlayer: null,            // YouTube iframe
 
   get textarea() { return document.getElementById('editor-textarea'); },
   get container() { return document.getElementById('editor-container'); },
@@ -67,13 +74,16 @@ const Editor = {
     }
   },
 
-  async start(duration, mode) {
+  async start(duration, mode, opts = {}) {
     this.duration = duration;
     this.mode = mode;
     this.abandoned = false;
     this.lastWordMilestone = 0;
+    this._lastMotivateAt = 0;
     this.isEditing = false;
     this.isDirty = false;
+    this.targetWords = opts.targetWords || 0;
+    this.sessionTopic = opts.topic || '';
     if (typeof CommentSystem !== 'undefined') CommentSystem.destroy();
 
     try {
@@ -132,6 +142,19 @@ const Editor = {
     // Save session state periodically so it survives page refresh
     this.sessionSaveInterval = setInterval(() => this._saveSessionState(), 5000);
     this._saveSessionState();
+
+    // Show topic bar if set
+    const topicBar = document.getElementById('editor-topic-bar');
+    const topicText = document.getElementById('editor-topic-text');
+    if (this.sessionTopic) {
+      topicText.textContent = this.sessionTopic;
+      topicBar.style.display = 'block';
+    } else {
+      topicBar.style.display = 'none';
+    }
+
+    // Show target word count in status bar
+    this._updateWordsRemaining();
 
     // Request fullscreen automatically for both normal and dangerous mode
     this._fullscreenActive = false;
@@ -200,6 +223,8 @@ const Editor = {
   onInput: () => {
     Editor.lastKeystroke = Date.now();
     Editor.updateWordCount();
+    Editor._updateWordsRemaining();
+    Editor._checkMotivation();
     Editor.textarea.style.opacity = '1';
     Editor.textarea.classList.remove('fading');
     Editor.vignette.classList.remove('active');
@@ -209,6 +234,27 @@ const Editor = {
     if (e.key === 'Tab') {
       e.preventDefault();
       document.execCommand('insertText', false, '  ');
+      return;
+    }
+    // Keyboard shortcuts for formatting
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      switch (e.key.toLowerCase()) {
+        case 'b':
+          e.preventDefault();
+          document.execCommand('bold', false, null);
+          Editor.updateFormatButtons();
+          break;
+        case 'i':
+          e.preventDefault();
+          document.execCommand('italic', false, null);
+          Editor.updateFormatButtons();
+          break;
+        case 'u':
+          e.preventDefault();
+          document.execCommand('underline', false, null);
+          Editor.updateFormatButtons();
+          break;
+      }
     }
   },
 
@@ -687,6 +733,246 @@ const Editor = {
     }
   },
 
+  // --- Words remaining / target ---
+  _updateWordsRemaining() {
+    const el = document.getElementById('editor-words-remaining');
+    if (!el) return;
+    if (!this.targetWords) { el.style.display = 'none'; return; }
+    const words = this.getWordCount();
+    const remaining = Math.max(0, this.targetWords - words);
+    if (remaining > 0) {
+      el.textContent = `${remaining} words to go`;
+      el.style.color = '';
+    } else {
+      el.textContent = 'Target reached!';
+      el.style.color = 'var(--success)';
+    }
+    el.style.display = '';
+  },
+
+  // --- Motivating notifications ---
+  _motivateMessages: [
+    "You're on fire! Keep going!",
+    "Great flow! Don't stop now!",
+    "Words are coming alive!",
+    "You're crushing it!",
+    "Incredible progress!",
+    "The words are flowing!",
+    "Keep that momentum!",
+    "Amazing writing streak!",
+    "You've got this!",
+    "Pure writing magic!",
+  ],
+
+  _checkMotivation() {
+    if (!this.targetWords || !this.active) return;
+    const words = this.getWordCount();
+    const pct = words / this.targetWords;
+    const milestones = [0.25, 0.5, 0.75, 1.0];
+    for (const m of milestones) {
+      const threshold = Math.floor(this.targetWords * m);
+      if (words >= threshold && this._lastMotivateAt < threshold) {
+        this._lastMotivateAt = threshold;
+        const label = m === 1 ? 'Target reached!' : `${Math.round(m * 100)}% done!`;
+        const msg = this._motivateMessages[Math.floor(Math.random() * this._motivateMessages.length)];
+        this._showMotivateToast(`${label} ${msg}`);
+        break;
+      }
+    }
+  },
+
+  _showMotivateToast(text) {
+    const el = document.createElement('div');
+    el.className = 'motivate-toast';
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(() => { el.classList.add('out'); }, 2500);
+    setTimeout(() => el.remove(), 3000);
+  },
+
+  // --- Selection popup ---
+  initSelectionPopup() {
+    const popup = document.getElementById('selection-popup');
+    if (!popup) return;
+
+    // Handle selection popup buttons
+    popup.querySelectorAll('.sel-btn').forEach(btn => {
+      btn.onmousedown = (e) => {
+        e.preventDefault();
+        const cmd = btn.dataset.cmd;
+        if (cmd === 'createLink') {
+          const url = prompt('Enter URL:');
+          if (url) document.execCommand('createLink', false, url);
+        } else if (cmd === 'formatBlock') {
+          document.execCommand('formatBlock', false, btn.dataset.value);
+        } else {
+          document.execCommand(cmd, false, null);
+        }
+        Editor.updateFormatButtons();
+      };
+    });
+
+    document.addEventListener('selectionchange', () => {
+      if (!Editor.active && !Editor.isEditing) return;
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.rangeCount) {
+        popup.style.display = 'none';
+        return;
+      }
+      const text = sel.toString().trim();
+      if (!text) { popup.style.display = 'none'; return; }
+      const range = sel.getRangeAt(0);
+      // Only show if selection is inside the editor textarea
+      if (!Editor.textarea.contains(range.commonAncestorContainer)) {
+        popup.style.display = 'none';
+        return;
+      }
+      const rect = range.getBoundingClientRect();
+      popup.style.display = 'flex';
+      popup.style.left = Math.max(8, rect.left + rect.width / 2 - popup.offsetWidth / 2) + 'px';
+      popup.style.top = (rect.top - popup.offsetHeight - 8) + 'px';
+    });
+
+    // Hide on mousedown outside popup
+    document.addEventListener('mousedown', (e) => {
+      if (!popup.contains(e.target)) {
+        setTimeout(() => { popup.style.display = 'none'; }, 200);
+      }
+    });
+  },
+
+  // --- Font switcher ---
+  setFont(font) {
+    this._currentFont = font;
+    this.textarea.classList.remove('font-serif', 'font-mono');
+    if (font === 'serif') this.textarea.classList.add('font-serif');
+    else if (font === 'mono') this.textarea.classList.add('font-mono');
+    // else sans = default, no extra class
+    document.querySelectorAll('.font-option').forEach(o => {
+      o.classList.toggle('active', o.dataset.font === font);
+    });
+    localStorage.setItem('iwrite_editor_font', font);
+  },
+
+  // --- Theme toggle (in editor) ---
+  toggleEditorTheme() {
+    const isLight = document.documentElement.classList.contains('light');
+    App._applyTheme(isLight ? 'dark' : 'light');
+  },
+
+  // --- Fullscreen toggle ---
+  toggleFullscreen() {
+    const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (inFS) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) exit.call(document).catch(() => {});
+      this._fullscreenActive = false;
+    } else {
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (req) req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
+    }
+  },
+
+  // --- Audio system ---
+  _audioSources: {
+    lofi1: 'https://cdn.freesound.org/previews/612/612095_5674468-lq.mp3',
+    lofi2: 'https://cdn.freesound.org/previews/467/467058_4397472-lq.mp3',
+    brown: 'https://cdn.freesound.org/previews/253/253684_4068345-lq.mp3',
+    hz40: 'https://cdn.freesound.org/previews/178/178660_2394245-lq.mp3',
+    rain: 'https://cdn.freesound.org/previews/531/531947_6574547-lq.mp3',
+  },
+
+  playAudio(key) {
+    this.stopAudio();
+    const src = this._audioSources[key];
+    if (!src) return;
+    this._audioElement = new Audio(src);
+    this._audioElement.loop = true;
+    this._audioElement.volume = (document.getElementById('audio-volume')?.value || 50) / 100;
+    this._audioElement.play().catch(() => {});
+    this._audioPlaying = true;
+    this._updateAudioUI(key);
+  },
+
+  playYouTube(url) {
+    this.stopAudio();
+    // Extract video ID
+    let videoId = '';
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtu.be')) videoId = u.pathname.slice(1);
+      else videoId = u.searchParams.get('v') || '';
+    } catch { return; }
+    if (!videoId) return;
+
+    const container = document.getElementById('yt-player-container');
+    container.innerHTML = `<iframe id="yt-iframe" width="1" height="1" src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1" allow="autoplay" frameborder="0"></iframe>`;
+    this._ytPlayer = document.getElementById('yt-iframe');
+    this._audioPlaying = true;
+    this._updateAudioUI('YouTube');
+  },
+
+  pauseAudio() {
+    if (this._audioElement) {
+      if (this._audioElement.paused) {
+        this._audioElement.play().catch(() => {});
+        this._audioPlaying = true;
+      } else {
+        this._audioElement.pause();
+        this._audioPlaying = false;
+      }
+    }
+  },
+
+  stopAudio() {
+    if (this._audioElement) {
+      this._audioElement.pause();
+      this._audioElement.src = '';
+      this._audioElement = null;
+    }
+    if (this._ytPlayer) {
+      this._ytPlayer.remove();
+      this._ytPlayer = null;
+    }
+    const container = document.getElementById('yt-player-container');
+    if (container) container.innerHTML = '';
+    this._audioPlaying = false;
+    document.querySelectorAll('.audio-option').forEach(o => o.classList.remove('active'));
+    const controls = document.getElementById('audio-controls');
+    if (controls) controls.style.display = 'none';
+  },
+
+  _updateAudioUI(label) {
+    document.querySelectorAll('.audio-option').forEach(o => {
+      o.classList.toggle('active', o.dataset.audio === label);
+    });
+    const controls = document.getElementById('audio-controls');
+    const nowPlaying = document.getElementById('audio-now-playing');
+    if (controls) controls.style.display = 'flex';
+    const names = { lofi1: 'Lofi Chill', lofi2: 'Lofi Study', brown: 'Brown Noise', hz40: '40Hz Gamma', rain: 'Rain' };
+    if (nowPlaying) nowPlaying.textContent = names[label] || label;
+  },
+
+  initAudio() {
+    document.querySelectorAll('.audio-option').forEach(btn => {
+      btn.addEventListener('click', () => Editor.playAudio(btn.dataset.audio));
+    });
+    const ytPlayBtn = document.getElementById('audio-yt-play');
+    if (ytPlayBtn) ytPlayBtn.addEventListener('click', () => {
+      const url = document.getElementById('audio-yt-input').value.trim();
+      if (url) Editor.playYouTube(url);
+    });
+    const pauseBtn = document.getElementById('audio-pause-btn');
+    if (pauseBtn) pauseBtn.addEventListener('click', () => Editor.pauseAudio());
+    const stopBtn = document.getElementById('audio-stop-btn');
+    if (stopBtn) stopBtn.addEventListener('click', () => Editor.stopAudio());
+    const volSlider = document.getElementById('audio-volume');
+    if (volSlider) volSlider.addEventListener('input', () => {
+      if (Editor._audioElement) Editor._audioElement.volume = volSlider.value / 100;
+    });
+  },
+
   cleanup() {
     this.active = false;
     clearInterval(this.timerInterval);
@@ -708,6 +994,9 @@ const Editor = {
     window.removeEventListener('focus', this.onWindowFocus);
     document.removeEventListener('selectionchange', this._onSelectionChange);
     document.getElementById('formatting-toolbar').style.display = 'none';
+    document.getElementById('editor-topic-bar').style.display = 'none';
+    document.getElementById('selection-popup').style.display = 'none';
+    this.stopAudio();
     // Exit fullscreen when session ends
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       try {
