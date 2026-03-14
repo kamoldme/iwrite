@@ -3242,6 +3242,7 @@ html.light .logo-img-light { display: inline; }
   border-radius: var(--radius);
   padding: 14px 18px;
   margin-bottom: 8px;
+  width: 100%;
   transition: border-color var(--transition);
 }
 .ticket:hover { border-color: var(--border-hover); }
@@ -3615,6 +3616,21 @@ html.light .logo-img-light { display: inline; }
   margin: 0;
 }
 .time-custom-row input[type="number"] {
+  -moz-appearance: textfield;
+}
+.input-suffix {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Hide arrows on target word count input too */
+#session-target-words::-webkit-inner-spin-button,
+#session-target-words::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#session-target-words {
   -moz-appearance: textfield;
 }
 
