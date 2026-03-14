@@ -704,7 +704,7 @@ const App = {
       Editor.originalTitle = doc.title;
 
       document.getElementById('editor-container').classList.add('active');
-      document.getElementById('editor-timer').textContent = 'View';
+      document.getElementById('editor-timer').textContent = '';
       document.getElementById('editor-mode-badge').textContent = 'Viewing';
       document.getElementById('editor-mode-badge').className = 'editor-mode-badge normal';
       document.getElementById('danger-progress').style.display = 'none';

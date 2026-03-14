@@ -716,6 +716,7 @@ const Editor = {
     }
 
     document.getElementById('session-complete').classList.add('active');
+    this.showConfetti();
   },
 
   // ===== EDIT MODE FOR COMPLETED DOCS =====
@@ -729,9 +730,6 @@ const Editor = {
   },
 
   showConfetti() {
-    // Show in-app notification banner
-    this.showBanner('✅ Document saved successfully!');
-
     const colors = ['#6c5ce7', '#a78bfa', '#22c55e', '#f59e0b', '#ef4444', '#00cec9', '#fd6db5'];
     // Confetti bursts from top-center
     const ox = window.innerWidth / 2;
@@ -800,7 +798,6 @@ const Editor = {
       this.originalTitle = this.titleInput.value;
       this.exitEditMode();
       this.showConfetti();
-      App.toast('Document saved!', 'success');
       // Refresh document list in background
       if (App.currentView === 'documents') App.loadDocuments();
       else if (App.currentView === 'dashboard') App.loadDashboard();
