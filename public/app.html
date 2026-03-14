@@ -438,8 +438,16 @@
           <input type="text" class="editor-title-input" id="editor-title" placeholder="Untitled" value="Untitled">
         </div>
         <div class="editor-toolbar-center">
-          <div class="editor-timer" id="editor-timer">--:--</div>
           <span class="editor-mode-badge normal" id="editor-mode-badge">Normal</span>
+          <div class="editor-timer" id="editor-timer">--:--</div>
+          <button class="editor-timer-toggle" id="editor-timer-toggle" title="Hide timer">
+            <svg id="timer-eye-open" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="timer-eye-closed" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+          <div class="editor-add-time">
+            <button class="editor-add-time-btn" id="add-time-1" title="Add 1 minute">+1m</button>
+            <button class="editor-add-time-btn" id="add-time-5" title="Add 5 minutes">+5m</button>
+          </div>
         </div>
         <div class="editor-toolbar-right">
           <button class="doc-action-btn" id="editor-theme-btn" title="Toggle dark/light mode" style="width:30px;height:30px;flex-shrink:0">

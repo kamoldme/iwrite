@@ -248,12 +248,11 @@ const Editor = {
     Editor.updateWordCount();
     Editor._updateWordsRemaining();
     Editor._checkMotivation();
-    Editor.textarea.style.filter = '';
+    Editor.textarea.style.color = '';
     Editor.textarea.style.opacity = '1';
     Editor.textarea.classList.remove('fading');
     Editor.vignette.classList.remove('active');
     Editor.vignette.style.opacity = 0;
-    Editor.container.style.backgroundColor = '';
   },
 
   onKeydown: (e) => {
@@ -416,20 +415,12 @@ const Editor = {
         this.vignette.style.opacity = 0;
       }
 
-      // Progressive text blur — starts at 30%, maxes near threshold
+      // Progressive text color fade to red — text only, no opacity/blur
       if (ratio > 0.3) {
-        const blurAmount = ((ratio - 0.3) / 0.7) * 6; // 0px to 6px
-        this.textarea.style.filter = `blur(${blurAmount}px)`;
+        const redIntensity = Math.min((ratio - 0.3) / 0.7, 1);
+        this.textarea.style.color = `rgba(239, 68, 68, ${0.4 + redIntensity * 0.6})`;
       } else {
-        this.textarea.style.filter = '';
-      }
-
-      // Red-tinted background that intensifies
-      if (ratio > 0.2) {
-        const redIntensity = Math.min((ratio - 0.2) / 0.8, 1);
-        this.container.style.backgroundColor = `rgba(239, 68, 68, ${redIntensity * 0.12})`;
-      } else {
-        this.container.style.backgroundColor = '';
+        this.textarea.style.color = '';
       }
 
       if (elapsed >= this.dangerThreshold) {
@@ -465,6 +456,40 @@ const Editor = {
     App.showSessionFailed('You stopped typing. Your writing is gone.');
   },
 
+  _timerHidden: false,
+
+  toggleTimerVisibility() {
+    this._timerHidden = !this._timerHidden;
+    document.getElementById('timer-eye-open').style.display = this._timerHidden ? 'none' : '';
+    document.getElementById('timer-eye-closed').style.display = this._timerHidden ? '' : 'none';
+    // Don't hide if last 3 minutes
+    this._applyTimerVisibility();
+  },
+
+  _applyTimerVisibility() {
+    if (!this._timerHidden) {
+      this.timerEl.classList.remove('hidden-timer');
+      return;
+    }
+    // Auto-show in last 3 minutes
+    if (this.duration > 0) {
+      const totalSeconds = this.duration * 60;
+      const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+      const remaining = totalSeconds - elapsed;
+      if (remaining <= 180) {
+        this.timerEl.classList.remove('hidden-timer');
+        return;
+      }
+    }
+    this.timerEl.classList.add('hidden-timer');
+  },
+
+  addTime(minutes) {
+    this.duration += minutes;
+    // Show a brief toast
+    App.showToast(`+${minutes} min added`, 'info');
+  },
+
   updateTimer() {
     if (this.duration === 0) {
       const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
@@ -489,6 +514,9 @@ const Editor = {
     } else {
       this.timerEl.className = 'editor-timer';
     }
+
+    // Auto-show timer when entering last 3 minutes
+    this._applyTimerVisibility();
 
     if (remaining <= 0) {
       this.completeSession();
@@ -1187,9 +1215,8 @@ const Editor = {
     this.vignette.classList.remove('active');
     this.vignette.style.opacity = 0;
     this.textarea.classList.remove('fading');
-    this.textarea.style.filter = '';
+    this.textarea.style.color = '';
     this.textarea.style.opacity = '1';
-    this.container.style.backgroundColor = '';
     this.textarea.removeEventListener('input', this.onInput);
     this.textarea.removeEventListener('keydown', this.onKeydown);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);

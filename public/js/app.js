@@ -285,6 +285,11 @@ const App = {
     // Editor toolbar: fullscreen toggle
     document.getElementById('editor-fullscreen-btn').addEventListener('click', () => Editor.toggleFullscreen());
 
+    // Timer toggle + add time
+    document.getElementById('editor-timer-toggle').addEventListener('click', () => Editor.toggleTimerVisibility());
+    document.getElementById('add-time-1').addEventListener('click', () => Editor.addTime(1));
+    document.getElementById('add-time-5').addEventListener('click', () => Editor.addTime(5));
+
     // Format bar: font selector
     const fmtFontSelect = document.getElementById('fmt-font-select');
     if (fmtFontSelect) {
