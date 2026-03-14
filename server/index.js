@@ -24,6 +24,7 @@ app.use('/api/friends', require('./routes/friends'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/share', require('./routes/share'));
 app.use('/api/support', require('./routes/support'));
+app.use('/api/duels', require('./routes/duels'));
 
 const { findOne, findMany, insertOne } = require('./utils/storage');
 const bcrypt = require('bcryptjs');
@@ -88,7 +89,7 @@ app.get('/api/leaderboard', (req, res) => {
         };
       })
       .sort((a, b) => b.totalWords - a.totalWords)
-      .slice(0, 50)
+      .slice(0, 10)
       .map((entry, i) => ({ rank: i + 1, ...entry }));
 
     res.json(leaderboard);

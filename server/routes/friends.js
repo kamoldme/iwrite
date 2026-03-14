@@ -1,5 +1,5 @@
 const express = require('express');
-const { findOne, updateOne } = require('../utils/storage');
+const { findOne, findMany, updateOne } = require('../utils/storage');
 const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
@@ -146,6 +146,21 @@ router.delete('/:friendId', (req, res) => {
       updateOne('users.json', u => u.id === friend.id, { friends: (friend.friends || []).filter(id => id !== me.id) });
     }
     res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Activity feed — returns activities from friends
+router.get('/feed', (req, res) => {
+  try {
+    const user = findOne('users.json', u => u.id === req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const friendIds = new Set(user.friends || []);
+    if (friendIds.size === 0) return res.json([]);
+    const allActivities = findMany('activities.json', a => friendIds.has(a.userId));
+    const sorted = allActivities.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 50);
+    res.json(sorted);
   } catch {
     res.status(500).json({ error: 'Server error' });
   }

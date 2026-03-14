@@ -154,6 +154,10 @@ const API = {
     return this.request(`/friends/${friendId}`, { method: 'DELETE' });
   },
 
+  async getFriendsFeed() {
+    return this.request('/friends/feed');
+  },
+
   async sendDuelChallenge(friendId, duration) {
     return this.request('/duels/challenge', {
       method: 'POST',
@@ -161,8 +165,42 @@ const API = {
     });
   },
 
-  async getDuels() {
-    return this.request('/duels');
+  async getDuelRequests() {
+    return this.request('/duels/requests');
+  },
+
+  async acceptDuel(duelId) {
+    return this.request(`/duels/${duelId}/accept`, { method: 'POST' });
+  },
+
+  async declineDuel(duelId) {
+    return this.request(`/duels/${duelId}/decline`, { method: 'POST' });
+  },
+
+  async getDuelStatus(duelId) {
+    return this.request(`/duels/${duelId}/status`);
+  },
+
+  async updateDuelWords(duelId, wordCount) {
+    return this.request(`/duels/${duelId}/update`, {
+      method: 'POST',
+      body: JSON.stringify({ wordCount })
+    });
+  },
+
+  async completeDuel(duelId, wordCount) {
+    return this.request(`/duels/${duelId}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ wordCount })
+    });
+  },
+
+  async getDuelHistory() {
+    return this.request('/duels/history');
+  },
+
+  async getActiveDuels() {
+    return this.request('/duels/active');
   },
 
   async changePassword(currentPassword, newPassword, confirmPassword) {

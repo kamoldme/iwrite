@@ -4,6 +4,50 @@ const { findOne, findMany, insertOne, updateOne, deleteOne } = require('../utils
 const { authenticate } = require('../middleware/auth');
 const { logAction } = require('../utils/logger');
 
+// Activity generation for friends feed
+const WORD_MILESTONES = [1000, 5000, 10000, 25000, 50000, 100000];
+const STREAK_MILESTONES = [7, 14, 30, 50, 100];
+
+function generateActivities(userId, userName, prevUser, newUser, wordCount, duration) {
+  const activities = [];
+  const now = new Date().toISOString();
+
+  // Long session (>20 min)
+  if (duration && duration >= 20) {
+    activities.push({ id: uuid(), userId, type: 'long_session', data: { name: userName, duration: Math.round(duration) }, createdAt: now });
+  }
+
+  // Word milestones
+  const prevWords = prevUser.totalWords || 0;
+  const newWords = newUser.totalWords || 0;
+  for (const milestone of WORD_MILESTONES) {
+    if (prevWords < milestone && newWords >= milestone) {
+      activities.push({ id: uuid(), userId, type: 'word_milestone', data: { name: userName, words: milestone }, createdAt: now });
+    }
+  }
+
+  // Streak milestones
+  const prevStreak = prevUser.streak || 0;
+  const newStreak = newUser.streak || 0;
+  for (const milestone of STREAK_MILESTONES) {
+    if (prevStreak < milestone && newStreak >= milestone) {
+      activities.push({ id: uuid(), userId, type: 'streak_milestone', data: { name: userName, streak: milestone }, createdAt: now });
+    }
+  }
+
+  // Level up
+  const prevLevel = calcLevel(prevUser.xp || 0);
+  const newLevel = calcLevel(newUser.xp || 0);
+  if (newLevel > prevLevel) {
+    activities.push({ id: uuid(), userId, type: 'level_up', data: { name: userName, level: newLevel }, createdAt: now });
+  }
+
+  // Save activities
+  for (const activity of activities) {
+    insertOne('activities.json', activity);
+  }
+}
+
 function calcLevel(xp) {
   let level = 0;
   let xpUsed = 0;
@@ -208,6 +252,11 @@ router.post('/:id/complete', (req, res) => {
     totalWords,
     totalSessions: (user.totalSessions || 0) + 1
   });
+
+  // Generate activities for friends feed
+  try {
+    generateActivities(req.user.id, user.name, user, { ...user, xp: newXP, totalWords, streak: newStreak }, wordCount, duration);
+  } catch (e) { /* activity generation is non-critical */ }
 
   logAction('session_completed', { docId: req.params.id, wordCount, duration, xpEarned }, req.user.id);
   const { password: _, ...safeUser } = updatedUser;

@@ -159,6 +159,16 @@ const Editor = {
     // Show target word count in status bar
     this._updateWordsRemaining();
 
+    // Duel mode: start polling opponent word count
+    this._duelInfo = null;
+    try {
+      const duelData = sessionStorage.getItem('activeDuel');
+      if (duelData) {
+        this._duelInfo = JSON.parse(duelData);
+        this._startDuelPolling();
+      }
+    } catch {}
+
     // Request fullscreen automatically for both normal and dangerous mode
     this._fullscreenActive = false;
     this._blurCooldown = false;
@@ -552,6 +562,65 @@ const Editor = {
     return (this.textarea.innerText || '').trim().split(/\s+/).filter(Boolean).length;
   },
 
+  _startDuelPolling() {
+    if (!this._duelInfo) return;
+    // Show duel bar
+    const bar = document.getElementById('duel-bar');
+    if (bar) {
+      bar.classList.add('active');
+      document.getElementById('duel-bar-opponent').textContent = this._duelInfo.opponentName;
+    }
+    // Poll every 5 seconds
+    this._duelPollInterval = setInterval(() => this._pollDuel(), 5000);
+    this._pollDuel();
+  },
+
+  async _pollDuel() {
+    if (!this._duelInfo) return;
+    try {
+      // Send our current word count
+      const myWords = this.getWordCount();
+      await API.updateDuelWords(this._duelInfo.duelId, myWords);
+
+      // Get duel status
+      const duel = await API.getDuelStatus(this._duelInfo.duelId);
+
+      // Update opponent word count
+      const oppWords = this._duelInfo.isChallenger ? duel.opponentWords : duel.challengerWords;
+      const oppEl = document.getElementById('duel-bar-opp-words');
+      if (oppEl) oppEl.textContent = oppWords || 0;
+
+      const myEl = document.getElementById('duel-bar-my-words');
+      if (myEl) myEl.textContent = myWords;
+
+      // Update duel timer
+      if (duel.endAt) {
+        const remaining = Math.max(0, Math.ceil((new Date(duel.endAt) - Date.now()) / 1000));
+        const mins = Math.floor(remaining / 60);
+        const secs = remaining % 60;
+        const timerEl = document.getElementById('duel-bar-timer');
+        if (timerEl) timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+      }
+
+      // Check if duel completed
+      if (duel.status === 'completed') {
+        this._stopDuelPolling();
+        App._showDuelResults(duel);
+      }
+    } catch {}
+  },
+
+  _stopDuelPolling() {
+    if (this._duelPollInterval) {
+      clearInterval(this._duelPollInterval);
+      this._duelPollInterval = null;
+    }
+    const bar = document.getElementById('duel-bar');
+    if (bar) bar.classList.remove('active');
+    this._duelInfo = null;
+    sessionStorage.removeItem('activeDuel');
+  },
+
   showXPFloat(text) {
     const el = document.createElement('div');
     el.className = 'editor-xp-float';
@@ -699,6 +768,16 @@ const Editor = {
 
     document.getElementById('status-bar').style.display = 'none';
     this.container.classList.remove('active');
+
+    // If in duel mode, submit final word count and show duel results
+    if (this._duelInfo) {
+      try {
+        const duelResult = await API.completeDuel(this._duelInfo.duelId, wordCount);
+        this._stopDuelPolling();
+        App._showDuelResults(duelResult);
+      } catch {}
+    }
+
     // Auto-refresh sessions tab so new doc appears immediately
     App._docsCacheDirty = true;
     try { await App.loadDocuments(true); } catch {}
@@ -799,6 +878,7 @@ const Editor = {
       this.originalContent = this.textarea.innerHTML;
       this.originalTitle = this.titleInput.value;
       this.exitEditMode();
+      App.toast('Document saved', 'success');
       this.showConfetti();
       // Mark docs cache dirty so next tab switch refetches
       App._docsCacheDirty = true;
@@ -1220,6 +1300,7 @@ const Editor = {
     clearInterval(this.dangerInterval);
     clearInterval(this.tabCountdown);
     clearInterval(this.sessionSaveInterval);
+    if (this._duelPollInterval) clearInterval(this._duelPollInterval);
     this._clearSessionState();
     this.container.classList.remove('dangerous-active');
     this.dangerProgress.style.display = 'none';

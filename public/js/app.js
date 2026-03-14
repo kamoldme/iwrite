@@ -426,6 +426,7 @@ const App = {
     if (view === 'profile') this.loadProfile();
     if (view === 'friends') this.loadFriends();
     if (view === 'support') this.loadSupport();
+    if (view === 'duels') this.loadDuelsView();
   },
 
   updateUserUI() {
@@ -959,6 +960,196 @@ const App = {
     document.getElementById('duel-modal').classList.remove('active');
   },
 
+  async loadDuelsView() {
+    try {
+      const [requests, active, history] = await Promise.all([
+        API.getDuelRequests(),
+        API.getActiveDuels(),
+        API.getDuelHistory()
+      ]);
+
+      // Incoming requests
+      const reqSection = document.getElementById('duel-requests-section');
+      const reqList = document.getElementById('duel-requests-list');
+      if (requests.length > 0) {
+        reqSection.style.display = 'block';
+        document.getElementById('duel-request-count').textContent = requests.length;
+        reqList.innerHTML = requests.map(d => `
+          <div class="duel-request-card">
+            <div class="duel-request-info">
+              <h4>${this.escapeHtml(d.challengerName)} challenged you!</h4>
+              <span>${d.duration} min duel</span>
+            </div>
+            <div class="duel-request-actions">
+              <button class="btn btn-primary btn-small" onclick="App.acceptDuel('${d.id}')">Accept</button>
+              <button class="btn btn-ghost btn-small" onclick="App.declineDuel('${d.id}')">Decline</button>
+            </div>
+          </div>`).join('');
+      } else {
+        reqSection.style.display = 'none';
+      }
+
+      // Active duels (countdown or in-progress)
+      const activeSection = document.getElementById('duel-active-section');
+      const activeList = document.getElementById('active-duels');
+      const myActive = active.filter(d => d.status === 'countdown' || d.status === 'active');
+      const myPending = active.filter(d => d.status === 'pending' && d.challengerId === this.user.id);
+      const allActive = [...myActive, ...myPending];
+      if (allActive.length > 0) {
+        activeSection.style.display = 'block';
+        activeList.innerHTML = allActive.map(d => {
+          const isChallenger = d.challengerId === this.user.id;
+          const oppName = isChallenger ? d.opponentName : d.challengerName;
+          if (d.status === 'pending') {
+            return `<div class="duel-request-card"><div class="duel-request-info"><h4>Waiting for ${this.escapeHtml(oppName)} to accept...</h4><span>${d.duration} min duel</span></div></div>`;
+          }
+          if (d.status === 'countdown') {
+            return `<div class="duel-request-card" style="border-color:var(--accent)"><div class="duel-request-info"><h4>⚔️ Duel starting soon! vs ${this.escapeHtml(oppName)}</h4><span>${d.duration} min duel</span></div><div><button class="btn btn-primary btn-small" onclick="App.enterDuelCountdown('${d.id}')">Join</button></div></div>`;
+          }
+          if (d.status === 'active') {
+            return `<div class="duel-request-card" style="border-color:var(--success)"><div class="duel-request-info"><h4>🔥 Duel in progress vs ${this.escapeHtml(oppName)}</h4><span>${d.duration} min duel</span></div><div><button class="btn btn-primary btn-small" onclick="App.enterDuelMode('${d.id}')">Write!</button></div></div>`;
+          }
+          return '';
+        }).join('');
+      } else {
+        activeSection.style.display = 'none';
+      }
+
+      // History
+      const historyContainer = document.getElementById('duel-history');
+      if (history.length === 0) {
+        historyContainer.innerHTML = `<div class="empty-state"><p>Your completed duels will appear here.</p></div>`;
+      } else {
+        historyContainer.innerHTML = history.map(d => {
+          const isChallenger = d.challengerId === this.user.id;
+          const oppName = isChallenger ? d.opponentName : d.challengerName;
+          const myWords = isChallenger ? d.challengerWords : d.opponentWords;
+          const oppWords = isChallenger ? d.opponentWords : d.challengerWords;
+          const won = d.winnerId === this.user.id;
+          const tie = !d.winnerId;
+          const resultClass = tie ? 'tie' : (won ? 'won' : 'lost');
+          const resultText = tie ? 'TIE' : (won ? 'YOU WON 🏆' : 'YOU LOST');
+          return `
+          <div class="duel-history-card ${resultClass}">
+            <div class="duel-history-info">
+              <span style="font-size:14px;font-weight:600">You vs ${this.escapeHtml(oppName)}</span>
+              <span class="duel-history-scores" style="margin-left:12px">${myWords} vs ${oppWords} words</span>
+            </div>
+            <span class="duel-history-result ${resultClass}">${resultText}</span>
+          </div>`;
+        }).join('');
+      }
+    } catch {
+      this.toast('Failed to load duels', 'error');
+    }
+  },
+
+  async acceptDuel(duelId) {
+    try {
+      const duel = await API.acceptDuel(duelId);
+      this.toast('Duel accepted! Get ready...', 'success');
+      this.enterDuelCountdown(duel.id);
+    } catch (err) {
+      this.toast(err.message || 'Failed to accept duel', 'error');
+    }
+  },
+
+  async declineDuel(duelId) {
+    try {
+      await API.declineDuel(duelId);
+      this.toast('Challenge declined', '');
+      this.loadDuelsView();
+    } catch (err) {
+      this.toast(err.message || 'Failed to decline', 'error');
+    }
+  },
+
+  async enterDuelCountdown(duelId) {
+    try {
+      const duel = await API.getDuelStatus(duelId);
+      if (duel.status === 'active') {
+        this.enterDuelMode(duelId);
+        return;
+      }
+      if (duel.status !== 'countdown') {
+        this.toast('Duel is not in countdown', 'error');
+        return;
+      }
+
+      const overlay = document.getElementById('duel-countdown-overlay');
+      const timerEl = document.getElementById('duel-countdown-timer');
+      const isChallenger = duel.challengerId === this.user.id;
+      const oppName = isChallenger ? duel.opponentName : duel.challengerName;
+      document.getElementById('duel-countdown-vs').textContent = `You vs ${oppName}`;
+      document.getElementById('duel-countdown-duration').textContent = `${duel.duration} minute duel`;
+      overlay.classList.add('active');
+
+      const countdownInterval = setInterval(async () => {
+        const remaining = Math.max(0, Math.ceil((new Date(duel.startAt) - Date.now()) / 1000));
+        timerEl.textContent = remaining;
+        if (remaining <= 0) {
+          clearInterval(countdownInterval);
+          overlay.classList.remove('active');
+          this.enterDuelMode(duelId);
+        }
+      }, 200);
+    } catch (err) {
+      this.toast(err.message || 'Failed to start countdown', 'error');
+    }
+  },
+
+  _activeDuelId: null,
+  _duelPollInterval: null,
+
+  async enterDuelMode(duelId) {
+    this._activeDuelId = duelId;
+    try {
+      const duel = await API.getDuelStatus(duelId);
+      if (duel.status !== 'active') {
+        if (duel.status === 'completed') {
+          this._showDuelResults(duel);
+          return;
+        }
+        this.toast('Duel is not active yet', 'error');
+        return;
+      }
+
+      const isChallenger = duel.challengerId === this.user.id;
+      const oppName = isChallenger ? duel.opponentName : duel.challengerName;
+
+      // Store duel info for the editor
+      sessionStorage.setItem('activeDuel', JSON.stringify({
+        duelId: duel.id,
+        endAt: duel.endAt,
+        isChallenger,
+        opponentName: oppName,
+        duration: duel.duration
+      }));
+
+      // Start the editor directly with duel mode
+      this.sessionDuration = duel.duration;
+      this.sessionMode = 'standard';
+      document.getElementById('editor-title').value = `Duel vs ${oppName}`;
+      Editor.start(duel.duration, 'standard', { topic: '', targetWords: 0 });
+    } catch (err) {
+      this.toast(err.message || 'Failed to enter duel', 'error');
+    }
+  },
+
+  _showDuelResults(duel) {
+    const isChallenger = duel.challengerId === this.user.id;
+    const myWords = isChallenger ? duel.challengerWords : duel.opponentWords;
+    const oppWords = isChallenger ? duel.opponentWords : duel.challengerWords;
+    const won = duel.winnerId === this.user.id;
+    const tie = !duel.winnerId;
+
+    document.getElementById('duel-results-emoji').textContent = tie ? '🤝' : (won ? '🏆' : '😢');
+    document.getElementById('duel-results-title').textContent = tie ? 'It\'s a Tie!' : (won ? 'You Won!' : 'You Lost!');
+    document.getElementById('duel-results-your-words').textContent = myWords;
+    document.getElementById('duel-results-opp-words').textContent = oppWords;
+    document.getElementById('duel-results-modal').classList.add('active');
+  },
+
   async createDuel() {
     const friendId = document.getElementById('duel-friend-select').value;
     if (!friendId) {
@@ -967,8 +1158,14 @@ const App = {
     }
     const activePreset = document.querySelector('#duel-time-presets .time-preset.active');
     const duration = parseInt(activePreset?.dataset.minutes || 10);
-    this.toast(`Duel challenge sent! ${duration} minute battle.`, 'success');
-    this.closeDuelModal();
+    try {
+      await API.sendDuelChallenge(friendId, duration);
+      this.toast(`Duel challenge sent! ${duration} minute battle.`, 'success');
+      this.closeDuelModal();
+      this.loadDuelsView();
+    } catch (err) {
+      this.toast(err.message || 'Failed to send challenge', 'error');
+    }
   },
 
   async shareDoc(id) {
@@ -1086,7 +1283,7 @@ const App = {
           <div class="doc-card" style="margin-bottom:8px">
             <div class="doc-card-info">
               <h4>${this.escapeHtml(r.name)}</h4>
-              <div class="doc-card-meta"><span>${r.email}</span><span>Level ${this.calcXPLevel(r.totalWords || 0).level}</span></div>
+              <div class="doc-card-meta"><span>${r.email}</span><span>Level ${this.calcXPLevel(r.xp || 0).level}</span></div>
             </div>
             <div class="doc-card-actions">
               <button class="btn btn-small btn-primary" onclick="App.acceptRequest('${r.id}')">Accept</button>
@@ -1106,10 +1303,12 @@ const App = {
           <div class="doc-card" style="margin-bottom:8px">
             <div class="doc-card-info">
               <h4>${this.escapeHtml(s.name)}</h4>
-              <div class="doc-card-meta"><span>${s.mutualCount} mutual friend${s.mutualCount !== 1 ? 's' : ''}</span><span>Level ${this.calcXPLevel(s.totalWords || 0).level}</span></div>
+              <div class="doc-card-meta"><span>${s.mutualCount} mutual friend${s.mutualCount !== 1 ? 's' : ''}</span><span>Level ${this.calcXPLevel(s.xp || 0).level}</span></div>
             </div>
             <div class="doc-card-actions">
-              <button class="btn btn-small" onclick="App.addFriendById('${s.email}')">Add</button>
+              <button class="btn btn-small btn-primary" onclick="App.addFriendById('${s.email}')" title="Send friend request">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              </button>
             </div>
           </div>`).join('');
       } else {
@@ -1120,20 +1319,31 @@ const App = {
       if (friends.length === 0) {
         container.innerHTML = `<div class="empty-state"><p>Add friends by their email above to start challenging them to duels.</p></div>`;
       } else {
-        container.innerHTML = friends.map(f => `
-          <div class="doc-card">
+        container.innerHTML = friends.map(f => {
+          const fl = this.calcXPLevel(f.xp || 0);
+          return `
+          <div class="doc-card friend-card">
             <div class="doc-card-info">
               <h4>${this.escapeHtml(f.name)}</h4>
-              <div class="doc-card-meta"><span>${f.email}</span><span>Level ${this.calcXPLevel(f.totalWords || 0).level}</span></div>
+              <div class="friend-stats">
+                <span class="friend-stat" title="Total words">📝 ${(f.totalWords || 0).toLocaleString()}</span>
+                <span class="friend-stat" title="Streak">🔥 ${f.streak || 0}</span>
+                <span class="friend-stat" title="Level">⭐ Lv${fl.level}</span>
+              </div>
             </div>
             <div class="doc-card-actions">
-              <button class="btn btn-small" onclick="App.challengeFriend('${f.id}')">Challenge</button>
-              <button class="doc-action-btn delete" onclick="App.removeFriend('${f.id}')" title="Remove">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <button class="doc-action-btn" onclick="App.challengeFriend('${f.id}')" title="Challenge to duel">
+                <span style="font-size:16px">⚔️</span>
+              </button>
+              <button class="doc-action-btn delete" onclick="App.confirmRemoveFriend('${f.id}', '${this.escapeHtml(f.name)}')" title="Remove friend">
+                <span style="font-size:14px">🗑️</span>
               </button>
             </div>
-          </div>`).join('');
+          </div>`;
+        }).join('');
       }
+      // Load activity feed (non-blocking)
+      this.loadActivityFeed();
     } catch {
       container.innerHTML = `<div class="empty-state"><p>Failed to load friends.</p></div>`;
     }
@@ -1185,14 +1395,116 @@ const App = {
     }
   },
 
+  confirmRemoveFriend(id, name) {
+    const modal = document.getElementById('confirm-remove-friend-modal');
+    document.getElementById('confirm-remove-friend-name').textContent = name;
+    modal.classList.add('active');
+    this._removeFriendId = id;
+  },
+
   async removeFriend(id) {
+    const modal = document.getElementById('confirm-remove-friend-modal');
+    modal.classList.remove('active');
     try {
-      await API.removeFriend(id);
+      await API.removeFriend(id || this._removeFriendId);
       this.toast('Friend removed', '');
       this.loadFriends();
     } catch {
       this.toast('Failed to remove friend', 'error');
     }
+  },
+
+  async loadActivityFeed() {
+    const container = document.getElementById('activity-feed');
+    try {
+      const activities = await API.getFriendsFeed();
+      if (!activities || activities.length === 0) {
+        container.innerHTML = `<div class="empty-state"><p>No activity yet. Your friends' milestones will appear here!</p></div>`;
+        return;
+      }
+      container.innerHTML = activities.map(a => {
+        const { icon, text } = this._formatActivity(a);
+        return `
+        <div class="activity-item">
+          <div class="activity-icon">${icon}</div>
+          <div class="activity-content">
+            <div class="activity-text">${text}</div>
+            <div class="activity-time">${this._timeAgo(a.createdAt)}</div>
+          </div>
+        </div>`;
+      }).join('');
+    } catch {
+      container.innerHTML = `<div class="empty-state"><p>Failed to load activity.</p></div>`;
+    }
+  },
+
+  _formatActivity(a) {
+    const name = this.escapeHtml(a.data?.name || 'Someone');
+    switch (a.type) {
+      case 'long_session': return { icon: '✍️', text: `<strong>${name}</strong> wrote for ${a.data.duration} minutes straight!` };
+      case 'word_milestone': return { icon: '📚', text: `<strong>${name}</strong> just hit ${(a.data.words || 0).toLocaleString()} total words!` };
+      case 'streak_milestone': return { icon: '🔥', text: `<strong>${name}</strong> reached a ${a.data.streak}-day streak!` };
+      case 'level_up': return { icon: '⭐', text: `<strong>${name}</strong> reached Level ${a.data.level}!` };
+      case 'duel_won': return { icon: '⚔️', text: `<strong>${name}</strong> won a duel vs ${this.escapeHtml(a.data.opponentName || 'someone')}!` };
+      case 'target_reached': return { icon: '🎯', text: `<strong>${name}</strong> hit their target of ${a.data.targetWords} words!` };
+      default: return { icon: '📝', text: `<strong>${name}</strong> did something awesome!` };
+    }
+  },
+
+  _timeAgo(dateStr) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days === 1) return 'yesterday';
+    if (days < 7) return `${days}d ago`;
+    return new Date(dateStr).toLocaleDateString();
+  },
+
+  _friendSort: 'name',
+
+  sortFriends(by) {
+    this._friendSort = by;
+    // Update active filter button
+    document.querySelectorAll('.friend-filter-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.sort === by);
+    });
+    // Sort and re-render friends list
+    if (!this.friends || this.friends.length === 0) return;
+    const sorted = [...this.friends].sort((a, b) => {
+      switch (by) {
+        case 'words': return (b.totalWords || 0) - (a.totalWords || 0);
+        case 'streak': return (b.streak || 0) - (a.streak || 0);
+        case 'level': return (b.xp || 0) - (a.xp || 0);
+        case 'name': default: return (a.name || '').localeCompare(b.name || '');
+      }
+    });
+    const container = document.getElementById('friends-list');
+    container.innerHTML = sorted.map(f => {
+      const fl = this.calcXPLevel(f.xp || 0);
+      return `
+      <div class="doc-card friend-card">
+        <div class="doc-card-info">
+          <h4>${this.escapeHtml(f.name)}</h4>
+          <div class="friend-stats">
+            <span class="friend-stat" title="Total words">📝 ${(f.totalWords || 0).toLocaleString()}</span>
+            <span class="friend-stat" title="Streak">🔥 ${f.streak || 0}</span>
+            <span class="friend-stat" title="Level">⭐ Lv${fl.level}</span>
+          </div>
+        </div>
+        <div class="doc-card-actions">
+          <button class="doc-action-btn" onclick="App.challengeFriend('${f.id}')" title="Challenge to duel">
+            <span style="font-size:16px">⚔️</span>
+          </button>
+          <button class="doc-action-btn delete" onclick="App.confirmRemoveFriend('${f.id}', '${this.escapeHtml(f.name)}')" title="Remove friend">
+            <span style="font-size:14px">🗑️</span>
+          </button>
+        </div>
+      </div>`;
+    }).join('');
   },
 
   async startNotifPolling() {
@@ -1205,14 +1517,31 @@ const App = {
 
   async updateNotifBadge() {
     try {
-      const requests = await API.getFriendRequests();
-      const badge = document.getElementById('friends-badge');
-      if (!badge) return;
-      if (requests.length > 0) {
-        badge.textContent = requests.length;
-        badge.style.display = 'inline-flex';
-      } else {
-        badge.style.display = 'none';
+      const [friendRequests, duelRequests] = await Promise.all([
+        API.getFriendRequests(),
+        API.getDuelRequests()
+      ]);
+
+      // Friends badge
+      const friendBadge = document.getElementById('friends-badge');
+      if (friendBadge) {
+        if (friendRequests.length > 0) {
+          friendBadge.textContent = friendRequests.length;
+          friendBadge.style.display = 'inline-flex';
+        } else {
+          friendBadge.style.display = 'none';
+        }
+      }
+
+      // Duels badge
+      const duelBadge = document.getElementById('duels-badge');
+      if (duelBadge) {
+        if (duelRequests.length > 0) {
+          duelBadge.textContent = duelRequests.length;
+          duelBadge.style.display = 'inline-flex';
+        } else {
+          duelBadge.style.display = 'none';
+        }
       }
     } catch {}
   },

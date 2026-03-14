@@ -68,6 +68,7 @@
           <button class="sidebar-nav-item" data-view="duels">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             Duels
+            <span class="nav-badge" id="duels-badge" style="display:none">0</span>
           </button>
           <button class="sidebar-nav-item" data-view="friends">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
@@ -234,25 +235,24 @@
         <!-- DUELS VIEW -->
         <div id="view-duels" class="view" style="display:none">
           <div class="dashboard-header">
-            <h1>&#x26A1; Writing Duels</h1>
+            <h1>⚡ Writing Duels</h1>
             <p>Challenge friends to a writing battle. Most words in the time limit wins.</p>
           </div>
-          <div class="docs-header" style="margin-top:24px">
-            <h2>Active Duels</h2>
-            <button class="btn btn-primary btn-small" id="new-duel-btn">Challenge a Friend</button>
+          <div class="duel-challenge-cta">
+            <button class="btn btn-primary btn-large duel-big-btn" id="new-duel-btn">🥊 Challenge a Friend</button>
           </div>
-          <div id="active-duels">
-            <div class="empty-state">
-              <h3>No active duels</h3>
-              <p>Challenge a friend to see who can write more words in a set time.</p>
-            </div>
+          <div id="duel-requests-section" style="display:none;margin-bottom:32px">
+            <h3 class="duel-section-title">📩 Challenge Requests <span id="duel-request-count" class="duel-count-badge"></span></h3>
+            <div id="duel-requests-list"></div>
           </div>
-          <div class="docs-header" style="margin-top:32px">
-            <h2>Duel History</h2>
+          <div id="duel-active-section" style="display:none;margin-bottom:32px">
+            <h3 class="duel-section-title">🔥 Active Duels</h3>
+            <div id="active-duels"></div>
           </div>
-          <div id="duel-history">
-            <div class="empty-state">
-              <p>Your completed duels will appear here.</p>
+          <div style="margin-top:24px">
+            <h3 class="duel-section-title">📜 Duel History</h3>
+            <div id="duel-history">
+              <div class="empty-state"><p>Your completed duels will appear here.</p></div>
             </div>
           </div>
         </div>
@@ -263,23 +263,45 @@
             <h1>&#x1F46B; Friends</h1>
             <p>Add friends by their email to challenge them to writing duels.</p>
           </div>
-          <div style="display:flex;gap:12px;margin-bottom:32px;max-width:480px">
-            <input type="email" id="friend-email-input" placeholder="Enter friend's email" style="flex:1;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font-sans);font-size:14px;outline:none;background:var(--bg-card);color:var(--text-primary)">
-            <button class="btn btn-primary btn-small" id="add-friend-btn">Send Request</button>
-          </div>
-          <div id="friend-requests-section" style="display:none;margin-bottom:32px">
-            <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">&#x1F514; Friend Requests</h3>
-            <div id="friend-requests-list"></div>
-          </div>
-          <div id="friend-suggestions-section" style="display:none;margin-bottom:32px">
-            <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-muted)">&#x1F4A1; People You May Know</h3>
-            <div id="friend-suggestions-list"></div>
-          </div>
-          <div>
-            <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">&#x1F91D; Your Friends</h3>
-            <div id="friends-list">
-              <div class="empty-state">
-                <p>Add friends by their email above to start challenging them to duels.</p>
+          <div class="friends-split-layout">
+            <!-- Left: Friends list -->
+            <div class="friends-left">
+              <div style="display:flex;gap:12px;margin-bottom:24px">
+                <input type="email" id="friend-email-input" placeholder="Enter friend's email" style="flex:1;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font-sans);font-size:14px;outline:none;background:var(--bg-card);color:var(--text-primary)">
+                <button class="btn btn-primary btn-small" id="add-friend-btn" title="Send friend request">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+              <div id="friend-requests-section" style="display:none;margin-bottom:24px">
+                <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">&#x1F514; Friend Requests</h3>
+                <div id="friend-requests-list"></div>
+              </div>
+              <div id="friend-suggestions-section" style="display:none;margin-bottom:24px">
+                <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-muted)">&#x1F4A1; People You May Know</h3>
+                <div id="friend-suggestions-list"></div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                  <h3 style="font-size:15px;font-weight:700;color:var(--text-secondary)">🤝 Your Friends</h3>
+                  <div class="friend-filter-bar" id="friend-filter-bar">
+                    <button class="friend-filter-btn active" data-sort="name" onclick="App.sortFriends('name')">Name</button>
+                    <button class="friend-filter-btn" data-sort="words" onclick="App.sortFriends('words')">Words</button>
+                    <button class="friend-filter-btn" data-sort="streak" onclick="App.sortFriends('streak')">Streak</button>
+                    <button class="friend-filter-btn" data-sort="level" onclick="App.sortFriends('level')">Level</button>
+                  </div>
+                </div>
+                <div id="friends-list">
+                  <div class="empty-state">
+                    <p>Add friends by their email above to start challenging them to duels.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Right: Activity feed -->
+            <div class="friends-right">
+              <h3 style="font-size:15px;font-weight:700;margin-bottom:16px;color:var(--text-secondary)">📢 Friends Activity</h3>
+              <div id="activity-feed">
+                <div class="empty-state"><p>No activity yet. Your friends' milestones will appear here!</p></div>
               </div>
             </div>
           </div>
@@ -518,6 +540,15 @@
           <button class="btn btn-primary btn-small" id="editor-save-edit-btn" style="display:none">Save</button>
         </div>
       </div>
+      <!-- Duel bar (shown during active duel) -->
+      <div class="duel-bar" id="duel-bar">
+        <div class="duel-bar-scores">
+          <span class="duel-bar-score">You: <strong id="duel-bar-my-words">0</strong></span>
+          <span style="color:var(--text-muted)">vs</span>
+          <span class="duel-bar-score"><span id="duel-bar-opponent">Opponent</span>: <strong id="duel-bar-opp-words">0</strong></span>
+        </div>
+        <span class="duel-bar-timer" id="duel-bar-timer">--:--</span>
+      </div>
       <!-- Row 2: Formatting toolbar (hidden in danger mode) -->
       <div class="editor-format-bar" id="formatting-toolbar" style="display:none">
         <!-- Font selector -->
@@ -709,6 +740,45 @@
         </div>
         <div class="modal-actions" style="margin-top:16px">
           <button class="btn btn-ghost btn-full" id="share-cancel-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DUEL COUNTDOWN OVERLAY -->
+    <div class="duel-countdown-overlay" id="duel-countdown-overlay">
+      <div class="duel-countdown-content">
+        <div class="duel-countdown-emoji">⚔️</div>
+        <h2>DUEL STARTS IN</h2>
+        <div class="duel-countdown-timer" id="duel-countdown-timer">60</div>
+        <p class="duel-countdown-vs" id="duel-countdown-vs">You vs Opponent</p>
+        <p class="duel-countdown-duration" id="duel-countdown-duration">10 minute duel</p>
+      </div>
+    </div>
+
+    <!-- DUEL RESULTS MODAL -->
+    <div class="modal-overlay" id="duel-results-modal">
+      <div class="modal" style="max-width:420px;text-align:center">
+        <div id="duel-results-emoji" style="font-size:64px;margin-bottom:16px">🏆</div>
+        <h2 id="duel-results-title">You Won!</h2>
+        <div id="duel-results-scores" style="display:flex;justify-content:center;gap:32px;margin:24px 0">
+          <div><div style="font-size:28px;font-weight:800" id="duel-results-your-words">0</div><div style="font-size:12px;color:var(--text-muted)">Your words</div></div>
+          <div style="font-size:24px;color:var(--text-muted);align-self:center">vs</div>
+          <div><div style="font-size:28px;font-weight:800" id="duel-results-opp-words">0</div><div style="font-size:12px;color:var(--text-muted)">Their words</div></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-primary btn-full" onclick="document.getElementById('duel-results-modal').classList.remove('active')">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- REMOVE FRIEND CONFIRMATION -->
+    <div class="modal-overlay" id="confirm-remove-friend-modal">
+      <div class="modal" style="max-width:380px">
+        <h2>Remove Friend</h2>
+        <p>Are you sure you want to remove <strong id="confirm-remove-friend-name"></strong> from your friends?</p>
+        <div class="modal-actions" style="margin-top:20px">
+          <button class="btn btn-ghost" onclick="document.getElementById('confirm-remove-friend-modal').classList.remove('active')">Cancel</button>
+          <button class="btn btn-danger" onclick="App.removeFriend()">Remove</button>
         </div>
       </div>
     </div>
