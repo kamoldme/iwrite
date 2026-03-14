@@ -3,6 +3,9 @@ const path = require('path');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 
+// In-memory cache — eliminates blocking file reads on every request
+const _cache = {};
+
 function ensureFile(filename, defaultData = []) {
   const filepath = path.join(DATA_DIR, filename);
   if (!fs.existsSync(filepath)) {
@@ -12,14 +15,19 @@ function ensureFile(filename, defaultData = []) {
 }
 
 function read(filename) {
+  if (_cache[filename]) return _cache[filename];
   const filepath = ensureFile(filename);
   const raw = fs.readFileSync(filepath, 'utf-8');
-  return JSON.parse(raw);
+  const data = JSON.parse(raw);
+  _cache[filename] = data;
+  return data;
 }
 
 function write(filename, data) {
+  // Update cache immediately (sync), flush to disk async
+  _cache[filename] = data;
   const filepath = ensureFile(filename);
-  fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
+  fs.writeFile(filepath, JSON.stringify(data, null, 2), () => {});
 }
 
 function findOne(filename, predicate) {

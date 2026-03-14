@@ -947,17 +947,24 @@ const App = {
     }
   },
 
-  openDuelModal() {
+  openDuelModal(preselectedId) {
     document.getElementById('duel-modal').classList.add('active');
     const select = document.getElementById('duel-friend-select');
     select.innerHTML = '<option value="">Choose a friend...</option>';
     this.friends.forEach(f => {
       select.innerHTML += `<option value="${f.id}">${this.escapeHtml(f.name)}</option>`;
     });
+    if (preselectedId) {
+      select.value = preselectedId;
+      select.disabled = true;
+    } else {
+      select.disabled = false;
+    }
   },
 
   closeDuelModal() {
     document.getElementById('duel-modal').classList.remove('active');
+    document.getElementById('duel-friend-select').disabled = false;
   },
 
   async loadDuelsView() {
@@ -1328,7 +1335,7 @@ const App = {
               <div class="friend-stats">
                 <span class="friend-stat" title="Total words">📝 ${(f.totalWords || 0).toLocaleString()}</span>
                 <span class="friend-stat" title="Streak">🔥 ${f.streak || 0}</span>
-                <span class="friend-stat" title="Level">⭐ Lv${fl.level}</span>
+                <span class="friend-stat" title="Level">⭐ Lv${fl.level} (${(f.xp || 0).toLocaleString()} XP)</span>
               </div>
             </div>
             <div class="doc-card-actions">
@@ -1908,8 +1915,7 @@ const App = {
   },
 
   challengeFriend(id) {
-    document.getElementById('duel-friend-select').value = id;
-    this.openDuelModal();
+    this.openDuelModal(id);
   },
 
   async saveProfile() {

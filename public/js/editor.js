@@ -570,8 +570,9 @@ const Editor = {
       bar.classList.add('active');
       document.getElementById('duel-bar-opponent').textContent = this._duelInfo.opponentName;
     }
-    // Poll every 5 seconds
-    this._duelPollInterval = setInterval(() => this._pollDuel(), 5000);
+    // Poll every 5 seconds with backoff on failure
+    this._duelPollDelay = 5000;
+    this._duelPollTimer = setTimeout(() => this._pollDuel(), this._duelPollDelay);
     this._pollDuel();
   },
 
@@ -606,14 +607,22 @@ const Editor = {
       if (duel.status === 'completed') {
         this._stopDuelPolling();
         App._showDuelResults(duel);
+        return;
       }
-    } catch {}
+      // Success — reset to normal poll rate
+      this._duelPollDelay = 5000;
+    } catch {
+      // Backoff on failure: double delay, cap at 60s
+      this._duelPollDelay = Math.min((this._duelPollDelay || 5000) * 2, 60000);
+    }
+    // Schedule next poll
+    this._duelPollTimer = setTimeout(() => this._pollDuel(), this._duelPollDelay);
   },
 
   _stopDuelPolling() {
-    if (this._duelPollInterval) {
-      clearInterval(this._duelPollInterval);
-      this._duelPollInterval = null;
+    if (this._duelPollTimer) {
+      clearTimeout(this._duelPollTimer);
+      this._duelPollTimer = null;
     }
     const bar = document.getElementById('duel-bar');
     if (bar) bar.classList.remove('active');
