@@ -135,6 +135,7 @@ const Editor = {
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
     window.addEventListener('blur', this.onWindowBlur);
     window.addEventListener('focus', this.onWindowFocus);
+    this._startFocusCheck();
     if (mode !== 'dangerous') this.bindFormatting();
     this.updateWordCount();
 
@@ -317,6 +318,22 @@ const Editor = {
   onWindowFocus: () => {
     if (!Editor.active || Editor.abandoned) return;
     Editor.onTabReturn();
+  },
+
+  // Periodic focus check — catches iframe focus stealing that bypasses blur/visibilitychange
+  _focusCheckInterval: null,
+  _startFocusCheck() {
+    clearInterval(this._focusCheckInterval);
+    this._focusCheckInterval = setInterval(() => {
+      if (!Editor.active || Editor.abandoned) return;
+      // If the tab is hidden OR the window doesn't have focus, trigger leave
+      if (document.hidden || !document.hasFocus()) {
+        if (!Editor.tabCountdown) Editor.onTabLeave();
+      } else {
+        // Tab is visible and focused — clear any countdown
+        if (Editor.tabCountdown) Editor.onTabReturn();
+      }
+    }, 500);
   },
 
   onTabLeave() {
@@ -578,6 +595,7 @@ const Editor = {
       document.addEventListener('fullscreenchange', this.onFullscreenChange);
       window.addEventListener('blur', this.onWindowBlur);
       window.addEventListener('focus', this.onWindowFocus);
+      this._startFocusCheck();
       if (this.mode !== 'dangerous') this.bindFormatting();
       this.updateWordCount();
 
@@ -944,28 +962,58 @@ const Editor = {
   },
 
   // --- Audio system ---
-  // All audio tracks use YouTube embeds for reliability
-  _audioYouTubeIds: {
-    lofi1: 'jfKfPfyJRdk',   // lofi hip hop radio - beats to relax/study to
-    lofi2: '5qap5aO4i9A',   // lofi hip hop radio - beats to sleep/chill to
-    brown: 'GSaJXDsb3N8',   // brown noise
-    hz40: 'jbFcQpK5wB0',    // 40Hz gamma frequency study noise
-    rain: '8plwv25NYRo',     // rain sounds
+  // Built-in tracks use direct MP3 files (instant playback, no iframe)
+  _audioSources: {
+    lofi1: 'https://archive.org/download/chill-lofi-music-relax-study/Leavv%20-%20Cloud%20Shapes.mp3',
+    lofi2: 'https://archive.org/download/chill-lofi-music-relax-study/Tom%20Doolie%20-%20Land%20of%20Calm.mp3',
+    brown: 'https://archive.org/download/brownnoise_202103/Smoothed%20Brown%20Noise.mp3',
+    hz40: 'https://archive.org/download/heightened-awareness-pure-gamma-waves-40-hz-mp-3-160-k/Heightened%20Awareness%20Pure%20Gamma%20Waves%20-%2040%20Hz%28MP3_160K%29.mp3',
+    rain: 'https://archive.org/download/relaxingsounds/Rain%207%20%28Lightest%29%208h%20DripsOnTrees-no%20thunder.mp3',
+    wind: 'https://archive.org/download/relaxingsounds/Wind%201%208h%20%28or%20Rapids%29%20Gentle%2CLowPitch%2CBrownNoise.mp3',
   },
+  _audioElement: null,
   _activeAudioKey: null,
-
+  _ytPlayer: null,
   _ytPaused: false,
+  _ytAPIReady: false,
+  _ytSeekInterval: null,
 
   playAudio(key) {
     // If same track, toggle pause/resume
-    if (this._activeAudioKey === key && this._ytPlayer) {
-      this._toggleYTPause();
+    if (this._activeAudioKey === key && this._audioElement) {
+      if (this._audioElement.paused) {
+        this._audioElement.play().catch(() => {});
+        this._audioPlaying = true;
+      } else {
+        this._audioElement.pause();
+        this._audioPlaying = false;
+      }
+      this._updateTrackUI();
       return;
     }
     this.stopAudio();
-    const videoId = this._audioYouTubeIds[key];
-    if (!videoId) return;
-    this._startYTEmbed(videoId, key);
+    const src = this._audioSources[key];
+    if (!src) return;
+    const track = document.querySelector(`.audio-track[data-audio="${key}"]`);
+    const vol = track ? track.querySelector('.audio-track-vol').value : 50;
+    this._audioElement = new Audio(src);
+    this._audioElement.loop = true;
+    this._audioElement.volume = vol / 100;
+    this._audioElement.crossOrigin = 'anonymous';
+    this._audioElement.play().catch(() => {});
+    this._audioPlaying = true;
+    this._activeAudioKey = key;
+    this._updateTrackUI();
+  },
+
+  // --- YouTube (custom links only) ---
+  _loadYTAPI() {
+    if (this._ytAPIReady || document.getElementById('yt-api-script')) return;
+    const tag = document.createElement('script');
+    tag.id = 'yt-api-script';
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+    window.onYouTubeIframeAPIReady = () => { Editor._ytAPIReady = true; };
   },
 
   playYouTube(url) {
@@ -977,26 +1025,8 @@ const Editor = {
       else videoId = u.searchParams.get('v') || '';
     } catch { return; }
     if (!videoId) return;
-    this._startYTEmbed(videoId, 'youtube');
-  },
-
-  _ytAPIReady: false,
-  _ytSeekInterval: null,
-
-  _loadYTAPI() {
-    if (this._ytAPIReady || document.getElementById('yt-api-script')) return;
-    const tag = document.createElement('script');
-    tag.id = 'yt-api-script';
-    tag.src = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(tag);
-    window.onYouTubeIframeAPIReady = () => { Editor._ytAPIReady = true; };
-  },
-
-  _startYTEmbed(videoId, key) {
     this._loadYTAPI();
-    const track = document.querySelector(`.audio-track[data-audio="${key}"]`);
-    const vol = track ? parseInt(track.querySelector('.audio-track-vol').value) : 50;
-
+    const vol = parseInt(document.getElementById('audio-yt-vol')?.value || 50);
     const tryCreate = () => {
       if (!this._ytAPIReady || typeof YT === 'undefined' || !YT.Player) {
         setTimeout(tryCreate, 100);
@@ -1016,12 +1046,9 @@ const Editor = {
       });
       this._audioPlaying = true;
       this._ytPaused = false;
-      this._activeAudioKey = key;
-      // Show YT controls for custom youtube links
-      if (key === 'youtube') {
-        const ctrl = document.getElementById('audio-yt-controls');
-        if (ctrl) ctrl.style.display = 'flex';
-      }
+      this._activeAudioKey = 'youtube';
+      const ctrl = document.getElementById('audio-yt-controls');
+      if (ctrl) ctrl.style.display = 'flex';
       this._updateTrackUI();
       this._updateYTPauseIcon();
     };
@@ -1069,6 +1096,13 @@ const Editor = {
   },
 
   stopAudio() {
+    // Stop MP3 audio
+    if (this._audioElement) {
+      this._audioElement.pause();
+      this._audioElement.src = '';
+      this._audioElement = null;
+    }
+    // Stop YouTube
     clearInterval(this._ytSeekInterval);
     if (this._ytPlayer) {
       if (this._ytPlayer.destroy) this._ytPlayer.destroy();
@@ -1109,8 +1143,8 @@ const Editor = {
       const volSlider = track.querySelector('.audio-track-vol');
       playBtn.addEventListener('click', () => Editor.playAudio(key));
       volSlider.addEventListener('input', () => {
-        if (Editor._activeAudioKey === key && Editor._ytPlayer && Editor._ytPlayer.setVolume) {
-          Editor._ytPlayer.setVolume(Math.round(volSlider.value));
+        if (Editor._activeAudioKey === key && Editor._audioElement) {
+          Editor._audioElement.volume = volSlider.value / 100;
         }
       });
     });
@@ -1121,14 +1155,12 @@ const Editor = {
     });
     const ytPauseBtn = document.getElementById('audio-yt-pause');
     if (ytPauseBtn) ytPauseBtn.addEventListener('click', () => Editor._toggleYTPause());
-    // YouTube volume slider
     const ytVol = document.getElementById('audio-yt-vol');
     if (ytVol) ytVol.addEventListener('input', () => {
       if (Editor._ytPlayer && Editor._ytPlayer.setVolume) {
         Editor._ytPlayer.setVolume(Math.round(ytVol.value));
       }
     });
-    // YouTube seek bar
     const ytSeek = document.getElementById('audio-yt-seek');
     if (ytSeek) {
       ytSeek.addEventListener('mousedown', () => { ytSeek._dragging = true; });
@@ -1164,6 +1196,7 @@ const Editor = {
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     window.removeEventListener('blur', this.onWindowBlur);
     window.removeEventListener('focus', this.onWindowFocus);
+    clearInterval(this._focusCheckInterval);
     document.removeEventListener('selectionchange', this._onSelectionChange);
     document.getElementById('formatting-toolbar').style.display = 'none';
     document.getElementById('editor-topic-bar').style.display = 'none';
