@@ -3051,7 +3051,6 @@ html.light .logo-img-light { display: inline; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 32px;
-  align-items: start;
 }
 
 .profile-left {
@@ -4624,6 +4623,47 @@ html.light .logo-img-light { display: inline; }
 .doc-card-menu-btn:hover {
   color: var(--text-primary);
   background: var(--hover-bg);
+}
+
+/* Pagination */
+.docs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 12px 0;
+}
+.docs-pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.docs-pagination-btn:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+.docs-pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.docs-pagination-info {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+  min-width: 80px;
+  text-align: center;
 }
 
 /* Finder-style folder picker */

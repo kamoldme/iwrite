@@ -5,6 +5,10 @@ const App = {
   folders: [],
   currentFolder: null, // null = root
   currentView: 'dashboard',
+  _docsCacheLoaded: false,
+  _docsCacheDirty: true,
+  _docsPage: 1,
+  _docsPerPage: 10,
   sessionDuration: 15,
   sessionMode: 'normal',
   toastTimer: null,
@@ -490,6 +494,8 @@ const App = {
 
     try {
       this.documents = await API.getDocuments();
+      this._docsCacheDirty = false;
+      this._docsCacheLoaded = true;
     } catch {
       this.documents = [];
     }
@@ -498,7 +504,13 @@ const App = {
     this.renderDocumentList('recent-docs', visibleDocs.slice(0, 3));
   },
 
-  async loadDocuments() {
+  async loadDocuments(forceRefresh) {
+    // Use cache if data already loaded and not dirty
+    if (!forceRefresh && !this._docsCacheDirty && this._docsCacheLoaded) {
+      this._renderDocumentsView();
+      return;
+    }
+
     try {
       this.documents = await API.getDocuments();
     } catch {
@@ -510,6 +522,12 @@ const App = {
       this.folders = [];
     }
 
+    this._docsCacheDirty = false;
+    this._docsCacheLoaded = true;
+    this._renderDocumentsView();
+  },
+
+  _renderDocumentsView() {
     // Only show non-failed, non-admin-deactivated docs in main list
     const visibleDocs = this.documents.filter(d => !d.deletedBySystem && !d.deactivatedByAdmin);
 
@@ -532,7 +550,8 @@ const App = {
       bc.querySelectorAll('[data-bc-folder]').forEach(btn => {
         btn.onclick = () => {
           this.currentFolder = btn.dataset.bcFolder || null;
-          this.loadDocuments();
+          this._docsPage = 1;
+          this._renderDocumentsView();
         };
       });
     } else {
@@ -550,7 +569,8 @@ const App = {
         backBtnContainer.innerHTML = `<button class="folder-back-link" id="folder-back-action">← Back to ${this.escapeHtml(parentName)}</button>`;
         document.getElementById('folder-back-action').onclick = () => {
           this.currentFolder = parentId;
-          this.loadDocuments();
+          this._docsPage = 1;
+          this._renderDocumentsView();
         };
       } else {
         backBtnContainer.style.display = 'none';
@@ -581,7 +601,8 @@ const App = {
         const card = e.target.closest('.folder-card');
         if (card) {
           this.currentFolder = card.dataset.folderId;
-          this.loadDocuments();
+          this._docsPage = 1;
+          this._renderDocumentsView();
         }
       };
     } else {
@@ -595,16 +616,20 @@ const App = {
 
     this.renderDocumentList('all-docs', folderDocs);
 
-    try {
-      const sharedDocs = await API.getSharedDocuments();
-      const section = document.getElementById('shared-docs-section');
-      if (sharedDocs.length > 0 && !this.currentFolder) {
-        section.style.display = 'block';
-        this.renderSharedDocumentList('shared-docs', sharedDocs);
-      } else {
-        section.style.display = 'none';
-      }
-    } catch {
+    // Shared docs (only at root level)
+    if (!this.currentFolder) {
+      API.getSharedDocuments().then(sharedDocs => {
+        const section = document.getElementById('shared-docs-section');
+        if (sharedDocs.length > 0) {
+          section.style.display = 'block';
+          this.renderSharedDocumentList('shared-docs', sharedDocs);
+        } else {
+          section.style.display = 'none';
+        }
+      }).catch(() => {
+        document.getElementById('shared-docs-section').style.display = 'none';
+      });
+    } else {
       document.getElementById('shared-docs-section').style.display = 'none';
     }
   },
@@ -657,7 +682,16 @@ const App = {
       return;
     }
 
-    container.innerHTML = docs.map(doc => {
+    // Pagination for main docs list
+    const isPaginated = containerId === 'all-docs';
+    const totalPages = isPaginated ? Math.ceil(docs.length / this._docsPerPage) : 1;
+    if (isPaginated && this._docsPage > totalPages) this._docsPage = totalPages || 1;
+    const page = isPaginated ? this._docsPage : 1;
+    const pageDocs = isPaginated
+      ? docs.slice((page - 1) * this._docsPerPage, page * this._docsPerPage)
+      : docs;
+
+    let html = pageDocs.map(doc => {
       const isFailed = doc.deletedBySystem;
       return `
       <div class="doc-card ${isFailed ? 'doc-failed' : ''}" data-id="${doc.id}">
@@ -676,7 +710,27 @@ const App = {
       </div>`;
     }).join('');
 
+    // Add pagination controls if more than one page
+    if (isPaginated && totalPages > 1) {
+      html += `<div class="docs-pagination">
+        <button class="docs-pagination-btn" id="docs-prev" ${page <= 1 ? 'disabled' : ''}>← Prev</button>
+        <span class="docs-pagination-info">${page} / ${totalPages}</span>
+        <button class="docs-pagination-btn" id="docs-next" ${page >= totalPages ? 'disabled' : ''}>Next →</button>
+      </div>`;
+    }
+
+    container.innerHTML = html;
+
+    // Bind pagination buttons
+    if (isPaginated && totalPages > 1) {
+      const prevBtn = document.getElementById('docs-prev');
+      const nextBtn = document.getElementById('docs-next');
+      if (prevBtn) prevBtn.onclick = () => { this._docsPage--; this._renderDocumentsView(); };
+      if (nextBtn) nextBtn.onclick = () => { this._docsPage++; this._renderDocumentsView(); };
+    }
+
     container.onclick = (e) => {
+      if (e.target.closest('.docs-pagination-btn')) return;
       const menuBtn = e.target.closest('.doc-card-menu-btn');
       if (menuBtn) {
         e.stopPropagation();
@@ -950,8 +1004,9 @@ const App = {
     if (!ok) return;
     try {
       await API.deleteDocument(id);
+      this._docsCacheDirty = true;
       if (this.currentView === 'dashboard') this.loadDashboard();
-      else this.loadDocuments();
+      else this.loadDocuments(true);
     } catch {
       this.toast('Failed to delete document', 'error');
     }
@@ -1186,7 +1241,8 @@ const App = {
     try {
       await API.createFolder(result, this.currentFolder);
       this.toast('Folder created', 'success');
-      this.loadDocuments();
+      this._docsCacheDirty = true;
+      this.loadDocuments(true);
     } catch (err) {
       this.toast(err.message || 'Failed to create folder', 'error');
     }
@@ -1316,7 +1372,8 @@ const App = {
     try {
       await API.renameFolder(folderId, result);
       this.toast('Folder renamed', 'success');
-      this.loadDocuments();
+      this._docsCacheDirty = true;
+      this.loadDocuments(true);
     } catch (err) {
       this.toast(err.message || 'Failed to rename', 'error');
     }
@@ -1329,7 +1386,8 @@ const App = {
       await API.deleteFolder(folderId);
       if (this.currentFolder === folderId) this.currentFolder = null;
       this.toast('Folder deleted', 'success');
-      this.loadDocuments();
+      this._docsCacheDirty = true;
+      this.loadDocuments(true);
     } catch {
       this.toast('Failed to delete folder', 'error');
     }
@@ -1425,7 +1483,8 @@ const App = {
             await API.moveToFolder(itemId, target);
           }
           this.toast('Moved!', 'success');
-          this.loadDocuments();
+          this._docsCacheDirty = true;
+          this.loadDocuments(true);
         } catch {
           this.toast('Failed to move', 'error');
         }

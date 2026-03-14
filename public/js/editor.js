@@ -673,7 +673,8 @@ const Editor = {
       document.getElementById('status-bar').style.display = 'none';
       this.container.classList.remove('active');
       App.toast('Session discarded — no words written', 'info');
-      try { await App.loadDocuments(); } catch {}
+      App._docsCacheDirty = true;
+      try { await App.loadDocuments(true); } catch {}
       return;
     }
 
@@ -699,7 +700,8 @@ const Editor = {
     document.getElementById('status-bar').style.display = 'none';
     this.container.classList.remove('active');
     // Auto-refresh sessions tab so new doc appears immediately
-    try { await App.loadDocuments(); } catch {}
+    App._docsCacheDirty = true;
+    try { await App.loadDocuments(true); } catch {}
     this.showComplete(wordCount, duration, xpEarned, result.user);
   },
 
@@ -798,8 +800,9 @@ const Editor = {
       this.originalTitle = this.titleInput.value;
       this.exitEditMode();
       this.showConfetti();
-      // Refresh document list in background
-      if (App.currentView === 'documents') App.loadDocuments();
+      // Mark docs cache dirty so next tab switch refetches
+      App._docsCacheDirty = true;
+      if (App.currentView === 'documents') App.loadDocuments(true);
       else if (App.currentView === 'dashboard') App.loadDashboard();
       // Also update local cache entry
       const idx = App.documents.findIndex(d => d.id === this.documentId);
