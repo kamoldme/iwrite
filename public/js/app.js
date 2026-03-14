@@ -214,6 +214,19 @@ const App = {
     document.getElementById('modal-cancel').addEventListener('click', () => this.closeSessionModal());
     document.getElementById('modal-start').addEventListener('click', () => this.startSession());
 
+    // Document name modal
+    document.getElementById('doc-name-confirm').addEventListener('click', () => {
+      const name = document.getElementById('doc-name-input').value.trim();
+      this._confirmDocName(name || 'Untitled');
+    });
+    document.getElementById('doc-name-skip').addEventListener('click', () => this._confirmDocName('Untitled'));
+    document.getElementById('doc-name-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const name = document.getElementById('doc-name-input').value.trim();
+        this._confirmDocName(name || 'Untitled');
+      }
+    });
+
     document.querySelectorAll('#time-presets .time-preset[data-minutes]').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#time-presets .time-preset').forEach(b => b.classList.remove('active'));
@@ -696,6 +709,10 @@ const App = {
       document.getElementById('editor-mode-badge').className = 'editor-mode-badge normal';
       document.getElementById('danger-progress').style.display = 'none';
       document.getElementById('formatting-toolbar').style.display = 'none'; // shown on Edit
+      // Hide session-only controls
+      document.getElementById('editor-timer-toggle').style.display = 'none';
+      document.querySelector('.editor-add-time').style.display = 'none';
+      document.getElementById('editor-topic-bar').style.display = 'none';
 
       // Show Edit button, hide session buttons
       document.getElementById('editor-save-btn').style.display = 'none';
@@ -757,10 +774,20 @@ const App = {
 
   startSession() {
     this.closeSessionModal();
-    const topic = document.getElementById('session-topic-input').value.trim();
-    const targetWords = parseInt(document.getElementById('session-target-words').value) || 0;
-    document.getElementById('editor-title').value = 'Untitled';
-    Editor.start(this.sessionDuration, this.sessionMode, { topic, targetWords });
+    // Show document name modal before starting
+    this._pendingTopic = document.getElementById('session-topic-input').value.trim();
+    this._pendingTargetWords = parseInt(document.getElementById('session-target-words').value) || 0;
+    document.getElementById('doc-name-input').value = '';
+    document.getElementById('doc-name-modal').classList.add('active');
+  },
+
+  _confirmDocName(name) {
+    document.getElementById('doc-name-modal').classList.remove('active');
+    document.getElementById('editor-title').value = name || 'Untitled';
+    Editor.start(this.sessionDuration, this.sessionMode, {
+      topic: this._pendingTopic || '',
+      targetWords: this._pendingTargetWords || 0
+    });
   },
 
   showSessionFailed(reason) {

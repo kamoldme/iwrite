@@ -3061,6 +3061,8 @@ html.light .logo-img-light { display: inline; }
 .profile-left-inner {
   position: sticky;
   top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 24px;

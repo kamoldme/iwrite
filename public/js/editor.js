@@ -119,6 +119,13 @@ const Editor = {
 
     this.modeBadge.textContent = mode === 'dangerous' ? 'Dangerous' : 'Normal';
     this.modeBadge.className = `editor-mode-badge ${mode}`;
+    // Show session controls
+    document.getElementById('editor-timer-toggle').style.display = '';
+    document.querySelector('.editor-add-time').style.display = '';
+    this._timerHidden = false;
+    this._timerMasked = false;
+    document.getElementById('timer-eye-open').style.display = '';
+    document.getElementById('timer-eye-closed').style.display = 'none';
 
     if (mode === 'dangerous') {
       this.container.classList.add('dangerous-active');
