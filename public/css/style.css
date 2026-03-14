@@ -1331,11 +1331,6 @@ html.light .logo-img-light { display: inline; }
   transition: var(--transition);
 }
 .editor-timer-toggle:hover { color: var(--text-primary); }
-.editor-timer.hidden-timer {
-  opacity: 0;
-  pointer-events: none;
-  user-select: none;
-}
 .editor-add-time {
   display: flex;
   gap: 4px;

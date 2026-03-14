@@ -468,7 +468,7 @@ const Editor = {
 
   _applyTimerVisibility() {
     if (!this._timerHidden) {
-      this.timerEl.classList.remove('hidden-timer');
+      this._timerMasked = false;
       return;
     }
     // Auto-show in last 3 minutes
@@ -477,11 +477,11 @@ const Editor = {
       const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
       const remaining = totalSeconds - elapsed;
       if (remaining <= 180) {
-        this.timerEl.classList.remove('hidden-timer');
+        this._timerMasked = false;
         return;
       }
     }
-    this.timerEl.classList.add('hidden-timer');
+    this._timerMasked = true;
   },
 
   addTime(minutes) {
@@ -490,13 +490,16 @@ const Editor = {
     App.showToast(`+${minutes} min added`, 'info');
   },
 
+  _timerMasked: false,
+
   updateTimer() {
     if (this.duration === 0) {
       const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
       const min = Math.floor(elapsed / 60);
       const sec = elapsed % 60;
-      this.timerEl.textContent = `${min}:${String(sec).padStart(2, '0')}`;
+      this.timerEl.textContent = this._timerMasked ? '**:**' : `${min}:${String(sec).padStart(2, '0')}`;
       this.timerEl.className = 'editor-timer';
+      this._applyTimerVisibility();
       return;
     }
 
@@ -505,7 +508,11 @@ const Editor = {
     const remaining = Math.max(0, totalSeconds - elapsed);
     const min = Math.floor(remaining / 60);
     const sec = remaining % 60;
-    this.timerEl.textContent = `${min}:${String(sec).padStart(2, '0')}`;
+
+    // Auto-show timer when entering last 3 minutes
+    this._applyTimerVisibility();
+
+    this.timerEl.textContent = this._timerMasked ? '**:**' : `${min}:${String(sec).padStart(2, '0')}`;
 
     if (remaining <= 60) {
       this.timerEl.className = 'editor-timer danger';
@@ -514,9 +521,6 @@ const Editor = {
     } else {
       this.timerEl.className = 'editor-timer';
     }
-
-    // Auto-show timer when entering last 3 minutes
-    this._applyTimerVisibility();
 
     if (remaining <= 0) {
       this.completeSession();
