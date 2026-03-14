@@ -1649,6 +1649,21 @@ html.light .logo-img-light { display: inline; }
   outline: none;
 }
 .audio-yt-input:focus { border-color: var(--accent); }
+.audio-yt-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.audio-yt-seek {
+  flex: 1;
+  height: 3px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.audio-yt-controls .audio-track-vol {
+  width: 60px;
+}
 .audio-controls {
   display: flex;
   align-items: center;

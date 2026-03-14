@@ -307,23 +307,16 @@ const Editor = {
     }
   },
 
-  // Fired when the browser window loses focus (user switches app, clicks desktop, etc.)
+  // Fired when the browser window loses focus (any focus loss counts)
   onWindowBlur: () => {
-    if (!Editor.active || Editor.abandoned || Editor._blurCooldown) return;
-    // Only count as leaving if also not just switching within the browser UI
-    if (!document.hidden) {
-      Editor.onTabLeave();
-    }
+    if (!Editor.active || Editor.abandoned) return;
+    Editor.onTabLeave();
   },
 
   // Fired when the browser window regains focus
   onWindowFocus: () => {
     if (!Editor.active || Editor.abandoned) return;
-    Editor._blurCooldown = true;
-    setTimeout(() => { Editor._blurCooldown = false; }, 300);
-    if (!document.hidden) {
-      Editor.onTabReturn();
-    }
+    Editor.onTabReturn();
   },
 
   onTabLeave() {
@@ -953,10 +946,10 @@ const Editor = {
   // --- Audio system ---
   // All audio tracks use YouTube embeds for reliability
   _audioYouTubeIds: {
-    lofi1: 'jfKfPfyJRdk',   // lofi hip hop radio
-    lofi2: '4xDzrJKXOOY',   // synthwave radio
+    lofi1: 'jfKfPfyJRdk',   // lofi hip hop radio - beats to relax/study to
+    lofi2: '5qap5aO4i9A',   // lofi hip hop radio - beats to sleep/chill to
     brown: 'GSaJXDsb3N8',   // brown noise
-    hz40: 'ZjFoBm1U1qg',    // 40Hz gamma binaural
+    hz40: 'jbFcQpK5wB0',    // 40Hz gamma frequency study noise
     rain: '8plwv25NYRo',     // rain sounds
   },
   _activeAudioKey: null,
@@ -985,56 +978,100 @@ const Editor = {
     } catch { return; }
     if (!videoId) return;
     this._startYTEmbed(videoId, 'youtube');
-    // Show pause button
-    const pauseBtn = document.getElementById('audio-yt-pause');
-    if (pauseBtn) pauseBtn.style.display = '';
+  },
+
+  _ytAPIReady: false,
+  _ytSeekInterval: null,
+
+  _loadYTAPI() {
+    if (this._ytAPIReady || document.getElementById('yt-api-script')) return;
+    const tag = document.createElement('script');
+    tag.id = 'yt-api-script';
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+    window.onYouTubeIframeAPIReady = () => { Editor._ytAPIReady = true; };
   },
 
   _startYTEmbed(videoId, key) {
-    const container = document.getElementById('yt-player-container');
+    this._loadYTAPI();
     const track = document.querySelector(`.audio-track[data-audio="${key}"]`);
-    const vol = track ? track.querySelector('.audio-track-vol').value : 50;
-    container.innerHTML = `<iframe id="yt-iframe" width="1" height="1" src="https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}&enablejsapi=1" allow="autoplay" frameborder="0"></iframe>`;
-    this._ytPlayer = document.getElementById('yt-iframe');
-    this._audioPlaying = true;
-    this._ytPaused = false;
-    this._activeAudioKey = key;
-    // Apply volume via postMessage after iframe loads
-    this._ytPlayer.onload = () => {
-      const volVal = Math.round(vol);
-      this._ytPlayer.contentWindow.postMessage(JSON.stringify({
-        event: 'command', func: 'setVolume', args: [volVal]
-      }), '*');
+    const vol = track ? parseInt(track.querySelector('.audio-track-vol').value) : 50;
+
+    const tryCreate = () => {
+      if (!this._ytAPIReady || typeof YT === 'undefined' || !YT.Player) {
+        setTimeout(tryCreate, 100);
+        return;
+      }
+      const container = document.getElementById('yt-player-container');
+      container.innerHTML = '<div id="yt-player-div"></div>';
+      this._ytPlayer = new YT.Player('yt-player-div', {
+        height: '1', width: '1', videoId,
+        playerVars: { autoplay: 1, loop: 1, playlist: videoId },
+        events: {
+          onReady: (e) => {
+            e.target.setVolume(vol);
+            this._startSeekSync();
+          }
+        }
+      });
+      this._audioPlaying = true;
+      this._ytPaused = false;
+      this._activeAudioKey = key;
+      // Show YT controls for custom youtube links
+      if (key === 'youtube') {
+        const ctrl = document.getElementById('audio-yt-controls');
+        if (ctrl) ctrl.style.display = 'flex';
+      }
+      this._updateTrackUI();
+      this._updateYTPauseIcon();
     };
-    this._updateTrackUI();
+    tryCreate();
+  },
+
+  _startSeekSync() {
+    clearInterval(this._ytSeekInterval);
+    this._ytSeekInterval = setInterval(() => {
+      if (!this._ytPlayer || !this._ytPlayer.getDuration) return;
+      const dur = this._ytPlayer.getDuration();
+      const cur = this._ytPlayer.getCurrentTime();
+      if (dur > 0) {
+        const seek = document.getElementById('audio-yt-seek');
+        if (seek && !seek._dragging) seek.value = (cur / dur) * 100;
+      }
+    }, 500);
   },
 
   _toggleYTPause() {
     if (!this._ytPlayer) return;
     if (this._ytPaused) {
-      this._ytPlayer.contentWindow.postMessage(JSON.stringify({
-        event: 'command', func: 'playVideo', args: []
-      }), '*');
+      if (this._ytPlayer.playVideo) this._ytPlayer.playVideo();
       this._audioPlaying = true;
       this._ytPaused = false;
     } else {
-      this._ytPlayer.contentWindow.postMessage(JSON.stringify({
-        event: 'command', func: 'pauseVideo', args: []
-      }), '*');
+      if (this._ytPlayer.pauseVideo) this._ytPlayer.pauseVideo();
       this._audioPlaying = false;
       this._ytPaused = true;
     }
     this._updateTrackUI();
-    // Update YT pause button text if it's the youtube custom link
+    this._updateYTPauseIcon();
+  },
+
+  _updateYTPauseIcon() {
     const pauseBtn = document.getElementById('audio-yt-pause');
-    if (pauseBtn && this._activeAudioKey === 'youtube') {
-      pauseBtn.textContent = this._ytPaused ? 'Resume' : 'Pause';
+    if (!pauseBtn) return;
+    if (this._ytPaused) {
+      pauseBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>';
+      pauseBtn.title = 'Resume';
+    } else {
+      pauseBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+      pauseBtn.title = 'Pause';
     }
   },
 
   stopAudio() {
+    clearInterval(this._ytSeekInterval);
     if (this._ytPlayer) {
-      this._ytPlayer.remove();
+      if (this._ytPlayer.destroy) this._ytPlayer.destroy();
       this._ytPlayer = null;
     }
     const container = document.getElementById('yt-player-container');
@@ -1042,9 +1079,8 @@ const Editor = {
     this._audioPlaying = false;
     this._ytPaused = false;
     this._activeAudioKey = null;
-    // Hide YT pause button
-    const pauseBtn = document.getElementById('audio-yt-pause');
-    if (pauseBtn) pauseBtn.style.display = 'none';
+    const ctrl = document.getElementById('audio-yt-controls');
+    if (ctrl) ctrl.style.display = 'none';
     this._updateTrackUI();
   },
 
@@ -1066,16 +1102,15 @@ const Editor = {
   },
 
   initAudio() {
+    this._loadYTAPI();
     document.querySelectorAll('.audio-track').forEach(track => {
       const key = track.dataset.audio;
       const playBtn = track.querySelector('.audio-play-btn');
       const volSlider = track.querySelector('.audio-track-vol');
       playBtn.addEventListener('click', () => Editor.playAudio(key));
       volSlider.addEventListener('input', () => {
-        if (Editor._activeAudioKey === key && Editor._ytPlayer) {
-          Editor._ytPlayer.contentWindow.postMessage(JSON.stringify({
-            event: 'command', func: 'setVolume', args: [Math.round(volSlider.value)]
-          }), '*');
+        if (Editor._activeAudioKey === key && Editor._ytPlayer && Editor._ytPlayer.setVolume) {
+          Editor._ytPlayer.setVolume(Math.round(volSlider.value));
         }
       });
     });
@@ -1085,9 +1120,26 @@ const Editor = {
       if (url) Editor.playYouTube(url);
     });
     const ytPauseBtn = document.getElementById('audio-yt-pause');
-    if (ytPauseBtn) ytPauseBtn.addEventListener('click', () => {
-      Editor._toggleYTPause();
+    if (ytPauseBtn) ytPauseBtn.addEventListener('click', () => Editor._toggleYTPause());
+    // YouTube volume slider
+    const ytVol = document.getElementById('audio-yt-vol');
+    if (ytVol) ytVol.addEventListener('input', () => {
+      if (Editor._ytPlayer && Editor._ytPlayer.setVolume) {
+        Editor._ytPlayer.setVolume(Math.round(ytVol.value));
+      }
     });
+    // YouTube seek bar
+    const ytSeek = document.getElementById('audio-yt-seek');
+    if (ytSeek) {
+      ytSeek.addEventListener('mousedown', () => { ytSeek._dragging = true; });
+      ytSeek.addEventListener('mouseup', () => { ytSeek._dragging = false; });
+      ytSeek.addEventListener('input', () => {
+        if (Editor._ytPlayer && Editor._ytPlayer.getDuration) {
+          const dur = Editor._ytPlayer.getDuration();
+          Editor._ytPlayer.seekTo(dur * (ytSeek.value / 100), true);
+        }
+      });
+    }
   },
 
   cleanup() {

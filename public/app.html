@@ -485,8 +485,12 @@
               <div class="audio-section-label">YouTube Link</div>
               <div class="audio-yt-row">
                 <input type="text" id="audio-yt-input" class="audio-yt-input" placeholder="Paste YouTube URL...">
-                <button class="btn btn-primary btn-small" id="audio-yt-play">Play</button>
-                <button class="btn btn-small" id="audio-yt-pause" style="display:none">Pause</button>
+                <button class="audio-play-btn" id="audio-yt-play" title="Play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+              </div>
+              <div class="audio-yt-controls" id="audio-yt-controls" style="display:none">
+                <button class="audio-play-btn" id="audio-yt-pause" title="Pause/Resume"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+                <input type="range" class="audio-yt-seek" id="audio-yt-seek" min="0" max="100" value="0" title="Seek">
+                <input type="range" class="audio-track-vol" id="audio-yt-vol" min="0" max="100" value="50" title="Volume">
               </div>
             </div>
           </div>
