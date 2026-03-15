@@ -966,11 +966,17 @@ const App = {
     }
   },
 
-  openDuelModal(preselectedId) {
+  async openDuelModal(preselectedId) {
     document.getElementById('duel-modal').classList.add('active');
     const select = document.getElementById('duel-friend-select');
+    select.innerHTML = '<option value="">Loading friends...</option>';
+    // Always fetch fresh friends list
+    try {
+      const friends = await API.getFriends();
+      this.friends = friends;
+    } catch {}
     select.innerHTML = '<option value="">Choose a friend...</option>';
-    this.friends.forEach(f => {
+    (this.friends || []).forEach(f => {
       select.innerHTML += `<option value="${f.id}">${this.escapeHtml(f.name)}</option>`;
     });
     if (preselectedId) {
