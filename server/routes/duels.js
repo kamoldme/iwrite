@@ -6,9 +6,62 @@ const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 router.use(authenticate);
 
+// Helper: auto-complete any active duel that is past its endAt
+function cleanupStaleDuels() {
+  const now = new Date();
+  const staleDuels = findMany('duels.json', d =>
+    d.status === 'active' && d.endAt && new Date(d.endAt) <= now
+  );
+  for (const duel of staleDuels) {
+    const winnerId = duel.challengerWords > duel.opponentWords ? duel.challengerId :
+                     duel.opponentWords > duel.challengerWords ? duel.opponentId : null;
+    updateOne('duels.json', d => d.id === duel.id, {
+      status: 'completed',
+      winnerId
+    });
+    // Generate activity
+    if (winnerId) {
+      try {
+        const winner = findOne('users.json', u => u.id === winnerId);
+        const loserId = winnerId === duel.challengerId ? duel.opponentId : duel.challengerId;
+        const loser = findOne('users.json', u => u.id === loserId);
+        if (winner && loser) {
+          insertOne('activities.json', {
+            id: uuid(),
+            userId: winnerId,
+            type: 'duel_won',
+            data: { name: winner.name, opponentName: loser.name },
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch {}
+    }
+  }
+
+  // Also expire stale countdown duels (startAt passed >2min ago but still countdown)
+  const staleCountdowns = findMany('duels.json', d =>
+    d.status === 'countdown' && d.startAt && (now - new Date(d.startAt)) > 120000
+  );
+  for (const duel of staleCountdowns) {
+    updateOne('duels.json', d => d.id === duel.id, {
+      status: 'expired',
+      endAt: new Date().toISOString()
+    });
+  }
+
+  // Expire pending duels older than 5 minutes (not 24h — if both left, clean up fast)
+  const stalePending = findMany('duels.json', d =>
+    d.status === 'pending' && (now - new Date(d.createdAt)) > 5 * 60 * 1000
+  );
+  for (const duel of stalePending) {
+    updateOne('duels.json', d => d.id === duel.id, { status: 'expired' });
+  }
+}
+
 // POST /challenge — create a new duel challenge
 router.post('/challenge', (req, res) => {
   try {
+    cleanupStaleDuels();
     const { friendId, duration } = req.body;
     if (!friendId || !duration) return res.status(400).json({ error: 'friendId and duration are required' });
 
@@ -53,6 +106,7 @@ router.post('/challenge', (req, res) => {
 // GET /requests — incoming duel requests for current user
 router.get('/requests', (req, res) => {
   try {
+    cleanupStaleDuels();
     const duels = findMany('duels.json', d => d.opponentId === req.user.id && d.status === 'pending');
     // Auto-expire duels older than 24h
     const now = Date.now();
@@ -400,6 +454,53 @@ router.post('/:id/forfeit', (req, res) => {
   }
 });
 
+// POST /:id/beacon-forfeit — sendBeacon-compatible forfeit (token in body, no auth header)
+router.post('/:id/beacon-forfeit', (req, res) => {
+  try {
+    const jwt = require('jsonwebtoken');
+    const { SECRET } = require('../middleware/auth');
+    const { token } = req.body;
+    if (!token) return res.status(401).json({ error: 'Token required' });
+
+    let user;
+    try { user = jwt.verify(token, SECRET); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+
+    const duel = findOne('duels.json', d => d.id === req.params.id);
+    if (!duel) return res.status(404).json({ error: 'Duel not found' });
+    if (duel.challengerId !== user.id && duel.opponentId !== user.id) {
+      return res.status(403).json({ error: 'Not your duel' });
+    }
+    if (duel.status === 'completed') return res.json(duel);
+    if (duel.status !== 'active') return res.status(400).json({ error: 'Duel is not active' });
+
+    const winnerId = duel.challengerId === user.id ? duel.opponentId : duel.challengerId;
+    const updated = updateOne('duels.json', d => d.id === req.params.id, {
+      status: 'completed',
+      forfeitedBy: user.id,
+      winnerId,
+      endAt: new Date().toISOString()
+    });
+
+    try {
+      const winner = findOne('users.json', u => u.id === winnerId);
+      const loser = findOne('users.json', u => u.id === user.id);
+      if (winner && loser) {
+        insertOne('activities.json', {
+          id: uuid(),
+          userId: winnerId,
+          type: 'duel_won',
+          data: { name: winner.name, opponentName: loser.name, forfeit: true },
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch {}
+
+    res.json(updated);
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // POST /:id/set-doc — associate a document with a duel participant
 router.post('/:id/set-doc', (req, res) => {
   try {
@@ -422,6 +523,7 @@ router.post('/:id/set-doc', (req, res) => {
 // GET /history — completed duels for current user
 router.get('/history', (req, res) => {
   try {
+    cleanupStaleDuels();
     const duels = findMany('duels.json', d =>
       d.status === 'completed' &&
       (d.challengerId === req.user.id || d.opponentId === req.user.id)

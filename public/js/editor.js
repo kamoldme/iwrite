@@ -592,8 +592,23 @@ const Editor = {
     return (this.textarea.innerText || '').trim().split(/\s+/).filter(Boolean).length;
   },
 
+  // Ensure forfeit is sent even if user closes tab/browser
+  _onBeforeUnload() {
+    if (Editor._duelInfo && Editor.active && !Editor.abandoned) {
+      const token = API.getToken();
+      if (token) {
+        navigator.sendBeacon(
+          `/api/duels/${Editor._duelInfo.duelId}/beacon-forfeit`,
+          new Blob([JSON.stringify({ token })], { type: 'application/json' })
+        );
+      }
+    }
+  },
+
   _startDuelPolling() {
     if (!this._duelInfo) return;
+    // Register beforeunload for reliable forfeit on tab close
+    window.addEventListener('beforeunload', this._onBeforeUnload);
     // Show duel bar
     const bar = document.getElementById('duel-bar');
     if (bar) {
@@ -1443,6 +1458,7 @@ const Editor = {
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     window.removeEventListener('blur', this.onWindowBlur);
     window.removeEventListener('focus', this.onWindowFocus);
+    window.removeEventListener('beforeunload', this._onBeforeUnload);
     clearInterval(this._focusCheckInterval);
     document.removeEventListener('selectionchange', this._onSelectionChange);
     document.getElementById('formatting-toolbar').style.display = 'none';
