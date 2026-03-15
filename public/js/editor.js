@@ -592,6 +592,8 @@ const Editor = {
     if (this.documentId && this._duelInfo.duelId) {
       try { API.setDuelDoc(this._duelInfo.duelId, this.documentId); } catch {}
     }
+    // Reset forfeit notification flag
+    this._duelForfeitNotified = false;
     // Poll every 5 seconds with backoff on failure
     this._duelPollDelay = 5000;
     this._duelPollTimer = setTimeout(() => this._pollDuel(), this._duelPollDelay);
@@ -635,11 +637,9 @@ const Editor = {
       }
 
       // Check if opponent forfeited
-      // forfeitedBy can be array or string (legacy)
-      const forfeitList = Array.isArray(duel.forfeitedBy) ? duel.forfeitedBy : (duel.forfeitedBy ? [duel.forfeitedBy] : []);
-      const myId = this._duelInfo.isChallenger ? duel.challengerId : duel.opponentId;
+      // Check if opponent forfeited (forfeitedBy = single user ID string)
       const oppId = this._duelInfo.isChallenger ? duel.opponentId : duel.challengerId;
-      if (forfeitList.includes(oppId)) {
+      if (duel.forfeitedBy && duel.forfeitedBy === oppId) {
         if (!this._duelForfeitNotified) {
           this._duelForfeitNotified = true;
           App.toast(`${this._duelInfo.opponentName} left the duel!`, 'info');
