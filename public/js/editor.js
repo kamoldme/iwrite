@@ -415,9 +415,23 @@ const Editor = {
       } catch {}
     }
 
-    // Forfeit active duel
+    // Forfeit active duel — but check if opponent already forfeited first
     if (this._duelInfo) {
-      try { await API.forfeitDuel(this._duelInfo.duelId); } catch {}
+      try {
+        // Check if duel was already completed (opponent left first = we won)
+        const duelStatus = await API.getDuelStatus(this._duelInfo.duelId);
+        if (duelStatus.status === 'completed') {
+          // Duel already ended (opponent forfeited) — we won, show results
+          this._stopDuelPolling();
+          this.tabWarning.classList.remove('active');
+          document.getElementById('status-bar').style.display = 'none';
+          this.container.classList.remove('active');
+          App._showDuelResults(duelStatus);
+          return;
+        }
+        // Duel still active — we're the first to leave, we lose
+        await API.forfeitDuel(this._duelInfo.duelId);
+      } catch {}
       this._stopDuelPolling();
     }
 
@@ -636,7 +650,6 @@ const Editor = {
         if (reqEl) reqEl.style.display = 'none';
       }
 
-      // Check if opponent forfeited
       // Check if opponent forfeited (forfeitedBy = single user ID string)
       const oppId = this._duelInfo.isChallenger ? duel.opponentId : duel.challengerId;
       if (duel.forfeitedBy && duel.forfeitedBy === oppId) {
