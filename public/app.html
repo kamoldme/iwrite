@@ -544,10 +544,10 @@
       <div class="duel-bar" id="duel-bar">
         <div class="duel-bar-scores">
           <span class="duel-bar-score">You: <strong id="duel-bar-my-words">0</strong></span>
-          <span style="color:var(--text-muted)">vs</span>
-          <span class="duel-bar-score"><span id="duel-bar-opponent">Opponent</span>: <strong id="duel-bar-opp-words">0</strong></span>
+          <span class="duel-bar-vs">⚔️ You vs <span id="duel-bar-opponent">Opponent</span></span>
+          <span class="duel-bar-score"><span id="duel-bar-opponent-label">Opponent</span>: <strong id="duel-bar-opp-words">0</strong></span>
         </div>
-        <span class="duel-bar-timer" id="duel-bar-timer">--:--</span>
+        <span class="duel-bar-forfeit" id="duel-bar-forfeit" style="display:none">Opponent left!</span>
       </div>
       <!-- Row 2: Formatting toolbar (hidden in danger mode) -->
       <div class="editor-format-bar" id="formatting-toolbar" style="display:none">
@@ -752,6 +752,12 @@
         <div class="duel-countdown-timer" id="duel-countdown-timer">60</div>
         <p class="duel-countdown-vs" id="duel-countdown-vs">You vs Opponent</p>
         <p class="duel-countdown-duration" id="duel-countdown-duration">10 minute duel</p>
+        <div class="duel-skip-row" id="duel-skip-row">
+          <span class="duel-skip-status" id="duel-skip-me">Skip</span>
+          <span style="color:var(--text-muted);font-size:14px">—</span>
+          <span class="duel-skip-status" id="duel-skip-opp">Skip</span>
+        </div>
+        <button class="btn btn-primary" id="duel-skip-btn" style="margin-top:16px">Skip Wait</button>
       </div>
     </div>
 

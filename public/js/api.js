@@ -203,6 +203,21 @@ const API = {
     return this.request('/duels/active');
   },
 
+  async duelReady(duelId) {
+    return this.request(`/duels/${duelId}/ready`, { method: 'POST' });
+  },
+
+  async forfeitDuel(duelId) {
+    return this.request(`/duels/${duelId}/forfeit`, { method: 'POST' });
+  },
+
+  async setDuelDoc(duelId, docId) {
+    return this.request(`/duels/${duelId}/set-doc`, {
+      method: 'POST',
+      body: JSON.stringify({ docId })
+    });
+  },
+
   async changePassword(currentPassword, newPassword, confirmPassword) {
     return this.request('/auth/change-password', {
       method: 'POST',

@@ -411,6 +411,12 @@ const Editor = {
       } catch {}
     }
 
+    // Forfeit active duel
+    if (this._duelInfo) {
+      try { await API.forfeitDuel(this._duelInfo.duelId); } catch {}
+      this._stopDuelPolling();
+    }
+
     this.tabWarning.classList.remove('active');
     document.getElementById('status-bar').style.display = 'none';
     this.container.classList.remove('active');
@@ -569,6 +575,12 @@ const Editor = {
     if (bar) {
       bar.classList.add('active');
       document.getElementById('duel-bar-opponent').textContent = this._duelInfo.opponentName;
+      document.getElementById('duel-bar-opponent-label').textContent = this._duelInfo.opponentName;
+      document.getElementById('duel-bar-forfeit').style.display = 'none';
+    }
+    // Associate document with duel
+    if (this.documentId && this._duelInfo.duelId) {
+      try { API.setDuelDoc(this._duelInfo.duelId, this.documentId); } catch {}
     }
     // Poll every 5 seconds with backoff on failure
     this._duelPollDelay = 5000;
@@ -601,6 +613,16 @@ const Editor = {
         const secs = remaining % 60;
         const timerEl = document.getElementById('duel-bar-timer');
         if (timerEl) timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+      }
+
+      // Check if opponent forfeited
+      if (duel.forfeitedBy && duel.forfeitedBy !== (this._duelInfo.isChallenger ? duel.challengerId : duel.opponentId)) {
+        if (!this._duelForfeitNotified) {
+          this._duelForfeitNotified = true;
+          App.toast(`${this._duelInfo.opponentName} left the duel!`, 'info');
+          const forfeitEl = document.getElementById('duel-bar-forfeit');
+          if (forfeitEl) forfeitEl.style.display = '';
+        }
       }
 
       // Check if duel completed

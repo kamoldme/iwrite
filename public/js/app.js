@@ -1035,14 +1035,32 @@ const App = {
           const won = d.winnerId === this.user.id;
           const tie = !d.winnerId;
           const resultClass = tie ? 'tie' : (won ? 'won' : 'lost');
-          const resultText = tie ? 'TIE' : (won ? 'YOU WON 🏆' : 'YOU LOST');
+          const oppResultClass = tie ? 'tie' : (won ? 'lost' : 'won');
+          const forfeitedByOpp = d.forfeitedBy && d.forfeitedBy !== this.user.id;
+          const forfeitedByMe = d.forfeitedBy && d.forfeitedBy === this.user.id;
+          const myDocId = isChallenger ? d.challengerDocId : d.opponentDocId;
+
+          // Word display with forfeit indicator
+          const myWordText = forfeitedByMe ? `<span style="color:var(--danger)">LOST</span>` : `${myWords} words`;
+          const oppWordText = forfeitedByOpp ? `<span style="color:var(--danger)">LOST</span>` : `${oppWords} words`;
+
+          const resultText = tie ? 'TIE' : (won ? 'WON 🏆' : 'LOST');
+          const docBtn = myDocId ? `<button class="duel-history-doc-btn" onclick="App.openDocument('${myDocId}')">View Doc</button>` : '';
+
           return `
           <div class="duel-history-card ${resultClass}">
             <div class="duel-history-info">
-              <span style="font-size:14px;font-weight:600">You vs ${this.escapeHtml(oppName)}</span>
-              <span class="duel-history-scores" style="margin-left:12px">${myWords} vs ${oppWords} words</span>
+              <span style="font-size:14px;font-weight:600">
+                <span style="color:var(--${won || tie ? 'success' : 'danger'})">You</span>
+                <span style="color:var(--text-muted)"> vs </span>
+                <span style="color:var(--${oppResultClass === 'won' ? 'success' : oppResultClass === 'lost' ? 'danger' : 'text-muted'})">${this.escapeHtml(oppName)}</span>
+              </span>
+              <span class="duel-history-scores">${myWordText} — ${oppWordText}</span>
             </div>
-            <span class="duel-history-result ${resultClass}">${resultText}</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${docBtn}
+              <span class="duel-history-result ${resultClass}">${resultText}</span>
+            </div>
           </div>`;
         }).join('');
       }
@@ -1089,9 +1107,55 @@ const App = {
       const oppName = isChallenger ? duel.opponentName : duel.challengerName;
       document.getElementById('duel-countdown-vs').textContent = `You vs ${oppName}`;
       document.getElementById('duel-countdown-duration').textContent = `${duel.duration} minute duel`;
+
+      // Reset skip UI
+      const skipMe = document.getElementById('duel-skip-me');
+      const skipOpp = document.getElementById('duel-skip-opp');
+      const skipBtn = document.getElementById('duel-skip-btn');
+      skipMe.textContent = 'Skip';
+      skipMe.className = 'duel-skip-status';
+      skipOpp.textContent = 'Skip';
+      skipOpp.className = 'duel-skip-status';
+      skipBtn.disabled = false;
+      skipBtn.textContent = 'Skip Wait';
+
       overlay.classList.add('active');
 
+      // Skip button handler
+      this._duelSkipHandler = async () => {
+        skipBtn.disabled = true;
+        skipBtn.textContent = 'Ready!';
+        skipMe.textContent = '✓';
+        skipMe.classList.add('ready');
+        try {
+          const updated = await API.duelReady(duelId);
+          if (updated.status === 'active') {
+            clearInterval(countdownInterval);
+            overlay.classList.remove('active');
+            this.enterDuelMode(duelId);
+          }
+        } catch {}
+      };
+      skipBtn.onclick = this._duelSkipHandler;
+
       const countdownInterval = setInterval(async () => {
+        // Poll duel status to check if opponent is ready
+        try {
+          const latest = await API.getDuelStatus(duelId);
+          if (latest.status === 'active') {
+            clearInterval(countdownInterval);
+            overlay.classList.remove('active');
+            this.enterDuelMode(duelId);
+            return;
+          }
+          // Update opponent ready status
+          const oppReady = isChallenger ? latest.opponentReady : latest.challengerReady;
+          if (oppReady) {
+            skipOpp.textContent = '✓';
+            skipOpp.classList.add('ready');
+          }
+        } catch {}
+
         const remaining = Math.max(0, Math.ceil((new Date(duel.startAt) - Date.now()) / 1000));
         timerEl.textContent = remaining;
         if (remaining <= 0) {
@@ -1099,7 +1163,7 @@ const App = {
           overlay.classList.remove('active');
           this.enterDuelMode(duelId);
         }
-      }, 200);
+      }, 1000);
     } catch (err) {
       this.toast(err.message || 'Failed to start countdown', 'error');
     }

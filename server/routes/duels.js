@@ -224,6 +224,73 @@ router.post('/:id/complete', (req, res) => {
   }
 });
 
+// POST /:id/ready — signal ready to skip countdown
+router.post('/:id/ready', (req, res) => {
+  try {
+    const duel = findOne('duels.json', d => d.id === req.params.id);
+    if (!duel) return res.status(404).json({ error: 'Duel not found' });
+    if (duel.challengerId !== req.user.id && duel.opponentId !== req.user.id) {
+      return res.status(403).json({ error: 'Not your duel' });
+    }
+    if (duel.status !== 'countdown') return res.status(400).json({ error: 'Duel is not in countdown' });
+
+    const field = duel.challengerId === req.user.id ? 'challengerReady' : 'opponentReady';
+    const update = { [field]: true };
+
+    // If both ready, start immediately
+    const otherReady = duel.challengerId === req.user.id ? duel.opponentReady : duel.challengerReady;
+    if (otherReady) {
+      const now = new Date();
+      update.startAt = now.toISOString();
+      update.status = 'active';
+      update.endAt = new Date(now.getTime() + duel.duration * 60 * 1000).toISOString();
+    }
+
+    const updated = updateOne('duels.json', d => d.id === req.params.id, update);
+    res.json(updated);
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /:id/forfeit — signal that user left the duel (doesn't end it)
+router.post('/:id/forfeit', (req, res) => {
+  try {
+    const duel = findOne('duels.json', d => d.id === req.params.id);
+    if (!duel) return res.status(404).json({ error: 'Duel not found' });
+    if (duel.challengerId !== req.user.id && duel.opponentId !== req.user.id) {
+      return res.status(403).json({ error: 'Not your duel' });
+    }
+    if (duel.status !== 'active') return res.status(400).json({ error: 'Duel is not active' });
+
+    const updated = updateOne('duels.json', d => d.id === req.params.id, {
+      forfeitedBy: req.user.id
+    });
+    res.json(updated);
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /:id/set-doc — associate a document with a duel participant
+router.post('/:id/set-doc', (req, res) => {
+  try {
+    const { docId } = req.body;
+    const duel = findOne('duels.json', d => d.id === req.params.id);
+    if (!duel) return res.status(404).json({ error: 'Duel not found' });
+
+    const update = {};
+    if (duel.challengerId === req.user.id) update.challengerDocId = docId;
+    else if (duel.opponentId === req.user.id) update.opponentDocId = docId;
+    else return res.status(403).json({ error: 'Not your duel' });
+
+    const updated = updateOne('duels.json', d => d.id === req.params.id, update);
+    res.json(updated);
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /history — completed duels for current user
 router.get('/history', (req, res) => {
   try {

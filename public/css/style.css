@@ -1317,8 +1317,8 @@ html.light .logo-img-light { display: inline; }
 
 .duel-history-info {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .duel-history-result {
@@ -1387,11 +1387,54 @@ html.light .logo-img-light { display: inline; }
   margin-top: 4px;
 }
 
+.duel-skip-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.duel-skip-status {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 80px;
+  text-align: center;
+}
+
+.duel-skip-status.ready {
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.duel-history-doc-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.duel-history-doc-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
 /* Duel bar (during active duel in editor) */
 .duel-bar {
   display: none;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 8px 16px;
   background: linear-gradient(135deg, rgba(108, 92, 231, 0.15), rgba(108, 92, 231, 0.05));
   border-bottom: 1px solid var(--accent-soft);
@@ -1403,14 +1446,17 @@ html.light .logo-img-light { display: inline; }
   display: flex;
 }
 
-.duel-bar-timer {
+.duel-bar-vs {
   color: var(--accent);
-  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  margin: 0 20px;
 }
 
 .duel-bar-scores {
   display: flex;
-  gap: 24px;
+  align-items: center;
+  gap: 0;
 }
 
 .duel-bar-score {
@@ -1419,6 +1465,13 @@ html.light .logo-img-light { display: inline; }
 
 .duel-bar-score strong {
   color: var(--text-primary);
+}
+
+.duel-bar-forfeit {
+  color: var(--danger);
+  font-size: 12px;
+  margin-left: 16px;
+  animation: duelPulse 1s ease infinite;
 }
 
 /* ===== FRIENDS SPLIT LAYOUT ===== */
