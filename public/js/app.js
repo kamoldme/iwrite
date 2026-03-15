@@ -994,8 +994,9 @@ const App = {
 
   async loadDuelsView() {
     try {
-      const [requests, history] = await Promise.all([
+      const [requests, sentDuels, history] = await Promise.all([
         API.getDuelRequests(),
+        API.getSentDuels(),
         API.getDuelHistory()
       ]);
 
@@ -1018,6 +1019,27 @@ const App = {
           </div>`).join('');
       } else {
         reqSection.style.display = 'none';
+      }
+
+      // Sent (pending) challenges
+      const sentSection = document.getElementById('duel-sent-section');
+      if (sentSection) {
+        if (sentDuels.length > 0) {
+          sentSection.style.display = 'block';
+          document.getElementById('duel-sent-list').innerHTML = sentDuels.map(d => `
+            <div class="duel-request-card duel-sent-card">
+              <div class="duel-request-info">
+                <h4>⏳ Waiting for ${this.escapeHtml(d.opponentName)}</h4>
+                <span>${d.duration} min duel</span>
+              </div>
+              <div class="duel-request-actions">
+                <button class="btn btn-primary btn-small" onclick="App.enterDuelWaiting('${d.id}')">Join</button>
+                <button class="btn btn-ghost btn-small" onclick="App.cancelDuelRequest('${d.id}')">Cancel</button>
+              </div>
+            </div>`).join('');
+        } else {
+          sentSection.style.display = 'none';
+        }
       }
 
       // Hide active duels section — once you leave, you can't come back
@@ -1106,6 +1128,116 @@ const App = {
     }
   },
 
+  _duelWaitingInterval: null,
+  _duelWaitingId: null,
+
+  async enterDuelWaiting(duelId) {
+    // Challenger sent the challenge — show waiting screen, poll for acceptance
+    try {
+      const duel = await API.getDuelStatus(duelId);
+      const oppName = duel.opponentName;
+
+      const overlay = document.getElementById('duel-countdown-overlay');
+      const timerEl = document.getElementById('duel-countdown-timer');
+      const titleEl = document.getElementById('duel-countdown-title');
+      const skipRow = document.getElementById('duel-skip-row');
+      const skipBtn = document.getElementById('duel-skip-btn');
+      const leaveBtn = document.getElementById('duel-leave-btn');
+
+      titleEl.textContent = 'WAITING FOR OPPONENT';
+      timerEl.textContent = '60';
+      timerEl.style.fontSize = '';
+      document.getElementById('duel-countdown-vs').textContent = `You vs ${oppName}`;
+      document.getElementById('duel-countdown-duration').textContent = `${duel.duration} minute duel`;
+      skipRow.style.display = 'none';
+      skipBtn.style.display = 'none';
+      leaveBtn.style.display = '';
+      leaveBtn.textContent = 'Leave';
+      overlay.classList.add('active');
+
+      this._duelWaitingId = duelId;
+      const waitingStartTime = Date.now();
+      let lastPoll = 0;
+
+      // 1s interval for countdown display, API poll every 3s
+      this._duelWaitingInterval = setInterval(async () => {
+        // Update countdown
+        const waited = Math.floor((Date.now() - waitingStartTime) / 1000);
+        const waitRemaining = Math.max(0, 60 - waited);
+        timerEl.textContent = waitRemaining;
+
+        if (waitRemaining <= 0) {
+          clearInterval(this._duelWaitingInterval);
+          this._duelWaitingInterval = null;
+          titleEl.textContent = 'NO ONE JOINED';
+          timerEl.textContent = '😔';
+          timerEl.style.fontSize = '48px';
+          leaveBtn.textContent = 'Leave';
+          // Cancel the duel
+          API.cancelDuel(duelId).catch(() => {});
+          this._duelWaitingId = null;
+          return;
+        }
+
+        // Poll API every 3s
+        const now = Date.now();
+        if (now - lastPoll < 3000) return;
+        lastPoll = now;
+
+        try {
+          const latest = await API.getDuelStatus(duelId);
+          if (latest.status === 'countdown') {
+            clearInterval(this._duelWaitingInterval);
+            this._duelWaitingInterval = null;
+            overlay.classList.remove('active');
+            this.enterDuelCountdown(duelId);
+          } else if (latest.status === 'active') {
+            clearInterval(this._duelWaitingInterval);
+            this._duelWaitingInterval = null;
+            overlay.classList.remove('active');
+            this.enterDuelMode(duelId);
+          } else if (latest.status === 'declined' || latest.status === 'expired' || latest.status === 'cancelled') {
+            clearInterval(this._duelWaitingInterval);
+            this._duelWaitingInterval = null;
+            overlay.classList.remove('active');
+            this.toast(latest.status === 'declined' ? `${oppName} declined the duel` : 'Duel cancelled', '');
+            this.loadDuelsView();
+          }
+        } catch {}
+      }, 1000);
+    } catch (err) {
+      this.toast(err.message || 'Failed to start waiting', 'error');
+    }
+  },
+
+  leaveDuelWaiting() {
+    if (this._duelWaitingInterval) {
+      clearInterval(this._duelWaitingInterval);
+      this._duelWaitingInterval = null;
+    }
+    const overlay = document.getElementById('duel-countdown-overlay');
+    const timerEl = document.getElementById('duel-countdown-timer');
+    timerEl.style.fontSize = '';
+    overlay.classList.remove('active');
+    // Cancel the pending duel
+    if (this._duelWaitingId) {
+      API.cancelDuel(this._duelWaitingId).catch(() => {});
+      this._duelWaitingId = null;
+    }
+    this.toast('Duel request cancelled', '');
+    this.loadDuelsView();
+  },
+
+  async cancelDuelRequest(duelId) {
+    try {
+      await API.cancelDuel(duelId);
+      this.toast('Duel request cancelled', '');
+      this.loadDuelsView();
+    } catch (err) {
+      this.toast(err.message || 'Failed to cancel', 'error');
+    }
+  },
+
   async enterDuelCountdown(duelId) {
     try {
       const duel = await API.getDuelStatus(duelId);
@@ -1120,19 +1252,30 @@ const App = {
 
       const overlay = document.getElementById('duel-countdown-overlay');
       const timerEl = document.getElementById('duel-countdown-timer');
+      const titleEl = document.getElementById('duel-countdown-title');
+      const leaveBtn = document.getElementById('duel-leave-btn');
       const isChallenger = duel.challengerId === this.user.id;
       const oppName = isChallenger ? duel.opponentName : duel.challengerName;
+
+      // Restore countdown UI (may have been in waiting state)
+      titleEl.textContent = 'DUEL STARTS IN';
+      timerEl.style.fontSize = '';
+      leaveBtn.style.display = 'none';
+
       document.getElementById('duel-countdown-vs').textContent = `You vs ${oppName}`;
       document.getElementById('duel-countdown-duration').textContent = `${duel.duration} minute duel`;
 
       // Reset skip UI
+      const skipRow = document.getElementById('duel-skip-row');
       const skipMe = document.getElementById('duel-skip-me');
       const skipOpp = document.getElementById('duel-skip-opp');
       const skipBtn = document.getElementById('duel-skip-btn');
+      skipRow.style.display = '';
       skipMe.textContent = 'Skip';
       skipMe.className = 'duel-skip-status';
       skipOpp.textContent = 'Skip';
       skipOpp.className = 'duel-skip-status';
+      skipBtn.style.display = '';
       skipBtn.disabled = false;
       skipBtn.textContent = 'Skip Wait';
 
@@ -1253,10 +1396,10 @@ const App = {
       duration = parseInt(activePreset?.dataset.minutes || 10);
     }
     try {
-      await API.sendDuelChallenge(friendId, duration);
-      this.toast(`Duel challenge sent! ${duration} minute battle.`, 'success');
+      const duel = await API.sendDuelChallenge(friendId, duration);
+      this.toast(`Duel challenge sent! Waiting for opponent...`, 'success');
       this.closeDuelModal();
-      this.loadDuelsView();
+      this.enterDuelWaiting(duel.id);
     } catch (err) {
       this.toast(err.message || 'Failed to send challenge', 'error');
     }

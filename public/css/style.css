@@ -1276,6 +1276,11 @@ html.light .logo-img-light { display: inline; }
   margin-bottom: 8px;
 }
 
+.duel-sent-card {
+  border-color: var(--accent-soft);
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.05), var(--bg-card));
+}
+
 .duel-request-info {
   flex: 1;
 }

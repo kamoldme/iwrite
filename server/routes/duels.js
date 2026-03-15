@@ -105,6 +105,41 @@ router.post('/:id/decline', (req, res) => {
   }
 });
 
+// POST /:id/cancel — challenger cancels their own pending duel
+router.post('/:id/cancel', (req, res) => {
+  try {
+    const duel = findOne('duels.json', d => d.id === req.params.id);
+    if (!duel) return res.status(404).json({ error: 'Duel not found' });
+    if (duel.challengerId !== req.user.id) return res.status(403).json({ error: 'Not your challenge' });
+    if (duel.status !== 'pending' && duel.status !== 'countdown') return res.status(400).json({ error: 'Cannot cancel this duel' });
+
+    updateOne('duels.json', d => d.id === req.params.id, { status: 'cancelled' });
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /sent — outgoing pending duel challenges from current user
+router.get('/sent', (req, res) => {
+  try {
+    const duels = findMany('duels.json', d => d.challengerId === req.user.id && d.status === 'pending');
+    // Auto-expire duels older than 24h
+    const now = Date.now();
+    const valid = [];
+    for (const d of duels) {
+      if (now - new Date(d.createdAt).getTime() > 24 * 60 * 60 * 1000) {
+        updateOne('duels.json', x => x.id === d.id, { status: 'expired' });
+      } else {
+        valid.push(d);
+      }
+    }
+    res.json(valid);
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /:id/status — poll duel state (word counts, time remaining)
 router.get('/:id/status', (req, res) => {
   try {

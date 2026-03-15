@@ -169,6 +169,14 @@ const API = {
     return this.request('/duels/requests');
   },
 
+  async getSentDuels() {
+    return this.request('/duels/sent');
+  },
+
+  async cancelDuel(duelId) {
+    return this.request(`/duels/${duelId}/cancel`, { method: 'POST' });
+  },
+
   async acceptDuel(duelId) {
     return this.request(`/duels/${duelId}/accept`, { method: 'POST' });
   },

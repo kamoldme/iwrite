@@ -245,6 +245,10 @@
             <h3 class="duel-section-title">📩 Challenge Requests <span id="duel-request-count" class="duel-count-badge"></span></h3>
             <div id="duel-requests-list"></div>
           </div>
+          <div id="duel-sent-section" style="display:none;margin-bottom:32px">
+            <h3 class="duel-section-title">📤 Sent Challenges</h3>
+            <div id="duel-sent-list"></div>
+          </div>
           <div id="duel-active-section" style="display:none;margin-bottom:32px">
             <h3 class="duel-section-title">🔥 Active Duels</h3>
             <div id="active-duels"></div>
@@ -770,7 +774,7 @@
     <div class="duel-countdown-overlay" id="duel-countdown-overlay">
       <div class="duel-countdown-content">
         <div class="duel-countdown-emoji">⚔️</div>
-        <h2>DUEL STARTS IN</h2>
+        <h2 id="duel-countdown-title">DUEL STARTS IN</h2>
         <div class="duel-countdown-timer" id="duel-countdown-timer">60</div>
         <p class="duel-countdown-vs" id="duel-countdown-vs">You vs Opponent</p>
         <p class="duel-countdown-duration" id="duel-countdown-duration">10 minute duel</p>
@@ -780,6 +784,7 @@
           <span class="duel-skip-status" id="duel-skip-opp">Skip</span>
         </div>
         <button class="btn btn-primary" id="duel-skip-btn" style="margin-top:16px">Skip Wait</button>
+        <button class="btn btn-ghost" id="duel-leave-btn" style="margin-top:12px;display:none" onclick="App.leaveDuelWaiting()">Leave</button>
       </div>
     </div>
 
