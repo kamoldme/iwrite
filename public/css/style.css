@@ -1479,22 +1479,19 @@ html.light .logo-img-light { display: inline; }
   animation: duelPulse 1s ease infinite;
 }
 
-.duel-bar-extra-time-btn {
-  background: transparent;
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  border-radius: 6px;
-  padding: 4px 10px;
+.duel-add-time-btn {
+  margin-left: 4px;
   font-size: 14px;
   font-weight: 700;
-  cursor: pointer;
-  margin-left: 12px;
-  transition: all 0.15s ease;
-  font-family: var(--font-sans);
+  min-width: 28px;
+  padding: 2px 8px;
 }
 
-.duel-bar-extra-time-btn:hover {
-  background: var(--accent-soft);
+.duel-extra-time-options {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 /* CS:GO-style extra time request notification */

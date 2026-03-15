@@ -120,9 +120,10 @@ const Editor = {
 
     this.modeBadge.textContent = mode === 'dangerous' ? 'Dangerous' : 'Normal';
     this.modeBadge.className = `editor-mode-badge ${mode}`;
-    // Show session controls (hide add-time in duel mode)
+    // Show session controls (swap add-time buttons for duel mode)
     document.getElementById('editor-timer-toggle').style.display = '';
     document.querySelector('.editor-add-time').style.display = isDuel ? 'none' : '';
+    document.getElementById('duel-add-time-btn').style.display = isDuel ? '' : 'none';
     this._timerHidden = false;
     this._timerMasked = false;
     document.getElementById('timer-eye-open').style.display = '';
@@ -646,11 +647,28 @@ const Editor = {
     this._duelPollTimer = setTimeout(() => this._pollDuel(), this._duelPollDelay);
   },
 
-  async requestExtraTime() {
+  openExtraTimeModal() {
     if (!this._duelInfo) return;
-    const minutes = prompt('How many extra minutes? (1-30)', '5');
-    if (!minutes) return;
-    const mins = Math.min(Math.max(parseInt(minutes) || 5, 1), 30);
+    const modal = document.getElementById('duel-extra-time-modal');
+    modal.classList.add('active');
+    // Wire preset clicks
+    document.querySelectorAll('#duel-extra-time-options .time-preset').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('#duel-extra-time-options .time-preset').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      };
+    });
+  },
+
+  closeExtraTimeModal() {
+    document.getElementById('duel-extra-time-modal').classList.remove('active');
+  },
+
+  async sendExtraTimeRequest() {
+    if (!this._duelInfo) return;
+    const activeBtn = document.querySelector('#duel-extra-time-options .time-preset.active');
+    const mins = parseInt(activeBtn?.dataset.extra || 5);
+    this.closeExtraTimeModal();
     try {
       await API.requestDuelTime(this._duelInfo.duelId, mins);
       App.toast(`Requested +${mins} min — waiting for opponent`, 'info');
