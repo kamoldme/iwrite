@@ -1024,7 +1024,12 @@ const App = {
             return `<div class="duel-request-card" style="border-color:var(--accent)"><div class="duel-request-info"><h4>⚔️ Duel starting soon! vs ${this.escapeHtml(oppName)}</h4><span>${d.duration} min duel</span></div><div><button class="btn btn-primary btn-small" onclick="App.enterDuelCountdown('${d.id}')">Join</button></div></div>`;
           }
           if (d.status === 'active') {
-            return `<div class="duel-request-card" style="border-color:var(--success)"><div class="duel-request-info"><h4>🔥 Duel in progress vs ${this.escapeHtml(oppName)}</h4><span>${d.duration} min duel</span></div><div><button class="btn btn-primary btn-small" onclick="App.enterDuelMode('${d.id}')">Write!</button></div></div>`;
+            const forfeitArr = Array.isArray(d.forfeitedBy) ? d.forfeitedBy : (d.forfeitedBy ? [d.forfeitedBy] : []);
+            const iForfeited = forfeitArr.includes(this.user.id);
+            const btnText = iForfeited ? 'View' : 'Write!';
+            const label = iForfeited ? '💀 You left — vs ' + this.escapeHtml(oppName) : '🔥 Duel in progress vs ' + this.escapeHtml(oppName);
+            const borderColor = iForfeited ? 'var(--danger)' : 'var(--success)';
+            return `<div class="duel-request-card" style="border-color:${borderColor}"><div class="duel-request-info"><h4>${label}</h4><span>${d.duration} min duel</span></div><div><button class="btn ${iForfeited ? 'btn-ghost' : 'btn-primary'} btn-small" onclick="App.enterDuelMode('${d.id}')">${btnText}</button></div></div>`;
           }
           return '';
         }).join('');
@@ -1046,8 +1051,10 @@ const App = {
           const tie = !d.winnerId;
           const resultClass = tie ? 'tie' : (won ? 'won' : 'lost');
           const oppResultClass = tie ? 'tie' : (won ? 'lost' : 'won');
-          const forfeitedByOpp = d.forfeitedBy && d.forfeitedBy !== this.user.id;
-          const forfeitedByMe = d.forfeitedBy && d.forfeitedBy === this.user.id;
+          const histForfeitArr = Array.isArray(d.forfeitedBy) ? d.forfeitedBy : (d.forfeitedBy ? [d.forfeitedBy] : []);
+          const oppId = isChallenger ? d.opponentId : d.challengerId;
+          const forfeitedByOpp = histForfeitArr.includes(oppId);
+          const forfeitedByMe = histForfeitArr.includes(this.user.id);
           const myDocId = isChallenger ? d.challengerDocId : d.opponentDocId;
 
           // Word display with forfeit indicator
@@ -1198,6 +1205,13 @@ const App = {
       const isChallenger = duel.challengerId === this.user.id;
       const oppName = isChallenger ? duel.opponentName : duel.challengerName;
 
+      // Can't rejoin after forfeiting — show spectator view
+      const enterForfeitArr = Array.isArray(duel.forfeitedBy) ? duel.forfeitedBy : (duel.forfeitedBy ? [duel.forfeitedBy] : []);
+      if (enterForfeitArr.includes(this.user.id)) {
+        this._showDuelForfeitSpectator(duel);
+        return;
+      }
+
       // Store duel info for the editor
       sessionStorage.setItem('activeDuel', JSON.stringify({
         duelId: duel.id,
@@ -1215,6 +1229,44 @@ const App = {
     } catch (err) {
       this.toast(err.message || 'Failed to enter duel', 'error');
     }
+  },
+
+  _duelSpectatorInterval: null,
+
+  _showDuelForfeitSpectator(duel) {
+    const isChallenger = duel.challengerId === this.user.id;
+    const oppName = isChallenger ? duel.opponentName : duel.challengerName;
+    const myWords = isChallenger ? duel.challengerWords : duel.opponentWords;
+    const oppWords = isChallenger ? duel.opponentWords : duel.challengerWords;
+
+    // Show spectator modal
+    document.getElementById('duel-results-emoji').textContent = '👀';
+    document.getElementById('duel-results-title').innerHTML = `You left the duel<br><span style="font-size:14px;color:var(--text-muted)">${this.escapeHtml(oppName)} is still writing...</span>`;
+    document.getElementById('duel-results-your-words').textContent = myWords;
+    document.getElementById('duel-results-opp-words').textContent = oppWords;
+    document.getElementById('duel-results-modal').classList.add('active');
+
+    // Poll to update opponent's word count and detect completion
+    if (this._duelSpectatorInterval) clearInterval(this._duelSpectatorInterval);
+    this._duelSpectatorInterval = setInterval(async () => {
+      try {
+        const latest = await API.getDuelStatus(duel.id);
+        const latestOppWords = isChallenger ? latest.opponentWords : latest.challengerWords;
+        document.getElementById('duel-results-opp-words').textContent = latestOppWords;
+
+        if (latest.status === 'completed') {
+          clearInterval(this._duelSpectatorInterval);
+          this._duelSpectatorInterval = null;
+          // Update to final results
+          const won = latest.winnerId === this.user.id;
+          const tie = !latest.winnerId;
+          document.getElementById('duel-results-emoji').textContent = tie ? '🤝' : (won ? '🏆' : '😢');
+          document.getElementById('duel-results-title').textContent = tie ? 'It\'s a Tie!' : (won ? 'You Won!' : 'You Lost');
+          document.getElementById('duel-results-your-words').textContent = isChallenger ? latest.challengerWords : latest.opponentWords;
+          document.getElementById('duel-results-opp-words').textContent = latestOppWords;
+        }
+      } catch {}
+    }, 5000);
   },
 
   _showDuelResults(duel) {

@@ -161,12 +161,14 @@ const Editor = {
     // Show target word count in status bar
     this._updateWordsRemaining();
 
-    // Duel mode: start polling opponent word count
+    // Duel mode: start polling opponent word count, sync timer from server
     this._duelInfo = null;
+    this._duelEndAt = null;
     try {
       const duelData = sessionStorage.getItem('activeDuel');
       if (duelData) {
         this._duelInfo = JSON.parse(duelData);
+        this._duelEndAt = this._duelInfo.endAt ? new Date(this._duelInfo.endAt).getTime() : null;
         this._startDuelPolling();
       }
     } catch {}
@@ -528,9 +530,15 @@ const Editor = {
       return;
     }
 
-    const totalSeconds = this.duration * 60;
-    const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
-    const remaining = Math.max(0, totalSeconds - elapsed);
+    // In duel mode, use server-synced endAt for timer (both sides see same clock)
+    let remaining;
+    if (this._duelEndAt) {
+      remaining = Math.max(0, Math.ceil((this._duelEndAt - Date.now()) / 1000));
+    } else {
+      const totalSeconds = this.duration * 60;
+      const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+      remaining = Math.max(0, totalSeconds - elapsed);
+    }
     const min = Math.floor(remaining / 60);
     const sec = remaining % 60;
 
@@ -600,6 +608,11 @@ const Editor = {
       // Get duel status
       const duel = await API.getDuelStatus(this._duelInfo.duelId);
 
+      // Sync timer from server endAt (both sides see same clock)
+      if (duel.endAt) {
+        this._duelEndAt = new Date(duel.endAt).getTime();
+      }
+
       // Update opponent word count
       const oppWords = this._duelInfo.isChallenger ? duel.opponentWords : duel.challengerWords;
       const oppEl = document.getElementById('duel-bar-opp-words');
@@ -622,7 +635,11 @@ const Editor = {
       }
 
       // Check if opponent forfeited
-      if (duel.forfeitedBy && duel.forfeitedBy !== (this._duelInfo.isChallenger ? duel.challengerId : duel.opponentId)) {
+      // forfeitedBy can be array or string (legacy)
+      const forfeitList = Array.isArray(duel.forfeitedBy) ? duel.forfeitedBy : (duel.forfeitedBy ? [duel.forfeitedBy] : []);
+      const myId = this._duelInfo.isChallenger ? duel.challengerId : duel.opponentId;
+      const oppId = this._duelInfo.isChallenger ? duel.opponentId : duel.challengerId;
+      if (forfeitList.includes(oppId)) {
         if (!this._duelForfeitNotified) {
           this._duelForfeitNotified = true;
           App.toast(`${this._duelInfo.opponentName} left the duel!`, 'info');

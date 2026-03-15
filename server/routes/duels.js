@@ -253,7 +253,72 @@ router.post('/:id/ready', (req, res) => {
   }
 });
 
-// POST /:id/forfeit — signal that user left the duel (doesn't end it)
+// POST /:id/request-time — request extra time (needs both to agree)
+router.post('/:id/request-time', (req, res) => {
+  try {
+    const { minutes } = req.body;
+    const duel = findOne('duels.json', d => d.id === req.params.id);
+    if (!duel) return res.status(404).json({ error: 'Duel not found' });
+    if (duel.challengerId !== req.user.id && duel.opponentId !== req.user.id) {
+      return res.status(403).json({ error: 'Not your duel' });
+    }
+    if (duel.status !== 'active') return res.status(400).json({ error: 'Duel is not active' });
+
+    const extraMinutes = Math.min(Math.max(parseInt(minutes) || 5, 1), 30);
+    const update = {
+      extraTimeRequest: {
+        requestedBy: req.user.id,
+        minutes: extraMinutes,
+        accepted: false
+      }
+    };
+    const updated = updateOne('duels.json', d => d.id === req.params.id, update);
+    res.json(updated);
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /:id/accept-time — accept extra time request
+router.post('/:id/accept-time', (req, res) => {
+  try {
+    const duel = findOne('duels.json', d => d.id === req.params.id);
+    if (!duel) return res.status(404).json({ error: 'Duel not found' });
+    if (!duel.extraTimeRequest) return res.status(400).json({ error: 'No time request pending' });
+    if (duel.extraTimeRequest.requestedBy === req.user.id) {
+      return res.status(400).json({ error: 'Cannot accept your own request' });
+    }
+
+    const addedMs = duel.extraTimeRequest.minutes * 60 * 1000;
+    const newEnd = new Date(new Date(duel.endAt).getTime() + addedMs).toISOString();
+    const updated = updateOne('duels.json', d => d.id === req.params.id, {
+      endAt: newEnd,
+      extraTimeRequest: null
+    });
+    res.json(updated);
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /:id/decline-time — decline extra time request
+router.post('/:id/decline-time', (req, res) => {
+  try {
+    const duel = findOne('duels.json', d => d.id === req.params.id);
+    if (!duel) return res.status(404).json({ error: 'Duel not found' });
+    if (!duel.extraTimeRequest) return res.status(400).json({ error: 'No time request pending' });
+
+    const updated = updateOne('duels.json', d => d.id === req.params.id, {
+      extraTimeRequest: null
+    });
+    res.json(updated);
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /:id/forfeit — signal that user left the duel
+// If both sides forfeit, auto-complete the duel immediately
 router.post('/:id/forfeit', (req, res) => {
   try {
     const duel = findOne('duels.json', d => d.id === req.params.id);
@@ -263,9 +328,20 @@ router.post('/:id/forfeit', (req, res) => {
     }
     if (duel.status !== 'active') return res.status(400).json({ error: 'Duel is not active' });
 
-    const updated = updateOne('duels.json', d => d.id === req.params.id, {
-      forfeitedBy: req.user.id
-    });
+    // Track forfeits as array so we know if both left
+    const forfeits = Array.isArray(duel.forfeitedBy) ? [...duel.forfeitedBy] : (duel.forfeitedBy ? [duel.forfeitedBy] : []);
+    if (!forfeits.includes(req.user.id)) forfeits.push(req.user.id);
+
+    const update = { forfeitedBy: forfeits };
+
+    // Both sides left — end the duel immediately
+    if (forfeits.includes(duel.challengerId) && forfeits.includes(duel.opponentId)) {
+      update.status = 'completed';
+      update.winnerId = null; // both left = no winner
+      update.endAt = new Date().toISOString();
+    }
+
+    const updated = updateOne('duels.json', d => d.id === req.params.id, update);
     res.json(updated);
   } catch {
     res.status(500).json({ error: 'Server error' });
