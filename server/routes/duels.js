@@ -317,8 +317,7 @@ router.post('/:id/decline-time', (req, res) => {
   }
 });
 
-// POST /:id/forfeit — signal that user left the duel
-// If both sides forfeit, auto-complete the duel immediately
+// POST /:id/forfeit — leaving = instant loss, other side wins
 router.post('/:id/forfeit', (req, res) => {
   try {
     const duel = findOne('duels.json', d => d.id === req.params.id);
@@ -326,22 +325,40 @@ router.post('/:id/forfeit', (req, res) => {
     if (duel.challengerId !== req.user.id && duel.opponentId !== req.user.id) {
       return res.status(403).json({ error: 'Not your duel' });
     }
-    if (duel.status !== 'active') return res.status(400).json({ error: 'Duel is not active' });
-
-    // Track forfeits as array so we know if both left
-    const forfeits = Array.isArray(duel.forfeitedBy) ? [...duel.forfeitedBy] : (duel.forfeitedBy ? [duel.forfeitedBy] : []);
-    if (!forfeits.includes(req.user.id)) forfeits.push(req.user.id);
-
-    const update = { forfeitedBy: forfeits };
-
-    // Both sides left — end the duel immediately
-    if (forfeits.includes(duel.challengerId) && forfeits.includes(duel.opponentId)) {
-      update.status = 'completed';
-      update.winnerId = null; // both left = no winner
-      update.endAt = new Date().toISOString();
+    if (duel.status !== 'active' && duel.status !== 'completed') {
+      return res.status(400).json({ error: 'Duel is not active' });
     }
+    // Already completed — no-op
+    if (duel.status === 'completed') return res.json(duel);
 
-    const updated = updateOne('duels.json', d => d.id === req.params.id, update);
+    // Forfeiter loses, other side wins immediately
+    const winnerId = duel.challengerId === req.user.id ? duel.opponentId : duel.challengerId;
+    const updated = updateOne('duels.json', d => d.id === req.params.id, {
+      status: 'completed',
+      forfeitedBy: req.user.id,
+      winnerId,
+      endAt: new Date().toISOString()
+    });
+
+    // Generate duel_won activity for the winner
+    try {
+      const winner = findOne('users.json', u => u.id === winnerId);
+      const loser = findOne('users.json', u => u.id === req.user.id);
+      if (winner && loser) {
+        insertOne('activities.json', {
+          id: uuid(),
+          userId: winnerId,
+          type: 'duel_won',
+          data: {
+            name: winner.name,
+            opponentName: loser.name,
+            forfeit: true
+          },
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch {}
+
     res.json(updated);
   } catch {
     res.status(500).json({ error: 'Server error' });
