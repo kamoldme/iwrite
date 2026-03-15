@@ -129,7 +129,7 @@
             <div class="dash-stat-card dash-stat-words">
               <div class="dash-stat-emoji">&#x1F4DD;</div>
               <div class="dash-stat-value" id="total-words">0</div>
-              <div class="dash-stat-label">Words Written</div>
+              <div class="dash-stat-label">Session Words</div>
             </div>
             <div class="dash-stat-card dash-stat-sessions">
               <div class="dash-stat-emoji">&#x1F3AF;</div>
@@ -283,12 +283,6 @@
               <div>
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                   <h3 style="font-size:15px;font-weight:700;color:var(--text-secondary)">🤝 Your Friends</h3>
-                  <div class="friend-filter-bar" id="friend-filter-bar">
-                    <button class="friend-filter-btn active" data-sort="name" onclick="App.sortFriends('name')">Name</button>
-                    <button class="friend-filter-btn" data-sort="words" onclick="App.sortFriends('words')">Words</button>
-                    <button class="friend-filter-btn" data-sort="streak" onclick="App.sortFriends('streak')">Streak</button>
-                    <button class="friend-filter-btn" data-sort="level" onclick="App.sortFriends('level')">Level</button>
-                  </div>
                 </div>
                 <div id="friends-list">
                   <div class="empty-state">
@@ -547,7 +541,14 @@
           <span class="duel-bar-vs">⚔️ You vs <span id="duel-bar-opponent">Opponent</span></span>
           <span class="duel-bar-score"><span id="duel-bar-opponent-label">Opponent</span>: <strong id="duel-bar-opp-words">0</strong></span>
         </div>
+        <button class="duel-bar-extra-time-btn" id="duel-bar-extra-time" onclick="Editor.requestExtraTime()" title="Request extra time">+</button>
         <span class="duel-bar-forfeit" id="duel-bar-forfeit" style="display:none">Opponent left!</span>
+      </div>
+      <!-- Extra time request notification (CS:GO style, right side) -->
+      <div class="duel-extra-time-request" id="duel-extra-time-req" style="display:none">
+        <span id="duel-extra-time-text">+5 min?</span>
+        <button class="duel-extra-time-accept" onclick="Editor.acceptExtraTime()">✓</button>
+        <button class="duel-extra-time-decline" onclick="Editor.declineExtraTime()">✗</button>
       </div>
       <!-- Row 2: Formatting toolbar (hidden in danger mode) -->
       <div class="editor-format-bar" id="formatting-toolbar" style="display:none">
@@ -719,7 +720,11 @@
             <button class="time-preset" data-minutes="5">5 min</button>
             <button class="time-preset active" data-minutes="10">10 min</button>
             <button class="time-preset" data-minutes="15">15 min</button>
+            <button class="time-preset" data-minutes="20">20 min</button>
+            <button class="time-preset" data-minutes="30">30 min</button>
+            <button class="time-preset duel-custom-time-btn" id="duel-custom-time-btn">+</button>
           </div>
+          <input type="number" id="duel-custom-time-input" class="duel-custom-input" min="1" max="60" placeholder="Custom (min)" style="display:none">
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost btn-full" id="duel-cancel">Cancel</button>

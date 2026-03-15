@@ -391,11 +391,21 @@ const App = {
     document.getElementById('duel-cancel').addEventListener('click', () => this.closeDuelModal());
     document.getElementById('duel-start').addEventListener('click', () => this.createDuel());
 
-    document.querySelectorAll('#duel-time-presets .time-preset').forEach(btn => {
+    document.querySelectorAll('#duel-time-presets .time-preset[data-minutes]').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#duel-time-presets .time-preset').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        document.getElementById('duel-custom-time-input').style.display = 'none';
       });
+    });
+
+    // Custom "+" button for duel duration
+    document.getElementById('duel-custom-time-btn').addEventListener('click', () => {
+      document.querySelectorAll('#duel-time-presets .time-preset').forEach(b => b.classList.remove('active'));
+      document.getElementById('duel-custom-time-btn').classList.add('active');
+      const input = document.getElementById('duel-custom-time-input');
+      input.style.display = 'block';
+      input.focus();
     });
 
     document.getElementById('add-friend-btn').addEventListener('click', () => this.addFriend());
@@ -1228,7 +1238,13 @@ const App = {
       return;
     }
     const activePreset = document.querySelector('#duel-time-presets .time-preset.active');
-    const duration = parseInt(activePreset?.dataset.minutes || 10);
+    const customInput = document.getElementById('duel-custom-time-input');
+    let duration;
+    if (activePreset?.id === 'duel-custom-time-btn' && customInput.value) {
+      duration = Math.min(Math.max(parseInt(customInput.value) || 10, 1), 60);
+    } else {
+      duration = parseInt(activePreset?.dataset.minutes || 10);
+    }
     try {
       await API.sendDuelChallenge(friendId, duration);
       this.toast(`Duel challenge sent! ${duration} minute battle.`, 'success');
@@ -1535,48 +1551,6 @@ const App = {
     return new Date(dateStr).toLocaleDateString();
   },
 
-  _friendSort: 'name',
-
-  sortFriends(by) {
-    this._friendSort = by;
-    // Update active filter button
-    document.querySelectorAll('.friend-filter-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.sort === by);
-    });
-    // Sort and re-render friends list
-    if (!this.friends || this.friends.length === 0) return;
-    const sorted = [...this.friends].sort((a, b) => {
-      switch (by) {
-        case 'words': return (b.totalWords || 0) - (a.totalWords || 0);
-        case 'streak': return (b.streak || 0) - (a.streak || 0);
-        case 'level': return (b.xp || 0) - (a.xp || 0);
-        case 'name': default: return (a.name || '').localeCompare(b.name || '');
-      }
-    });
-    const container = document.getElementById('friends-list');
-    container.innerHTML = sorted.map(f => {
-      const fl = this.calcXPLevel(f.xp || 0);
-      return `
-      <div class="doc-card friend-card">
-        <div class="doc-card-info">
-          <h4>${this.escapeHtml(f.name)}</h4>
-          <div class="friend-stats">
-            <span class="friend-stat" title="Total words">📝 ${(f.totalWords || 0).toLocaleString()}</span>
-            <span class="friend-stat" title="Streak">🔥 ${f.streak || 0}</span>
-            <span class="friend-stat" title="Level">⭐ Lv${fl.level}</span>
-          </div>
-        </div>
-        <div class="doc-card-actions">
-          <button class="doc-action-btn" onclick="App.challengeFriend('${f.id}')" title="Challenge to duel">
-            <span style="font-size:16px">⚔️</span>
-          </button>
-          <button class="doc-action-btn delete" onclick="App.confirmRemoveFriend('${f.id}', '${this.escapeHtml(f.name)}')" title="Remove friend">
-            <span style="font-size:14px">🗑️</span>
-          </button>
-        </div>
-      </div>`;
-    }).join('');
-  },
 
   async startNotifPolling() {
     const poll = async () => {

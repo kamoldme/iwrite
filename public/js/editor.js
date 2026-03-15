@@ -107,8 +107,9 @@ const Editor = {
     this.active = true;
 
     // Show correct buttons for active session
-    // In dangerous mode, hide the Complete button — session ends only when time runs out
-    document.getElementById('editor-save-btn').style.display = mode === 'dangerous' ? 'none' : 'inline-flex';
+    // In dangerous mode or duel mode, hide the Complete button — session ends only when time runs out
+    const isDuel = !!sessionStorage.getItem('activeDuel');
+    document.getElementById('editor-save-btn').style.display = (mode === 'dangerous' || isDuel) ? 'none' : 'inline-flex';
     document.getElementById('editor-edit-btn').style.display = 'none';
     document.getElementById('editor-save-edit-btn').style.display = 'none';
     document.getElementById('editor-comment-history-btn').style.display = 'none';
@@ -119,9 +120,9 @@ const Editor = {
 
     this.modeBadge.textContent = mode === 'dangerous' ? 'Dangerous' : 'Normal';
     this.modeBadge.className = `editor-mode-badge ${mode}`;
-    // Show session controls
+    // Show session controls (hide add-time in duel mode)
     document.getElementById('editor-timer-toggle').style.display = '';
-    document.querySelector('.editor-add-time').style.display = '';
+    document.querySelector('.editor-add-time').style.display = isDuel ? 'none' : '';
     this._timerHidden = false;
     this._timerMasked = false;
     document.getElementById('timer-eye-open').style.display = '';
@@ -606,13 +607,17 @@ const Editor = {
       const myEl = document.getElementById('duel-bar-my-words');
       if (myEl) myEl.textContent = myWords;
 
-      // Update duel timer
-      if (duel.endAt) {
-        const remaining = Math.max(0, Math.ceil((new Date(duel.endAt) - Date.now()) / 1000));
-        const mins = Math.floor(remaining / 60);
-        const secs = remaining % 60;
-        const timerEl = document.getElementById('duel-bar-timer');
-        if (timerEl) timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+      // Check for extra time request from opponent
+      if (duel.extraTimeRequest && duel.extraTimeRequest.requestedBy !== (this._duelInfo.isChallenger ? duel.challengerId : duel.opponentId)) {
+        // Opponent is requesting extra time — show CS:GO style notification
+        const reqEl = document.getElementById('duel-extra-time-req');
+        if (reqEl && reqEl.style.display === 'none') {
+          document.getElementById('duel-extra-time-text').textContent = `+${duel.extraTimeRequest.minutes} min?`;
+          reqEl.style.display = 'flex';
+        }
+      } else {
+        const reqEl = document.getElementById('duel-extra-time-req');
+        if (reqEl) reqEl.style.display = 'none';
       }
 
       // Check if opponent forfeited
@@ -639,6 +644,45 @@ const Editor = {
     }
     // Schedule next poll
     this._duelPollTimer = setTimeout(() => this._pollDuel(), this._duelPollDelay);
+  },
+
+  async requestExtraTime() {
+    if (!this._duelInfo) return;
+    const minutes = prompt('How many extra minutes? (1-30)', '5');
+    if (!minutes) return;
+    const mins = Math.min(Math.max(parseInt(minutes) || 5, 1), 30);
+    try {
+      await API.requestDuelTime(this._duelInfo.duelId, mins);
+      App.toast(`Requested +${mins} min — waiting for opponent`, 'info');
+    } catch (e) {
+      App.toast(e.message || 'Failed to request extra time', 'error');
+    }
+  },
+
+  async acceptExtraTime() {
+    if (!this._duelInfo) return;
+    const btn = document.querySelector('.duel-extra-time-accept');
+    if (btn) btn.disabled = true;
+    try {
+      await API.acceptDuelTime(this._duelInfo.duelId);
+      App.toast('Extra time added!', 'success');
+    } catch (e) {
+      App.toast(e.message || 'Failed to accept', 'error');
+    }
+    document.getElementById('duel-extra-time-req').style.display = 'none';
+  },
+
+  async declineExtraTime() {
+    if (!this._duelInfo) return;
+    const btn = document.querySelector('.duel-extra-time-decline');
+    if (btn) btn.disabled = true;
+    try {
+      await API.declineDuelTime(this._duelInfo.duelId);
+      App.toast('Extra time declined', '');
+    } catch (e) {
+      App.toast(e.message || 'Failed to decline', 'error');
+    }
+    document.getElementById('duel-extra-time-req').style.display = 'none';
   },
 
   _stopDuelPolling() {
@@ -800,13 +844,13 @@ const Editor = {
     document.getElementById('status-bar').style.display = 'none';
     this.container.classList.remove('active');
 
-    // If in duel mode, submit final word count and show duel results
+    // If in duel mode, forfeit (leaving = losing). The other side keeps writing.
+    // Duel auto-completes at time expiry via the server status poll.
     if (this._duelInfo) {
       try {
-        const duelResult = await API.completeDuel(this._duelInfo.duelId, wordCount);
-        this._stopDuelPolling();
-        App._showDuelResults(duelResult);
+        await API.forfeitDuel(this._duelInfo.duelId);
       } catch {}
+      this._stopDuelPolling();
     }
 
     // Auto-refresh sessions tab so new doc appears immediately

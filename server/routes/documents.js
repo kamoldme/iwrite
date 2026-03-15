@@ -8,13 +8,14 @@ const { logAction } = require('../utils/logger');
 const WORD_MILESTONES = [1000, 5000, 10000, 25000, 50000, 100000];
 const STREAK_MILESTONES = [7, 14, 30, 50, 100];
 
-function generateActivities(userId, userName, prevUser, newUser, wordCount, duration) {
+function generateActivities(userId, userName, prevUser, newUser, wordCount, durationSeconds) {
   const activities = [];
   const now = new Date().toISOString();
+  const duration = Math.round((durationSeconds || 0) / 60); // Convert seconds to minutes
 
   // Long session (>20 min)
   if (duration && duration >= 20) {
-    activities.push({ id: uuid(), userId, type: 'long_session', data: { name: userName, duration: Math.round(duration) }, createdAt: now });
+    activities.push({ id: uuid(), userId, type: 'long_session', data: { name: userName, duration }, createdAt: now });
   }
 
   // Word milestones
