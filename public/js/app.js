@@ -436,7 +436,16 @@ const App = {
     if (view === 'profile') this.loadProfile();
     if (view === 'friends') this.loadFriends();
     if (view === 'support') this.loadSupport();
-    if (view === 'duels') this.loadDuelsView();
+    if (view === 'duels') {
+      this.loadDuelsView();
+      // Auto-refresh duels tab every 10 seconds while viewing
+      this._duelsRefreshInterval = setInterval(() => this.loadDuelsView(), 10000);
+    } else {
+      if (this._duelsRefreshInterval) {
+        clearInterval(this._duelsRefreshInterval);
+        this._duelsRefreshInterval = null;
+      }
+    }
   },
 
   updateUserUI() {
@@ -1057,9 +1066,9 @@ const App = {
           const forfeitedByMe = histForfeitArr.includes(this.user.id);
           const myDocId = isChallenger ? d.challengerDocId : d.opponentDocId;
 
-          // Word display with forfeit indicator
-          const myWordText = forfeitedByMe ? `<span style="color:var(--danger)">LOST</span>` : `${myWords} words`;
-          const oppWordText = forfeitedByOpp ? `<span style="color:var(--danger)">LOST</span>` : `${oppWords} words`;
+          // Always show word counts, add forfeit label if they left
+          const myWordText = `${myWords} words${forfeitedByMe ? ' <span style="color:var(--danger);font-size:11px">(left)</span>' : ''}`;
+          const oppWordText = `${oppWords} words${forfeitedByOpp ? ' <span style="color:var(--danger);font-size:11px">(left)</span>' : ''}`;
 
           const resultText = tie ? 'TIE' : (won ? 'WON 🏆' : 'LOST');
           const docBtn = myDocId ? `<button class="duel-history-doc-btn" onclick="App.openDocument('${myDocId}')">View Doc</button>` : '';

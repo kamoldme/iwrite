@@ -879,11 +879,16 @@ const Editor = {
     document.getElementById('status-bar').style.display = 'none';
     this.container.classList.remove('active');
 
-    // If in duel mode, forfeit (leaving = losing). The other side keeps writing.
-    // Duel auto-completes at time expiry via the server status poll.
+    // If in duel mode, submit final word count. Don't forfeit — timer expired naturally.
+    // The server auto-completes the duel when status is polled after endAt.
     if (this._duelInfo) {
       try {
-        await API.forfeitDuel(this._duelInfo.duelId);
+        await API.updateDuelWords(this._duelInfo.duelId, wordCount);
+        // Poll one last time to trigger server-side completion
+        const finalDuel = await API.getDuelStatus(this._duelInfo.duelId);
+        if (finalDuel.status === 'completed') {
+          App._showDuelResults(finalDuel);
+        }
       } catch {}
       this._stopDuelPolling();
     }
