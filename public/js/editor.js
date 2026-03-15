@@ -598,8 +598,8 @@ const Editor = {
     const bar = document.getElementById('duel-bar');
     if (bar) {
       bar.classList.add('active');
+      document.getElementById('duel-bar-my-name').textContent = 'You';
       document.getElementById('duel-bar-opponent').textContent = this._duelInfo.opponentName;
-      document.getElementById('duel-bar-opponent-label').textContent = this._duelInfo.opponentName;
       document.getElementById('duel-bar-forfeit').style.display = 'none';
     }
     // Associate document with duel

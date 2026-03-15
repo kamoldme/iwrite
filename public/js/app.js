@@ -994,9 +994,8 @@ const App = {
 
   async loadDuelsView() {
     try {
-      const [requests, active, history] = await Promise.all([
+      const [requests, history] = await Promise.all([
         API.getDuelRequests(),
-        API.getActiveDuels(),
         API.getDuelHistory()
       ]);
 
@@ -1021,32 +1020,9 @@ const App = {
         reqSection.style.display = 'none';
       }
 
-      // Pending/countdown duels (not forfeited active ones — those are over)
+      // Hide active duels section — once you leave, you can't come back
       const activeSection = document.getElementById('duel-active-section');
-      const activeList = document.getElementById('active-duels');
-      const myCountdown = active.filter(d => d.status === 'countdown');
-      const myPending = active.filter(d => d.status === 'pending' && d.challengerId === this.user.id);
-      const myActiveWriting = active.filter(d => d.status === 'active' && !d.forfeitedBy);
-      const allActive = [...myCountdown, ...myActiveWriting, ...myPending];
-      if (allActive.length > 0) {
-        activeSection.style.display = 'block';
-        activeList.innerHTML = allActive.map(d => {
-          const isChallenger = d.challengerId === this.user.id;
-          const oppName = isChallenger ? d.opponentName : d.challengerName;
-          if (d.status === 'pending') {
-            return `<div class="duel-request-card"><div class="duel-request-info"><h4>Waiting for ${this.escapeHtml(oppName)} to accept...</h4><span>${d.duration} min duel</span></div></div>`;
-          }
-          if (d.status === 'countdown') {
-            return `<div class="duel-request-card" style="border-color:var(--accent)"><div class="duel-request-info"><h4>⚔️ Duel starting soon! vs ${this.escapeHtml(oppName)}</h4><span>${d.duration} min duel</span></div><div><button class="btn btn-primary btn-small" onclick="App.enterDuelCountdown('${d.id}')">Join</button></div></div>`;
-          }
-          if (d.status === 'active') {
-            return `<div class="duel-request-card" style="border-color:var(--success)"><div class="duel-request-info"><h4>🔥 Duel in progress vs ${this.escapeHtml(oppName)}</h4><span>${d.duration} min duel</span></div><div><button class="btn btn-primary btn-small" onclick="App.enterDuelMode('${d.id}')">Write!</button></div></div>`;
-          }
-          return '';
-        }).join('');
-      } else {
-        activeSection.style.display = 'none';
-      }
+      if (activeSection) activeSection.style.display = 'none';
 
       // History
       const historyContainer = document.getElementById('duel-history');

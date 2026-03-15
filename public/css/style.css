@@ -1452,10 +1452,12 @@ html.light .logo-img-light { display: inline; }
 }
 
 .duel-bar-vs {
-  color: var(--accent);
-  font-weight: 700;
-  font-size: 14px;
-  margin: 0 20px;
+  color: #e74c3c;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 2px;
+  margin: 0 24px;
+  text-shadow: 0 0 8px rgba(231, 76, 60, 0.3);
 }
 
 .duel-bar-scores {
@@ -1464,12 +1466,28 @@ html.light .logo-img-light { display: inline; }
   gap: 0;
 }
 
-.duel-bar-score {
+.duel-bar-left,
+.duel-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-secondary);
 }
 
-.duel-bar-score strong {
+.duel-bar-left strong,
+.duel-bar-right strong {
   color: var(--text-primary);
+  font-size: 15px;
+}
+
+.duel-bar-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.duel-bar-dash {
+  color: var(--text-muted);
+  font-weight: 300;
 }
 
 .duel-bar-forfeit {
