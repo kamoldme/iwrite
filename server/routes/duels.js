@@ -32,12 +32,19 @@ function completeDuelWithForfeit(duelId, forfeiterId) {
   } catch {}
 }
 
-// Helper: complete a duel by word count (time expired, no forfeit)
+// Helper: complete a duel by word count (time expired)
+// If forfeitedBy is set, forfeiter loses regardless of word count
 function completeDuelByTime(duelId) {
   const duel = findOne('duels.json', d => d.id === duelId);
   if (!duel || duel.status !== 'active') return;
-  const winnerId = duel.challengerWords > duel.opponentWords ? duel.challengerId :
-                   duel.opponentWords > duel.challengerWords ? duel.opponentId : null;
+  let winnerId;
+  if (duel.forfeitedBy) {
+    // Forfeiter always loses
+    winnerId = duel.forfeitedBy === duel.challengerId ? duel.opponentId : duel.challengerId;
+  } else {
+    winnerId = duel.challengerWords > duel.opponentWords ? duel.challengerId :
+               duel.opponentWords > duel.challengerWords ? duel.opponentId : null;
+  }
   updateOne('duels.json', d => d.id === duelId, {
     status: 'completed',
     winnerId,
@@ -76,14 +83,23 @@ function cleanupStaleDuels() {
     completeDuelByTime(duel.id);
   }
 
-  // 2. Active duels where user(s) stopped polling → auto-forfeit the absent user
+  // 2. Active duels where user(s) stopped polling
   const activeDuels = findMany('duels.json', d => d.status === 'active');
   for (const duel of activeDuels) {
     const challengerGone = duel.challengerLastSeen && (now - new Date(duel.challengerLastSeen).getTime()) > STALE_POLL_MS;
     const opponentGone = duel.opponentLastSeen && (now - new Date(duel.opponentLastSeen).getTime()) > STALE_POLL_MS;
 
-    if (challengerGone && opponentGone) {
-      // Both gone — whoever stopped polling first loses
+    if (duel.forfeitedBy) {
+      // Someone already forfeited. Check if the remaining player also stopped polling.
+      const remainingIsChallenger = duel.forfeitedBy !== duel.challengerId;
+      const remainingGone = remainingIsChallenger ? challengerGone : opponentGone;
+      if (remainingGone) {
+        // Both gone now — complete the duel. Forfeiter loses.
+        completeDuelWithForfeit(duel.id, duel.forfeitedBy);
+      }
+      // else: remaining player still active, duel continues
+    } else if (challengerGone && opponentGone) {
+      // Both gone, no one forfeited yet — whoever stopped polling first loses
       const challengerTime = new Date(duel.challengerLastSeen).getTime();
       const opponentTime = new Date(duel.opponentLastSeen).getTime();
       if (challengerTime < opponentTime) {
@@ -91,13 +107,16 @@ function cleanupStaleDuels() {
       } else if (opponentTime < challengerTime) {
         completeDuelWithForfeit(duel.id, duel.opponentId);
       } else {
-        // Exact same time — complete as tie by word count
         completeDuelByTime(duel.id);
       }
     } else if (challengerGone) {
-      completeDuelWithForfeit(duel.id, duel.challengerId);
+      // Only challenger gone — mark as forfeited but keep duel active
+      const winnerId = duel.opponentId;
+      updateOne('duels.json', d => d.id === duel.id, { forfeitedBy: duel.challengerId, winnerId });
     } else if (opponentGone) {
-      completeDuelWithForfeit(duel.id, duel.opponentId);
+      // Only opponent gone — mark as forfeited but keep duel active
+      const winnerId = duel.challengerId;
+      updateOne('duels.json', d => d.id === duel.id, { forfeitedBy: duel.opponentId, winnerId });
     }
   }
 
@@ -293,40 +312,16 @@ router.get('/:id/status', (req, res) => {
       return res.json(updated);
     }
 
-    // Auto-complete if time is up
+    // Auto-complete if time is up (uses shared helper which respects forfeitedBy)
     if (duel.status === 'active' && duel.endAt && new Date(duel.endAt) <= new Date()) {
-      const winnerId = duel.challengerWords > duel.opponentWords ? duel.challengerId :
-                       duel.opponentWords > duel.challengerWords ? duel.opponentId : null;
-      const updated = updateOne('duels.json', d => d.id === req.params.id, {
-        status: 'completed',
-        winnerId
-      });
-
-      // Generate duel_won activity
-      if (winnerId) {
-        const winner = findOne('users.json', u => u.id === winnerId);
-        const loserId = winnerId === duel.challengerId ? duel.opponentId : duel.challengerId;
-        const loser = findOne('users.json', u => u.id === loserId);
-        if (winner && loser) {
-          insertOne('activities.json', {
-            id: uuid(),
-            userId: winnerId,
-            type: 'duel_won',
-            data: {
-              name: winner.name,
-              opponentName: loser.name,
-              winnerWords: winnerId === duel.challengerId ? duel.challengerWords : duel.opponentWords,
-              loserWords: winnerId === duel.challengerId ? duel.opponentWords : duel.challengerWords
-            },
-            createdAt: new Date().toISOString()
-          });
-        }
-      }
-
-      return res.json(updated);
+      completeDuelByTime(req.params.id);
+      const completed = findOne('duels.json', d => d.id === req.params.id);
+      return res.json(completed);
     }
 
-    res.json(duel);
+    // Re-read in case forfeitedBy was set by cleanup or other player
+    const latestDuel = findOne('duels.json', d => d.id === req.params.id);
+    res.json(latestDuel || duel);
   } catch {
     res.status(500).json({ error: 'Server error' });
   }
@@ -501,34 +496,16 @@ router.post('/:id/forfeit', (req, res) => {
     }
     // Already completed — no-op
     if (duel.status === 'completed') return res.json(duel);
+    // Already forfeited by someone — no-op
+    if (duel.forfeitedBy) return res.json(duel);
 
-    // Forfeiter loses, other side wins immediately
+    // Mark forfeiter — but keep duel ACTIVE so the other person can keep writing
     const winnerId = duel.challengerId === req.user.id ? duel.opponentId : duel.challengerId;
     const updated = updateOne('duels.json', d => d.id === req.params.id, {
-      status: 'completed',
       forfeitedBy: req.user.id,
-      winnerId,
-      endAt: new Date().toISOString()
+      winnerId
+      // NOTE: status stays 'active', endAt stays the same — other player continues until timer
     });
-
-    // Generate duel_won activity for the winner
-    try {
-      const winner = findOne('users.json', u => u.id === winnerId);
-      const loser = findOne('users.json', u => u.id === req.user.id);
-      if (winner && loser) {
-        insertOne('activities.json', {
-          id: uuid(),
-          userId: winnerId,
-          type: 'duel_won',
-          data: {
-            name: winner.name,
-            opponentName: loser.name,
-            forfeit: true
-          },
-          createdAt: new Date().toISOString()
-        });
-      }
-    } catch {}
 
     res.json(updated);
   } catch {
@@ -554,28 +531,14 @@ router.post('/:id/beacon-forfeit', (req, res) => {
     }
     if (duel.status === 'completed') return res.json(duel);
     if (duel.status !== 'active') return res.status(400).json({ error: 'Duel is not active' });
+    if (duel.forfeitedBy) return res.json(duel); // already forfeited
 
+    // Mark forfeiter but keep duel active for the other player
     const winnerId = duel.challengerId === user.id ? duel.opponentId : duel.challengerId;
     const updated = updateOne('duels.json', d => d.id === req.params.id, {
-      status: 'completed',
       forfeitedBy: user.id,
-      winnerId,
-      endAt: new Date().toISOString()
+      winnerId
     });
-
-    try {
-      const winner = findOne('users.json', u => u.id === winnerId);
-      const loser = findOne('users.json', u => u.id === user.id);
-      if (winner && loser) {
-        insertOne('activities.json', {
-          id: uuid(),
-          userId: winnerId,
-          type: 'duel_won',
-          data: { name: winner.name, opponentName: loser.name, forfeit: true },
-          createdAt: new Date().toISOString()
-        });
-      }
-    } catch {}
 
     res.json(updated);
   } catch {

@@ -418,10 +418,11 @@ const Editor = {
     // Forfeit active duel — but check if opponent already forfeited first
     if (this._duelInfo) {
       try {
-        // Check if duel was already completed (opponent left first = we won)
         const duelStatus = await API.getDuelStatus(this._duelInfo.duelId);
+        const oppId = this._duelInfo.isChallenger ? duelStatus.opponentId : duelStatus.challengerId;
+
         if (duelStatus.status === 'completed') {
-          // Duel already ended (opponent forfeited) — we won, show results
+          // Duel already ended — show results
           this._stopDuelPolling();
           this.tabWarning.classList.remove('active');
           document.getElementById('status-bar').style.display = 'none';
@@ -429,7 +430,23 @@ const Editor = {
           App._showDuelResults(duelStatus);
           return;
         }
-        // Duel still active — we're the first to leave, we lose
+
+        if (duelStatus.forfeitedBy === oppId) {
+          // Opponent already forfeited — we win even if we leave now
+          // Forfeit call will be a no-op (server ignores if forfeitedBy already set)
+          // Complete the duel via one more status poll (server cleanup will handle it)
+          await API.forfeitDuel(this._duelInfo.duelId);
+          this._stopDuelPolling();
+          this.tabWarning.classList.remove('active');
+          document.getElementById('status-bar').style.display = 'none';
+          this.container.classList.remove('active');
+          // Show win result
+          const finalDuel = await API.getDuelStatus(this._duelInfo.duelId);
+          App._showDuelResults(finalDuel.status === 'completed' ? finalDuel : { ...finalDuel, status: 'completed', winnerId: this._duelInfo.isChallenger ? finalDuel.challengerId : finalDuel.opponentId });
+          return;
+        }
+
+        // Duel still active, no one forfeited yet — we're the first to leave
         await API.forfeitDuel(this._duelInfo.duelId);
       } catch {}
       this._stopDuelPolling();

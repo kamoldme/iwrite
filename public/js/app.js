@@ -1702,12 +1702,14 @@ const App = {
   },
 
 
+  _lastDuelRequestCount: -1, // -1 = not yet polled (skip first toast)
+
   async startNotifPolling() {
     const poll = async () => {
       try { await this.updateNotifBadge(); } catch {}
     };
     poll();
-    this.notifInterval = setInterval(poll, 30000);
+    this.notifInterval = setInterval(poll, 10000); // Poll every 10s for faster notifications
   },
 
   async updateNotifBadge() {
@@ -1738,6 +1740,17 @@ const App = {
           duelBadge.style.display = 'none';
         }
       }
+
+      // Detect new duel requests arriving
+      if (this._lastDuelRequestCount >= 0 && duelRequests.length > this._lastDuelRequestCount) {
+        // Auto-refresh duels view if currently viewing it
+        if (this.currentView === 'duels') {
+          this.loadDuelsView();
+        }
+        // Show toast notification (on any view)
+        this.toast(`New duel challenge received! ⚔️`, 'info');
+      }
+      this._lastDuelRequestCount = duelRequests.length;
     } catch {}
   },
 
