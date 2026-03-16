@@ -459,7 +459,13 @@ const App = {
     document.getElementById('user-name').textContent = this.user.name;
     const { level } = this.calcXPLevel(this.user.xp || 0);
     document.getElementById('user-level').textContent = `Level ${level}`;
-    document.getElementById('user-avatar').textContent = this.user.name.charAt(0).toUpperCase();
+    const avatarEl = document.getElementById('user-avatar');
+    if (this.user.avatar) {
+      const t = this.user.avatarUpdatedAt || '';
+      avatarEl.innerHTML = `<img src="${this.user.avatar}?t=${t}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    } else {
+      avatarEl.textContent = this.user.name.charAt(0).toUpperCase();
+    }
 
     const badge = document.getElementById('plan-badge');
     if (badge) {
@@ -909,8 +915,10 @@ const App = {
 
       podium.innerHTML = podiumOrder.map((entry, i) => {
         if (!entry) return '<div class="podium-slot empty"></div>';
+        const isFirst = podiumLabels[i] === '1st';
         return `
           <div class="podium-slot">
+            ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
             <div class="podium-avatar">${entry.name.charAt(0).toUpperCase()}</div>
             <div class="podium-name">${this.escapeHtml(entry.name)}</div>
             <div class="podium-words">${(entry.totalWords || 0).toLocaleString()} words</div>
@@ -1480,10 +1488,62 @@ const App = {
     document.getElementById('profile-email').value = this.user.email;
     const pwSection = document.getElementById('change-password-section');
     if (pwSection) pwSection.style.display = this.user.provider === 'google' ? 'none' : '';
-    document.getElementById('profile-plan').value = this.user.plan === 'premium' ? 'Pro' : 'Free';
     document.getElementById('profile-since').value = new Date(this.user.createdAt).toLocaleDateString('en-US', {
       year: 'numeric', month: 'long', day: 'numeric'
     });
+
+    // Avatar
+    const letter = this.user.name.charAt(0).toUpperCase();
+    const letterEl = document.getElementById('profile-avatar-letter');
+    const imgEl = document.getElementById('profile-avatar-img');
+    const nameEl = document.getElementById('profile-avatar-name');
+    const removeBtn = document.getElementById('remove-avatar-btn');
+    if (nameEl) nameEl.textContent = this.user.name;
+    if (this.user.avatar && imgEl && letterEl) {
+      const t = this.user.avatarUpdatedAt || '';
+      imgEl.src = `${this.user.avatar}?t=${t}`;
+      imgEl.style.display = 'block';
+      if (letterEl) letterEl.style.display = 'none';
+      if (removeBtn) removeBtn.style.display = '';
+    } else {
+      if (imgEl) imgEl.style.display = 'none';
+      if (letterEl) { letterEl.style.display = ''; letterEl.textContent = letter; }
+      if (removeBtn) removeBtn.style.display = 'none';
+    }
+
+    // Avatar file input
+    const fileInput = document.getElementById('avatar-file-input');
+    if (fileInput && !fileInput._bound) {
+      fileInput._bound = true;
+      fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+          const updated = await API.uploadAvatar(file);
+          this.user = updated;
+          this.updateUserUI();
+          this.loadProfile();
+          this.toast('Avatar updated!', 'success');
+        } catch (err) {
+          this.toast(err.message || 'Failed to upload avatar', 'error');
+        }
+        fileInput.value = '';
+      });
+    }
+    if (removeBtn && !removeBtn._bound) {
+      removeBtn._bound = true;
+      removeBtn.addEventListener('click', async () => {
+        try {
+          const updated = await API.deleteAvatar();
+          this.user = updated;
+          this.updateUserUI();
+          this.loadProfile();
+          this.toast('Avatar removed', 'success');
+        } catch (err) {
+          this.toast(err.message || 'Failed to remove avatar', 'error');
+        }
+      });
+    }
 
     const achievements = this.getAchievements();
     const container = document.getElementById('achievements-list');

@@ -1,10 +1,23 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { v4: uuid } = require('uuid');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+const sharp = require('sharp');
 const { findOne, insertOne, updateOne } = require('../utils/storage');
 const { generateToken, authenticate } = require('../middleware/auth');
 const { logAction } = require('../utils/logger');
 const { OAuth2Client } = require('google-auth-library');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Only images allowed'));
+    cb(null, true);
+  }
+});
 
 const router = express.Router();
 
@@ -204,6 +217,43 @@ router.post('/google', async (req, res) => {
   } catch (err) {
     console.error('Google OAuth error:', err);
     res.status(401).json({ error: 'Google authentication failed' });
+  }
+});
+
+router.post('/avatar', authenticate, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const avatarsDir = path.join(__dirname, '../data/avatars');
+    if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
+
+    const filepath = path.join(avatarsDir, `${req.user.id}.jpg`);
+
+    await sharp(req.file.buffer)
+      .resize(480, 480, { fit: 'cover', position: 'center' })
+      .jpeg({ quality: 70 })
+      .toFile(filepath);
+
+    const avatarUrl = `/uploads/avatars/${req.user.id}.jpg`;
+    const avatarUpdatedAt = Date.now();
+    const updated = updateOne('users.json', u => u.id === req.user.id, { avatar: avatarUrl, avatarUpdatedAt });
+    const { password: _, ...safeUser } = updated;
+    res.json(safeUser);
+  } catch (err) {
+    console.error('Avatar upload error:', err);
+    res.status(500).json({ error: 'Failed to upload avatar' });
+  }
+});
+
+router.delete('/avatar', authenticate, (req, res) => {
+  try {
+    const filepath = path.join(__dirname, '../data/avatars', `${req.user.id}.jpg`);
+    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    const updated = updateOne('users.json', u => u.id === req.user.id, { avatar: null, avatarUpdatedAt: null });
+    const { password: _, ...safeUser } = updated;
+    res.json(safeUser);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove avatar' });
   }
 });
 

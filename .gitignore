@@ -3,3 +3,4 @@ server/data/*.json
 !server/data/.gitkeep
 .env
 .DS_Store
+.gstack/

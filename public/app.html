@@ -122,7 +122,7 @@
               <p class="dashboard-hero-sub">Your writing journey continues. Pick up where you left off.</p>
             </div>
             <button class="btn btn-primary btn-large dashboard-start-btn" id="new-doc-btn">
-              &#x270F;&#xFE0F; Start Writing
+              <span style="font-size:1.3em;line-height:1">&#x270F;&#xFE0F;</span> Start Writing
             </button>
           </div>
 
@@ -319,6 +319,26 @@
             <!-- Left column: settings (sticky) -->
             <div class="profile-left">
               <div class="profile-left-inner">
+                <!-- Avatar Upload -->
+                <div class="profile-section profile-avatar-section">
+                  <div class="profile-avatar-wrap">
+                    <div class="profile-avatar-circle" id="profile-avatar-circle">
+                      <span id="profile-avatar-letter"></span>
+                      <img id="profile-avatar-img" src="" alt="" style="display:none">
+                      <label class="profile-avatar-overlay" for="avatar-file-input" title="Upload photo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      </label>
+                      <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
+                    </div>
+                    <div class="profile-avatar-info">
+                      <div class="profile-avatar-name" id="profile-avatar-name"></div>
+                      <div class="profile-avatar-actions">
+                        <button class="btn btn-ghost btn-small" id="remove-avatar-btn" style="display:none">Remove photo</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="profile-section">
                   <h3 class="profile-section-title">Account Details</h3>
                   <div class="auth-field">
@@ -330,14 +350,49 @@
                     <input type="email" id="profile-email" disabled>
                   </div>
                   <div class="auth-field">
-                    <label>Plan</label>
-                    <input type="text" id="profile-plan" disabled>
-                  </div>
-                  <div class="auth-field">
                     <label>Member Since</label>
                     <input type="text" id="profile-since" disabled>
                   </div>
                   <button class="btn btn-primary btn-small" id="save-profile-btn" style="margin-top:8px">Save Changes</button>
+                </div>
+
+                <!-- Plan Cards -->
+                <div class="profile-section">
+                  <h3 class="profile-section-title">Plan</h3>
+                  <div class="plan-cards">
+                    <div class="plan-card plan-card-free plan-card-active">
+                      <div class="plan-card-header">
+                        <span class="plan-card-name">Free</span>
+                        <span class="plan-card-price">$0</span>
+                      </div>
+                      <ul class="plan-card-features">
+                        <li>Limited writing sessions</li>
+                        <li>Limited session history</li>
+                        <li>Writing streak tracking</li>
+                        <li>XP / Level system</li>
+                        <li>Basic tree growth</li>
+                        <li>Friends / Duels</li>
+                      </ul>
+                      <div class="plan-card-badge">Current Plan</div>
+                    </div>
+                    <div class="plan-card plan-card-pro plan-card-soon">
+                      <div class="plan-card-blur-overlay">
+                        <span class="plan-card-soon-label">Coming Soon</span>
+                      </div>
+                      <div class="plan-card-header">
+                        <span class="plan-card-name">Pro</span>
+                        <span class="plan-card-price">$?/mo</span>
+                      </div>
+                      <ul class="plan-card-features">
+                        <li>Unlimited sessions</li>
+                        <li>Full history &amp; analytics</li>
+                        <li>Priority support</li>
+                        <li>Advanced tree stages</li>
+                        <li>Custom session modes</li>
+                        <li>Early access features</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="profile-section" id="change-password-section">

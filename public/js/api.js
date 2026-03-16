@@ -240,6 +240,21 @@ const API = {
     });
   },
 
+  async uploadAvatar(file) {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const token = this.getToken();
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const res = await fetch(`${this.base}/auth/avatar`, { method: 'POST', headers, body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    return data;
+  },
+
+  async deleteAvatar() {
+    return this.request('/auth/avatar', { method: 'DELETE' });
+  },
+
   async changePassword(currentPassword, newPassword, confirmPassword) {
     return this.request('/auth/change-password', {
       method: 'POST',

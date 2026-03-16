@@ -366,8 +366,8 @@ html.light .logo-img-light { display: inline; }
 
 .hero-title em {
   font-style: normal;
-  color: var(--accent);
-  text-shadow: 0 0 40px rgba(74, 222, 128, 0.35);
+  color: var(--danger);
+  text-shadow: 0 0 40px rgba(239, 68, 68, 0.5);
 }
 
 .hero-line {
@@ -3826,6 +3826,19 @@ html.light .logo-img-light { display: inline; }
   border: 1px solid rgba(205,127,50,0.2);
 }
 
+.podium-crown {
+  font-size: 22px;
+  line-height: 1;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
+  animation: crownFloat 3s ease-in-out infinite;
+}
+
+@keyframes crownFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
 .podium-medal {
   font-size: 36px;
   margin-bottom: 4px;
@@ -4941,6 +4954,11 @@ html.light .logo-img-light { display: inline; }
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.right-sidebar-body::-webkit-scrollbar {
+  display: none;
 }
 .right-sidebar.active {
   right: 0;
@@ -5494,13 +5512,19 @@ html.light .logo-img-light { display: inline; }
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 44px;
+  overflow: visible;
 }
 .google-signin-btn > div {
   width: 100% !important;
+  overflow: visible !important;
 }
 .google-signin-btn iframe {
   width: 100% !important;
   border-radius: 8px !important;
+  overflow: visible !important;
+  clip-path: none !important;
+  margin: 0 !important;
 }
 
 /* ===== PLAN BADGE ===== */
@@ -5800,6 +5824,171 @@ html.light .logo-img-light { display: inline; }
   min-width: 200px;
   padding: 14px 32px;
   font-size: 16px;
+}
+
+/* ===== AVATAR UPLOAD ===== */
+.profile-avatar-section {
+  padding-bottom: 4px;
+}
+.profile-avatar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.profile-avatar-circle {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--accent);
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.profile-avatar-circle img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.profile-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.2s;
+  cursor: pointer;
+  border-radius: 50%;
+  color: #fff;
+}
+.profile-avatar-circle:hover .profile-avatar-overlay {
+  opacity: 1;
+}
+.profile-avatar-info {
+  flex: 1;
+  min-width: 0;
+}
+.profile-avatar-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  truncate: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.profile-avatar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ===== PLAN CARDS ===== */
+.plan-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 4px;
+}
+.plan-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  position: relative;
+  background: var(--bg-card);
+}
+.plan-card-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 16px rgba(74, 222, 128, 0.08);
+}
+.plan-card-soon {
+  overflow: hidden;
+}
+.plan-card-blur-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+}
+.plan-card-soon-label {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+}
+.plan-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.plan-card-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.plan-card-price {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.plan-card-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.plan-card-features li {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding-left: 14px;
+  position: relative;
+}
+.plan-card-features li::before {
+  content: '–';
+  position: absolute;
+  left: 0;
+  color: var(--text-muted);
+}
+.plan-card-active .plan-card-features li::before {
+  content: '✓';
+  color: var(--accent);
+}
+.plan-card-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-family: var(--font-mono);
 }
 
 /* Confetti animation */
