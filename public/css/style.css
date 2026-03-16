@@ -5578,20 +5578,22 @@ html.light .logo-img-light { display: inline; }
 
 /* ===== GOOGLE SIGN-IN ===== */
 .google-signin-btn {
-  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  padding: 20px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 8px;
   overflow: visible;
 }
 .google-signin-btn > div {
-  width: 100% !important;
   overflow: visible !important;
+  flex-shrink: 0;
 }
 .google-signin-btn iframe {
-  width: 100% !important;
-  border-radius: 8px !important;
+  border-radius: 6px !important;
   overflow: visible !important;
   clip-path: none !important;
   margin: 0 !important;
