@@ -1588,6 +1588,15 @@ html.light .logo-img-light { display: inline; }
   background: rgba(239, 68, 68, 0.3);
 }
 
+.duel-extra-time-request.waiting {
+  border-color: var(--text-muted);
+  opacity: 0.8;
+}
+.duel-extra-time-request.waiting span:first-child {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 @keyframes slideInRight {
   from { transform: translateY(-50%) translateX(100px); opacity: 0; }
   to { transform: translateY(-50%) translateX(0); opacity: 1; }

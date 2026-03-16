@@ -630,8 +630,11 @@ const Editor = {
     const bar = document.getElementById('duel-bar');
     if (bar) {
       bar.classList.add('active');
-      document.getElementById('duel-bar-my-name').textContent = 'You';
-      document.getElementById('duel-bar-opponent').textContent = this._duelInfo.opponentName;
+      // Same layout for both sides: challenger on left, opponent on right
+      const challengerName = this._duelInfo.isChallenger ? (App.user?.name || 'You') : this._duelInfo.opponentName;
+      const opponentName = this._duelInfo.isChallenger ? this._duelInfo.opponentName : (App.user?.name || 'You');
+      document.getElementById('duel-bar-left-name').textContent = challengerName;
+      document.getElementById('duel-bar-right-name').textContent = opponentName;
       document.getElementById('duel-bar-forfeit').style.display = 'none';
     }
     // Associate document with duel
@@ -661,26 +664,58 @@ const Editor = {
         this._duelEndAt = new Date(duel.endAt).getTime();
       }
 
-      // Update opponent word count
-      const oppWords = this._duelInfo.isChallenger ? duel.opponentWords : duel.challengerWords;
-      const oppEl = document.getElementById('duel-bar-opp-words');
-      if (oppEl) oppEl.textContent = oppWords || 0;
+      // Update word counts — same layout for both sides: challenger left, opponent right
+      const leftWords = document.getElementById('duel-bar-left-words');
+      const rightWords = document.getElementById('duel-bar-right-words');
+      if (this._duelInfo.isChallenger) {
+        if (leftWords) leftWords.textContent = myWords;
+        if (rightWords) rightWords.textContent = duel.opponentWords || 0;
+      } else {
+        if (leftWords) leftWords.textContent = duel.challengerWords || 0;
+        if (rightWords) rightWords.textContent = myWords;
+      }
 
-      const myEl = document.getElementById('duel-bar-my-words');
-      if (myEl) myEl.textContent = myWords;
-
-      // Check for extra time request from opponent
-      if (duel.extraTimeRequest && duel.extraTimeRequest.requestedBy !== (this._duelInfo.isChallenger ? duel.challengerId : duel.opponentId)) {
-        // Opponent is requesting extra time — show CS:GO style notification
-        const reqEl = document.getElementById('duel-extra-time-req');
-        if (reqEl && reqEl.style.display === 'none') {
-          document.getElementById('duel-extra-time-text').textContent = `+${duel.extraTimeRequest.minutes} min?`;
-          reqEl.style.display = 'flex';
+      // Check for extra time request
+      const myId = this._duelInfo.isChallenger ? duel.challengerId : duel.opponentId;
+      const reqEl = document.getElementById('duel-extra-time-req');
+      if (duel.extraTimeRequest) {
+        if (duel.extraTimeRequest.requestedBy !== myId) {
+          // Opponent is requesting extra time — show accept/decline notification
+          if (reqEl && reqEl.style.display === 'none') {
+            document.getElementById('duel-extra-time-text').textContent = `+${duel.extraTimeRequest.minutes} min?`;
+            reqEl.style.display = 'flex';
+            reqEl.classList.remove('waiting');
+            // Re-enable buttons
+            const acceptBtn = reqEl.querySelector('.duel-extra-time-accept');
+            const declineBtn = reqEl.querySelector('.duel-extra-time-decline');
+            if (acceptBtn) { acceptBtn.style.display = ''; acceptBtn.disabled = false; }
+            if (declineBtn) { declineBtn.style.display = ''; declineBtn.disabled = false; }
+          }
+        } else {
+          // I requested — show waiting state
+          if (reqEl) {
+            document.getElementById('duel-extra-time-text').textContent = `+${duel.extraTimeRequest.minutes} min — waiting...`;
+            reqEl.style.display = 'flex';
+            reqEl.classList.add('waiting');
+            // Hide accept/decline buttons (it's my request)
+            const acceptBtn = reqEl.querySelector('.duel-extra-time-accept');
+            const declineBtn = reqEl.querySelector('.duel-extra-time-decline');
+            if (acceptBtn) acceptBtn.style.display = 'none';
+            if (declineBtn) declineBtn.style.display = 'none';
+          }
         }
       } else {
-        const reqEl = document.getElementById('duel-extra-time-req');
-        if (reqEl) reqEl.style.display = 'none';
+        // No pending request — hide notification
+        if (reqEl) {
+          reqEl.style.display = 'none';
+          reqEl.classList.remove('waiting');
+        }
+        // Check if extra time was just accepted (endAt changed since last poll)
+        if (this._lastKnownEndAt && duel.endAt && duel.endAt !== this._lastKnownEndAt && new Date(duel.endAt) > new Date(this._lastKnownEndAt)) {
+          App.toast('Extra time added! ⏰', 'success');
+        }
       }
+      this._lastKnownEndAt = duel.endAt;
 
       // Check if opponent forfeited (forfeitedBy = single user ID string)
       const oppId = this._duelInfo.isChallenger ? duel.opponentId : duel.challengerId;
@@ -707,6 +742,12 @@ const Editor = {
     }
     // Schedule next poll
     this._duelPollTimer = setTimeout(() => this._pollDuel(), this._duelPollDelay);
+  },
+
+  // Called when "+" button in duel bar is clicked
+  requestExtraTime() {
+    if (!this._duelInfo) return;
+    this.openExtraTimeModal();
   },
 
   openExtraTimeModal() {
