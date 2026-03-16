@@ -1121,25 +1121,26 @@ const App = {
           // No doc button if you forfeited
           const docBtn = (myDocId && !iForfeited) ? `<button class="duel-history-doc-btn" onclick="App.openDocument('${myDocId}')">View Doc</button>` : '';
 
+          const detailId = `dhc-detail-${d.id || Math.random().toString(36).slice(2)}`;
+          const subtitleText = iForfeited ? 'You left the session'
+            : oppForfeited ? `${this.escapeHtml(oppName)} left`
+            : `${d.duration} min duel`;
+          const resultLabel = tie ? 'TIE' : won ? 'WON' : 'LOST';
+
           return `
           <div class="duel-history-card ${resultClass}">
-            <div class="duel-history-info">
-              <div style="font-size:14px;font-weight:600">
-                <span style="color:#d4a017">You</span>
-                <span style="color:var(--text-muted)"> vs </span>
-                <span style="color:#c0392b">${this.escapeHtml(oppName)}</span>
-              </div>
-              <div style="font-size:13px;color:var(--text-muted);display:flex;gap:24px">
-                <span>${myWords} words</span>
-                <span>${oppWords} words</span>
-              </div>
-              ${subtitle}
-            </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">${dateStr}, ${timeStr}</span>
-              ${docBtn}
-              <span class="duel-history-result ${resultClass}">${resultText}</span>
-            </div>
+            <span class="dhc-badge ${resultClass}">${resultLabel}</span>
+            <span class="dhc-vs">vs <strong>${this.escapeHtml(oppName)}</strong></span>
+            <span class="dhc-score">${myWords} — ${oppWords}</span>
+            <span class="dhc-date">${dateStr}</span>
+            <button class="dhc-info-btn" onclick="(function(el){var d=document.getElementById('${detailId}');d.style.display=d.style.display==='none'?'flex':'none';el.classList.toggle('active')})(this)" title="Details">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
+            </button>
+          </div>
+          <div class="dhc-detail" id="${detailId}" style="display:none">
+            <span>${subtitleText}</span>
+            <span style="color:var(--text-muted)">${timeStr}</span>
+            ${docBtn}
           </div>`;
         }).join('');
       }
