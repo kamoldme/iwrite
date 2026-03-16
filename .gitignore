@@ -4,3 +4,4 @@ server/data/*.json
 .env
 .DS_Store
 .gstack/
+package-lock.json
