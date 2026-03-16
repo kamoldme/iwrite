@@ -3808,7 +3808,7 @@ html.light .logo-img-light { display: inline; }
 .heatmap-day-labels {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   margin-right: 6px;
   flex-shrink: 0;
 }
@@ -3817,8 +3817,8 @@ html.light .logo-img-light { display: inline; }
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
-  height: 20px;
-  line-height: 20px;
+  height: 27px;
+  line-height: 27px;
   text-align: right;
   width: 26px;
 }
@@ -3826,12 +3826,12 @@ html.light .logo-img-light { display: inline; }
 .heatmap-weeks {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .heatmap-month-row {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   margin-bottom: 2px;
   height: 14px;
 }
@@ -3840,7 +3840,7 @@ html.light .logo-img-light { display: inline; }
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
-  width: 20px;
+  width: 27px;
   text-align: left;
   flex-shrink: 0;
   white-space: nowrap;
@@ -3849,13 +3849,13 @@ html.light .logo-img-light { display: inline; }
 
 .heatmap-row {
   display: flex;
-  gap: 4px;
+  gap: 5px;
 }
 
 .heatmap-cell {
-  width: 20px;
-  height: 20px;
-  border-radius: 3px;
+  width: 27px;
+  height: 27px;
+  border-radius: 4px;
   background: var(--border-light);
   transition: outline 0.12s, transform 0.12s;
   flex-shrink: 0;
