@@ -6,41 +6,104 @@ const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 router.use(authenticate);
 
-// Helper: auto-complete any active duel that is past its endAt
+// Helper: complete a duel with a forfeit
+function completeDuelWithForfeit(duelId, forfeiterId) {
+  const duel = findOne('duels.json', d => d.id === duelId);
+  if (!duel || duel.status !== 'active') return;
+  const winnerId = duel.challengerId === forfeiterId ? duel.opponentId : duel.challengerId;
+  updateOne('duels.json', d => d.id === duelId, {
+    status: 'completed',
+    forfeitedBy: forfeiterId,
+    winnerId,
+    endAt: new Date().toISOString()
+  });
+  try {
+    const winner = findOne('users.json', u => u.id === winnerId);
+    const loser = findOne('users.json', u => u.id === forfeiterId);
+    if (winner && loser) {
+      insertOne('activities.json', {
+        id: uuid(),
+        userId: winnerId,
+        type: 'duel_won',
+        data: { name: winner.name, opponentName: loser.name, forfeit: true },
+        createdAt: new Date().toISOString()
+      });
+    }
+  } catch {}
+}
+
+// Helper: complete a duel by word count (time expired, no forfeit)
+function completeDuelByTime(duelId) {
+  const duel = findOne('duels.json', d => d.id === duelId);
+  if (!duel || duel.status !== 'active') return;
+  const winnerId = duel.challengerWords > duel.opponentWords ? duel.challengerId :
+                   duel.opponentWords > duel.challengerWords ? duel.opponentId : null;
+  updateOne('duels.json', d => d.id === duelId, {
+    status: 'completed',
+    winnerId,
+    endAt: duel.endAt || new Date().toISOString()
+  });
+  if (winnerId) {
+    try {
+      const winner = findOne('users.json', u => u.id === winnerId);
+      const loserId = winnerId === duel.challengerId ? duel.opponentId : duel.challengerId;
+      const loser = findOne('users.json', u => u.id === loserId);
+      if (winner && loser) {
+        insertOne('activities.json', {
+          id: uuid(),
+          userId: winnerId,
+          type: 'duel_won',
+          data: { name: winner.name, opponentName: loser.name },
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch {}
+  }
+}
+
+// Stale threshold: if a user hasn't polled in this many ms, they're gone
+const STALE_POLL_MS = 30000; // 30 seconds (polls happen every 5s)
+
+// Helper: auto-complete stale duels — called on key endpoints
 function cleanupStaleDuels() {
-  const now = new Date();
-  const staleDuels = findMany('duels.json', d =>
-    d.status === 'active' && d.endAt && new Date(d.endAt) <= now
+  const now = Date.now();
+
+  // 1. Active duels past endAt → complete by word count
+  const expiredDuels = findMany('duels.json', d =>
+    d.status === 'active' && d.endAt && new Date(d.endAt).getTime() <= now
   );
-  for (const duel of staleDuels) {
-    const winnerId = duel.challengerWords > duel.opponentWords ? duel.challengerId :
-                     duel.opponentWords > duel.challengerWords ? duel.opponentId : null;
-    updateOne('duels.json', d => d.id === duel.id, {
-      status: 'completed',
-      winnerId
-    });
-    // Generate activity
-    if (winnerId) {
-      try {
-        const winner = findOne('users.json', u => u.id === winnerId);
-        const loserId = winnerId === duel.challengerId ? duel.opponentId : duel.challengerId;
-        const loser = findOne('users.json', u => u.id === loserId);
-        if (winner && loser) {
-          insertOne('activities.json', {
-            id: uuid(),
-            userId: winnerId,
-            type: 'duel_won',
-            data: { name: winner.name, opponentName: loser.name },
-            createdAt: new Date().toISOString()
-          });
-        }
-      } catch {}
+  for (const duel of expiredDuels) {
+    completeDuelByTime(duel.id);
+  }
+
+  // 2. Active duels where user(s) stopped polling → auto-forfeit the absent user
+  const activeDuels = findMany('duels.json', d => d.status === 'active');
+  for (const duel of activeDuels) {
+    const challengerGone = duel.challengerLastSeen && (now - new Date(duel.challengerLastSeen).getTime()) > STALE_POLL_MS;
+    const opponentGone = duel.opponentLastSeen && (now - new Date(duel.opponentLastSeen).getTime()) > STALE_POLL_MS;
+
+    if (challengerGone && opponentGone) {
+      // Both gone — whoever stopped polling first loses
+      const challengerTime = new Date(duel.challengerLastSeen).getTime();
+      const opponentTime = new Date(duel.opponentLastSeen).getTime();
+      if (challengerTime < opponentTime) {
+        completeDuelWithForfeit(duel.id, duel.challengerId);
+      } else if (opponentTime < challengerTime) {
+        completeDuelWithForfeit(duel.id, duel.opponentId);
+      } else {
+        // Exact same time — complete as tie by word count
+        completeDuelByTime(duel.id);
+      }
+    } else if (challengerGone) {
+      completeDuelWithForfeit(duel.id, duel.challengerId);
+    } else if (opponentGone) {
+      completeDuelWithForfeit(duel.id, duel.opponentId);
     }
   }
 
-  // Also expire stale countdown duels (startAt passed >2min ago but still countdown)
+  // 3. Stale countdown duels (startAt passed >2min ago)
   const staleCountdowns = findMany('duels.json', d =>
-    d.status === 'countdown' && d.startAt && (now - new Date(d.startAt)) > 120000
+    d.status === 'countdown' && d.startAt && (now - new Date(d.startAt).getTime()) > 120000
   );
   for (const duel of staleCountdowns) {
     updateOne('duels.json', d => d.id === duel.id, {
@@ -49,9 +112,9 @@ function cleanupStaleDuels() {
     });
   }
 
-  // Expire pending duels older than 5 minutes (not 24h — if both left, clean up fast)
+  // 4. Expire pending duels older than 5 minutes
   const stalePending = findMany('duels.json', d =>
-    d.status === 'pending' && (now - new Date(d.createdAt)) > 5 * 60 * 1000
+    d.status === 'pending' && (now - new Date(d.createdAt).getTime()) > 5 * 60 * 1000
   );
   for (const duel of stalePending) {
     updateOne('duels.json', d => d.id === duel.id, { status: 'expired' });
@@ -203,6 +266,23 @@ router.get('/:id/status', (req, res) => {
       return res.status(403).json({ error: 'Not your duel' });
     }
 
+    // Record last seen time for this user (used by cleanupStaleDuels)
+    if (duel.status === 'active' || duel.status === 'countdown') {
+      const seenUpdate = {};
+      if (duel.challengerId === req.user.id) seenUpdate.challengerLastSeen = new Date().toISOString();
+      else seenUpdate.opponentLastSeen = new Date().toISOString();
+      updateOne('duels.json', d => d.id === req.params.id, seenUpdate);
+    }
+
+    // Clean up stale duels (including ones where users stopped polling)
+    cleanupStaleDuels();
+
+    // Re-read duel in case cleanup changed its status
+    const freshDuel = findOne('duels.json', d => d.id === req.params.id);
+    if (freshDuel && freshDuel.status === 'completed' && duel.status === 'active') {
+      return res.json(freshDuel);
+    }
+
     // Auto-transition from countdown to active
     if (duel.status === 'countdown' && duel.startAt && new Date(duel.startAt) <= new Date()) {
       const endAt = new Date(new Date(duel.startAt).getTime() + duel.duration * 60 * 1000).toISOString();
@@ -263,8 +343,10 @@ router.post('/:id/update', (req, res) => {
     const update = {};
     if (duel.challengerId === req.user.id) {
       update.challengerWords = wordCount || 0;
+      update.challengerLastSeen = new Date().toISOString();
     } else if (duel.opponentId === req.user.id) {
       update.opponentWords = wordCount || 0;
+      update.opponentLastSeen = new Date().toISOString();
     } else {
       return res.status(403).json({ error: 'Not your duel' });
     }

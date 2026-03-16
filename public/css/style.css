@@ -1495,6 +1495,26 @@ html.light .logo-img-light { display: inline; }
   font-weight: 300;
 }
 
+.duel-bar-extra-time-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.duel-bar-extra-time-btn:hover {
+  background: var(--accent-hover);
+}
+
 .duel-bar-forfeit {
   color: var(--danger);
   font-size: 12px;
