@@ -3832,11 +3832,16 @@ html.light .logo-img-light { display: inline; }
   font-weight: 700;
 }
 
-/* ===== DASHBOARD COLUMNS ===== */
-.dashboard-columns {
+/* ===== DASHBOARD LAYOUT ===== */
+.dashboard-row-top {
   display: grid;
   grid-template-columns: 1fr 320px;
   gap: 28px;
+  margin-bottom: 28px;
+}
+
+.dashboard-recent {
+  margin-bottom: 28px;
 }
 
 /* ===== PROFILE GRID ===== */
@@ -4315,7 +4320,7 @@ html.light .logo-img-light { display: inline; }
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .dashboard-columns {
+  .dashboard-row-top {
     grid-template-columns: 1fr;
   }
 
