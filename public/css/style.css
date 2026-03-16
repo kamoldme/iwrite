@@ -1478,7 +1478,7 @@ html.light .logo-img-light { display: inline; }
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  margin-bottom: 2px;
+  margin-bottom: 6px;
   height: 38px;
   box-sizing: border-box;
 }
@@ -1510,7 +1510,7 @@ html.light .logo-img-light { display: inline; }
   text-overflow: ellipsis;
   min-width: 0;
 }
-.dhc-vs strong { color: var(--text-primary); font-weight: 600; }
+.dhc-vs strong { color: var(--text-primary); font-weight: 600; margin-left: 6px; }
 
 .dhc-score {
   font-size: 11px;
@@ -5581,10 +5581,6 @@ html.light .logo-img-light { display: inline; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
   margin-top: 8px;
   overflow: visible;
 }

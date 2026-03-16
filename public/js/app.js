@@ -81,10 +81,10 @@ const App = {
         const cardWidth = loginBtn.closest('.auth-card')?.offsetWidth || 380;
         window.google.accounts.id.renderButton(loginBtn, {
           type: 'standard',
-          theme: 'filled_black',
+          theme: 'outline',
           size: 'large',
           shape: 'rectangular',
-          width: 260
+          width: 320
         });
       }
     } catch (err) {
