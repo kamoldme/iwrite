@@ -246,24 +246,22 @@ html.light .logo-img-light { display: inline; }
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: #0a0a0a;
-  box-shadow: 0 0 16px rgba(74, 222, 128, 0.25);
 }
 
 .btn-small:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 28px rgba(74, 222, 128, 0.4);
+  box-shadow: 0 0 14px rgba(74, 222, 128, 0.2);
 }
 
 .btn-primary {
   background: var(--accent);
   color: #0a0a0a;
   border-radius: var(--radius-sm);
-  box-shadow: 0 0 20px rgba(74, 222, 128, 0.25);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 0 36px rgba(74, 222, 128, 0.45);
+  box-shadow: 0 0 18px rgba(74, 222, 128, 0.22);
   background: #86efac;
 }
 
@@ -323,12 +321,11 @@ html.light .logo-img-light { display: inline; }
   background: #ef4444;
   color: white;
   border-radius: var(--radius-sm);
-  box-shadow: 0 0 16px rgba(239, 68, 68, 0.25);
 }
 
 .btn-danger:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 28px rgba(239, 68, 68, 0.4);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
   background: #f87171;
 }
 
@@ -5830,7 +5827,7 @@ html.light .logo-img-light { display: inline; }
 
 /* ===== AVATAR UPLOAD ===== */
 .profile-avatar-section {
-  padding-bottom: 4px;
+  padding-bottom: 20px;
 }
 .profile-avatar-wrap {
   display: flex;
