@@ -143,6 +143,31 @@
     .status-badge-btn .badge { cursor: pointer; }
     .status-badge-btn:hover .badge { opacity: 0.8; }
 
+    /* Charts */
+    .admin-charts-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .admin-chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .admin-chart-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 16px; }
+    .admin-week-chart { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 8px; }
+    .admin-week-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+    .admin-week-bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--accent); min-height: 2px; transition: height 0.3s ease; }
+    .admin-week-bar-label { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+    .admin-week-bar-count { font-size: 11px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+    .admin-donut-wrap { display: flex; align-items: center; gap: 24px; }
+    .admin-donut { width: 100px; height: 100px; border-radius: 50%; position: relative; flex-shrink: 0; }
+    .admin-donut::after { content: ''; position: absolute; top: 22px; left: 22px; width: 56px; height: 56px; border-radius: 50%; background: var(--bg-card); }
+    .admin-donut-legend { display: flex; flex-direction: column; gap: 8px; }
+    .admin-donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .admin-donut-legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    .admin-donut-legend-label { color: var(--text-secondary); }
+    .admin-donut-legend-val { font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); margin-left: auto; }
+    .admin-top-writer-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .admin-top-writer-name { font-size: 12px; color: var(--text-secondary); width: 80px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .admin-top-writer-bar-wrap { flex: 1; height: 20px; background: var(--hover-bg); border-radius: 4px; overflow: hidden; }
+    .admin-top-writer-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s ease; }
+    .admin-top-writer-words { font-size: 11px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); width: 60px; text-align: right; flex-shrink: 0; }
+    .admin-chart-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 40px 12px; }
+    @media (max-width: 900px) { .admin-charts-row { grid-template-columns: 1fr; } }
+
     /* Empty state */
     .admin-empty { text-align: center; padding: 48px 24px; color: var(--text-muted); font-size: 14px; }
 
@@ -275,6 +300,23 @@
         <div id="tab-overview">
           <div class="admin-page-title">Dashboard</div>
           <div class="admin-stats-grid" id="admin-stats"></div>
+          <div class="admin-charts-row">
+            <div class="admin-chart-card">
+              <h3 class="admin-chart-title">Writing Activity (7 Days)</h3>
+              <div class="admin-week-chart" id="admin-week-chart"></div>
+            </div>
+            <div class="admin-chart-card">
+              <h3 class="admin-chart-title">Session Outcomes</h3>
+              <div class="admin-donut-wrap">
+                <div class="admin-donut" id="admin-donut"></div>
+                <div class="admin-donut-legend" id="admin-donut-legend"></div>
+              </div>
+            </div>
+            <div class="admin-chart-card">
+              <h3 class="admin-chart-title">Top Writers</h3>
+              <div id="admin-top-writers"></div>
+            </div>
+          </div>
           <div style="margin-top:24px">
             <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">Recent Activity</h3>
             <div id="recent-logs"></div>
@@ -587,6 +629,7 @@
       const savedTab = localStorage.getItem('iwrite_admin_tab') || 'overview';
       switchAdminTab(savedTab);
       await Promise.all([loadOverview(), loadUsers(), loadDocs(), loadLogs(), loadSupport(), loadDuels()]);
+      renderAdminCharts();
     }
 
     // ===== OVERVIEW =====
@@ -1083,6 +1126,79 @@
         (d.opponentName || '').toLowerCase().includes(q)
       );
       renderDuels(filtered);
+    }
+
+    // ===== CHARTS =====
+    function renderAdminCharts() {
+      // 1. Writing Activity - 7 Day Bar Chart
+      const weekEl = document.getElementById('admin-week-chart');
+      const now = new Date();
+      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const dayCounts = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const dayEnd = dayStart + 86400000;
+        const count = allDocs.filter(doc => {
+          const t = new Date(doc.createdAt).getTime();
+          return t >= dayStart && t < dayEnd;
+        }).length;
+        dayCounts.push({ label: dayNames[d.getDay()], count });
+      }
+      const maxDay = Math.max(...dayCounts.map(d => d.count), 1);
+      if (dayCounts.every(d => d.count === 0)) {
+        weekEl.innerHTML = '<div class="admin-chart-empty">No writing activity in the last 7 days.</div>';
+      } else {
+        weekEl.innerHTML = dayCounts.map(d => {
+          const pct = Math.max((d.count / maxDay) * 100, d.count > 0 ? 5 : 0);
+          return `<div class="admin-week-bar-col">
+            <span class="admin-week-bar-count">${d.count}</span>
+            <div class="admin-week-bar" style="height:${pct}%"></div>
+            <span class="admin-week-bar-label">${d.label}</span>
+          </div>`;
+        }).join('');
+      }
+
+      // 2. Session Outcomes - Donut Chart
+      const donutEl = document.getElementById('admin-donut');
+      const legendEl = document.getElementById('admin-donut-legend');
+      const failed = allDocs.filter(d => d.deletedBySystem).length;
+      const completed = allDocs.filter(d => !d.deletedBySystem && (d.wordCount || 0) > 0).length;
+      const other = allDocs.length - failed - completed;
+      const total = allDocs.length;
+      if (total === 0) {
+        donutEl.style.background = 'var(--hover-bg)';
+        legendEl.innerHTML = '<div class="admin-chart-empty">No session data yet.</div>';
+      } else {
+        const completedPct = (completed / total) * 100;
+        const failedPct = (failed / total) * 100;
+        donutEl.style.background = `conic-gradient(var(--success) 0% ${completedPct}%, var(--danger) ${completedPct}% ${completedPct + failedPct}%, var(--text-muted) ${completedPct + failedPct}% 100%)`;
+        legendEl.innerHTML = `
+          <div class="admin-donut-legend-item"><span class="admin-donut-legend-dot" style="background:var(--success)"></span><span class="admin-donut-legend-label">Completed</span><span class="admin-donut-legend-val">${completed}</span></div>
+          <div class="admin-donut-legend-item"><span class="admin-donut-legend-dot" style="background:var(--danger)"></span><span class="admin-donut-legend-label">Failed</span><span class="admin-donut-legend-val">${failed}</span></div>
+          ${other > 0 ? `<div class="admin-donut-legend-item"><span class="admin-donut-legend-dot" style="background:var(--text-muted)"></span><span class="admin-donut-legend-label">Empty</span><span class="admin-donut-legend-val">${other}</span></div>` : ''}
+        `;
+      }
+
+      // 3. Top Writers - Horizontal Bar Chart
+      const writersEl = document.getElementById('admin-top-writers');
+      const nonAdmin = allUsers.filter(u => u.role !== 'admin');
+      const sorted = [...nonAdmin].sort((a, b) => (b.totalWords || 0) - (a.totalWords || 0)).slice(0, 5);
+      if (sorted.length === 0 || sorted[0].totalWords === 0) {
+        writersEl.innerHTML = '<div class="admin-chart-empty">No writing data yet.</div>';
+      } else {
+        const maxWords = sorted[0].totalWords || 1;
+        writersEl.innerHTML = sorted.map(u => {
+          const w = u.totalWords || 0;
+          const pct = (w / maxWords) * 100;
+          return `<div class="admin-top-writer-row">
+            <span class="admin-top-writer-name" title="${esc(u.name)}">${esc(u.name)}</span>
+            <div class="admin-top-writer-bar-wrap"><div class="admin-top-writer-bar" style="width:${pct}%"></div></div>
+            <span class="admin-top-writer-words">${w.toLocaleString()}</span>
+          </div>`;
+        }).join('');
+      }
     }
 
     // ===== INIT =====

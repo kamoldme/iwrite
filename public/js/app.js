@@ -536,9 +536,6 @@ const App = {
     // --- Render 7-day bar chart ---
     this._renderWeekChart();
 
-    // --- Render donut chart ---
-    this._renderDonutChart();
-
     // Only show non-failed, non-admin-deactivated docs in main lists
     const visibleDocs = this.documents.filter(d => !d.deletedBySystem && !d.deactivatedByAdmin);
     this.renderDocumentList('recent-docs', visibleDocs.slice(0, 3));
