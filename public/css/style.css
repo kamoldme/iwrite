@@ -5612,11 +5612,45 @@ html.light .logo-img-light { display: inline; }
   background: var(--bg-elevated);
 }
 .pricing-card.pro {
-  border-color: var(--accent);
-  box-shadow: 0 0 24px rgba(74, 222, 128, 0.15);
+  border-color: var(--border);
 }
 .pricing-card.current {
   border-color: var(--accent);
+}
+.pricing-card-soon-wrap {
+  overflow: hidden;
+}
+.pricing-soon-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(5px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+}
+.pricing-soon-label {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+}
+.pricing-current-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  margin-top: 12px;
 }
 .pricing-popular {
   position: absolute;
@@ -5704,15 +5738,15 @@ html.light .logo-img-light { display: inline; }
   justify-content: center;
 }
 .pricing-features li.no {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 .pricing-features li.no::before {
   content: '\2717';
   font-size: 10px;
   font-weight: 700;
   color: #fff;
-  background: var(--text-muted);
-  opacity: 0.5;
+  background: var(--danger);
+  opacity: 0.75;
   display: inline-flex;
   align-items: center;
   justify-content: center;

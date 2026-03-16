@@ -88,7 +88,9 @@ app.get('/api/leaderboard', (req, res) => {
           xp: u.xp || 0,
           level: u.level || 0,
           streak: u.streak || 0,
-          minutesWritten
+          minutesWritten,
+          avatar: u.avatar || null,
+          avatarUpdatedAt: u.avatarUpdatedAt || null
         };
       })
       .sort((a, b) => b.totalWords - a.totalWords)

@@ -916,10 +916,13 @@ const App = {
       podium.innerHTML = podiumOrder.map((entry, i) => {
         if (!entry) return '<div class="podium-slot empty"></div>';
         const isFirst = podiumLabels[i] === '1st';
+        const avatarContent = entry.avatar
+          ? `<img src="${entry.avatar}?t=${entry.avatarUpdatedAt || ''}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+          : entry.name.charAt(0).toUpperCase();
         return `
           <div class="podium-slot">
             ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
-            <div class="podium-avatar">${entry.name.charAt(0).toUpperCase()}</div>
+            <div class="podium-avatar">${avatarContent}</div>
             <div class="podium-name">${this.escapeHtml(entry.name)}</div>
             <div class="podium-words">${(entry.totalWords || 0).toLocaleString()} words</div>
             <div class="podium-pedestal" style="height:${heights[i]}">
@@ -1491,6 +1494,10 @@ const App = {
     document.getElementById('profile-since').value = new Date(this.user.createdAt).toLocaleDateString('en-US', {
       year: 'numeric', month: 'long', day: 'numeric'
     });
+
+    // Plan cards in profile
+    const planCardsEl = document.getElementById('profile-plan-cards');
+    if (planCardsEl) planCardsEl.innerHTML = this._planFeaturesHTML();
 
     // Avatar
     const letter = this.user.name.charAt(0).toUpperCase();
@@ -2221,16 +2228,44 @@ const App = {
     }
   },
 
+  _planFeaturesHTML() {
+    const features = [
+      { label: 'Streak tracking',       free: true },
+      { label: 'XP / Level system',     free: true },
+      { label: 'Friends / Duels',       free: true },
+      { label: 'Unlimited sessions',    free: false },
+      { label: 'Full session history',  free: false },
+      { label: 'Analytics & insights',  free: false },
+    ];
+    const freeList = features.map(f =>
+      `<li class="${f.free ? 'yes' : 'no'}">${f.label}</li>`
+    ).join('');
+    const proList = features.map(f =>
+      `<li class="yes">${f.label}</li>`
+    ).join('');
+    return `
+      <div class="pricing-card current" id="pricing-free">
+        <div class="pricing-card-header">
+          <h3>Free</h3>
+          <div class="pricing-price">$0<span>/mo</span></div>
+        </div>
+        <ul class="pricing-features">${freeList}</ul>
+        <div class="pricing-current-badge">Current Plan</div>
+      </div>
+      <div class="pricing-card pro pricing-card-soon-wrap" id="pricing-pro">
+        <div class="pricing-soon-overlay"><span class="pricing-soon-label">Coming Soon</span></div>
+        <div class="pricing-card-header">
+          <h3>Pro</h3>
+          <div class="pricing-price">$?<span>/mo</span></div>
+        </div>
+        <ul class="pricing-features">${proList}</ul>
+      </div>`;
+  },
+
   openPricing() {
     const overlay = document.getElementById('pricing-overlay');
     overlay.classList.add('active');
-    const isPro = this.user && this.user.plan === 'premium';
-    document.getElementById('pricing-free').classList.toggle('current', !isPro);
-    document.getElementById('pricing-pro').classList.toggle('current', isPro);
-    document.getElementById('plan-free-btn').textContent = !isPro ? 'Current Plan' : 'Downgrade';
-    document.getElementById('plan-free-btn').disabled = !isPro;
-    document.getElementById('plan-pro-btn').textContent = isPro ? 'Current Plan' : 'Upgrade to Pro';
-    document.getElementById('plan-pro-btn').disabled = isPro;
+    document.getElementById('pricing-cards-inner').innerHTML = this._planFeaturesHTML();
   },
 
   closePricing() {

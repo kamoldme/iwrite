@@ -359,40 +359,7 @@
                 <!-- Plan Cards -->
                 <div class="profile-section">
                   <h3 class="profile-section-title">Plan</h3>
-                  <div class="plan-cards">
-                    <div class="plan-card plan-card-free plan-card-active">
-                      <div class="plan-card-header">
-                        <span class="plan-card-name">Free</span>
-                        <span class="plan-card-price">$0</span>
-                      </div>
-                      <ul class="plan-card-features">
-                        <li>Limited writing sessions</li>
-                        <li>Limited session history</li>
-                        <li>Writing streak tracking</li>
-                        <li>XP / Level system</li>
-                        <li>Basic tree growth</li>
-                        <li>Friends / Duels</li>
-                      </ul>
-                      <div class="plan-card-badge">Current Plan</div>
-                    </div>
-                    <div class="plan-card plan-card-pro plan-card-soon">
-                      <div class="plan-card-blur-overlay">
-                        <span class="plan-card-soon-label">Coming Soon</span>
-                      </div>
-                      <div class="plan-card-header">
-                        <span class="plan-card-name">Pro</span>
-                        <span class="plan-card-price">$?/mo</span>
-                      </div>
-                      <ul class="plan-card-features">
-                        <li>Unlimited sessions</li>
-                        <li>Full history &amp; analytics</li>
-                        <li>Priority support</li>
-                        <li>Advanced tree stages</li>
-                        <li>Custom session modes</li>
-                        <li>Early access features</li>
-                      </ul>
-                    </div>
-                  </div>
+                  <div class="plan-cards" id="profile-plan-cards"></div>
                 </div>
 
                 <div class="profile-section" id="change-password-section">
@@ -954,44 +921,8 @@
     <div class="pricing-modal">
       <button class="pricing-close" id="pricing-close">&times;</button>
       <h2 class="pricing-title">Choose Your Plan</h2>
-      <p class="pricing-sub">Unlock the full iWrite experience</p>
-      <div class="pricing-cards">
-        <div class="pricing-card" id="pricing-free">
-          <div class="pricing-card-header">
-            <h3>Free</h3>
-            <div class="pricing-price">$0<span>/mo</span></div>
-          </div>
-          <ul class="pricing-features">
-            <li class="yes">Unlimited writing sessions</li>
-            <li class="yes">Basic XP & leveling</li>
-            <li class="yes">Tree growth tracking</li>
-            <li class="yes">Session history</li>
-            <li class="no">Priority support</li>
-            <li class="no">Custom themes</li>
-            <li class="no">Advanced analytics</li>
-            <li class="no">Longer streak protection</li>
-          </ul>
-          <button class="btn btn-ghost btn-full pricing-btn" id="plan-free-btn">Current Plan</button>
-        </div>
-        <div class="pricing-card pro" id="pricing-pro">
-          <div class="pricing-popular">Most Popular</div>
-          <div class="pricing-card-header">
-            <h3>Pro</h3>
-            <div class="pricing-price"><span class="pricing-original">$4.99</span> $2.99<span>/mo</span></div>
-          </div>
-          <ul class="pricing-features">
-            <li class="yes">Unlimited writing sessions</li>
-            <li class="yes">2x XP multiplier</li>
-            <li class="yes">Tree growth tracking</li>
-            <li class="yes">Full session history</li>
-            <li class="yes">Priority support</li>
-            <li class="yes">Custom themes</li>
-            <li class="yes">Advanced analytics</li>
-            <li class="yes">Longer streak protection</li>
-          </ul>
-          <button class="btn btn-primary btn-full pricing-btn" id="plan-pro-btn">Upgrade to Pro</button>
-        </div>
-      </div>
+      <p class="pricing-sub">See what you're missing on Free</p>
+      <div class="pricing-cards" id="pricing-cards-inner"></div>
     </div>
   </div>
 
