@@ -1091,9 +1091,7 @@
               } else if (d.winnerId === 'tie') {
                 winnerName = 'Tie';
               }
-              statusBadge = d.winnerId === 'tie'
-                ? '<span class="badge badge-lost">Tie</span>'
-                : '<span class="badge badge-active">Won</span>';
+              statusBadge = '<span class="badge badge-active">Completed</span>';
             } else if (d.status === 'pending') {
               statusBadge = '<span class="badge badge-replied">Pending</span>';
             } else if (d.status === 'declined') {
