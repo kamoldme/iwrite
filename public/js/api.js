@@ -219,19 +219,11 @@ const API = {
     return this.request(`/duels/${duelId}/forfeit`, { method: 'POST' });
   },
 
-  async requestDuelTime(duelId, minutes) {
-    return this.request(`/duels/${duelId}/request-time`, {
+  async addDuelTime(duelId, minutes) {
+    return this.request(`/duels/${duelId}/add-time`, {
       method: 'POST',
       body: JSON.stringify({ minutes })
     });
-  },
-
-  async acceptDuelTime(duelId) {
-    return this.request(`/duels/${duelId}/accept-time`, { method: 'POST' });
-  },
-
-  async declineDuelTime(duelId) {
-    return this.request(`/duels/${duelId}/decline-time`, { method: 'POST' });
   },
 
   async setDuelDoc(duelId, docId) {

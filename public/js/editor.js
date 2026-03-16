@@ -643,8 +643,8 @@ const Editor = {
     }
     // Reset forfeit notification flag
     this._duelForfeitNotified = false;
-    // Poll every 5 seconds with backoff on failure
-    this._duelPollDelay = 5000;
+    // Poll every 3 seconds with backoff on failure
+    this._duelPollDelay = 3000;
     this._duelPollTimer = setTimeout(() => this._pollDuel(), this._duelPollDelay);
     this._pollDuel();
   },
@@ -675,45 +675,9 @@ const Editor = {
         if (rightWords) rightWords.textContent = myWords;
       }
 
-      // Check for extra time request
-      const myId = this._duelInfo.isChallenger ? duel.challengerId : duel.opponentId;
-      const reqEl = document.getElementById('duel-extra-time-req');
-      if (duel.extraTimeRequest) {
-        if (duel.extraTimeRequest.requestedBy !== myId) {
-          // Opponent is requesting extra time — show accept/decline notification
-          if (reqEl && reqEl.style.display === 'none') {
-            document.getElementById('duel-extra-time-text').textContent = `+${duel.extraTimeRequest.minutes} min?`;
-            reqEl.style.display = 'flex';
-            reqEl.classList.remove('waiting');
-            // Re-enable buttons
-            const acceptBtn = reqEl.querySelector('.duel-extra-time-accept');
-            const declineBtn = reqEl.querySelector('.duel-extra-time-decline');
-            if (acceptBtn) { acceptBtn.style.display = ''; acceptBtn.disabled = false; }
-            if (declineBtn) { declineBtn.style.display = ''; declineBtn.disabled = false; }
-          }
-        } else {
-          // I requested — show waiting state
-          if (reqEl) {
-            document.getElementById('duel-extra-time-text').textContent = `+${duel.extraTimeRequest.minutes} min — waiting...`;
-            reqEl.style.display = 'flex';
-            reqEl.classList.add('waiting');
-            // Hide accept/decline buttons (it's my request)
-            const acceptBtn = reqEl.querySelector('.duel-extra-time-accept');
-            const declineBtn = reqEl.querySelector('.duel-extra-time-decline');
-            if (acceptBtn) acceptBtn.style.display = 'none';
-            if (declineBtn) declineBtn.style.display = 'none';
-          }
-        }
-      } else {
-        // No pending request — hide notification
-        if (reqEl) {
-          reqEl.style.display = 'none';
-          reqEl.classList.remove('waiting');
-        }
-        // Check if extra time was just accepted (endAt changed since last poll)
-        if (this._lastKnownEndAt && duel.endAt && duel.endAt !== this._lastKnownEndAt && new Date(duel.endAt) > new Date(this._lastKnownEndAt)) {
-          App.toast('Extra time added! ⏰', 'success');
-        }
+      // Detect extra time added (endAt extended since last poll)
+      if (this._lastKnownEndAt && duel.endAt && duel.endAt !== this._lastKnownEndAt && new Date(duel.endAt) > new Date(this._lastKnownEndAt)) {
+        App.toast('Extra time added! ⏰', 'success');
       }
       this._lastKnownEndAt = duel.endAt;
 
@@ -735,7 +699,7 @@ const Editor = {
         return;
       }
       // Success — reset to normal poll rate
-      this._duelPollDelay = 5000;
+      this._duelPollDelay = 3000;
     } catch {
       // Backoff on failure: double delay, cap at 60s
       this._duelPollDelay = Math.min((this._duelPollDelay || 5000) * 2, 60000);
@@ -744,66 +708,15 @@ const Editor = {
     this._duelPollTimer = setTimeout(() => this._pollDuel(), this._duelPollDelay);
   },
 
-  // Called when "+" button in duel bar is clicked
-  requestExtraTime() {
+  // Add 5 minutes of extra time — no approval needed, either side can click it
+  async addExtraTime() {
     if (!this._duelInfo) return;
-    this.openExtraTimeModal();
-  },
-
-  openExtraTimeModal() {
-    if (!this._duelInfo) return;
-    const modal = document.getElementById('duel-extra-time-modal');
-    modal.classList.add('active');
-    // Wire preset clicks
-    document.querySelectorAll('#duel-extra-time-options .time-preset').forEach(btn => {
-      btn.onclick = () => {
-        document.querySelectorAll('#duel-extra-time-options .time-preset').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      };
-    });
-  },
-
-  closeExtraTimeModal() {
-    document.getElementById('duel-extra-time-modal').classList.remove('active');
-  },
-
-  async sendExtraTimeRequest() {
-    if (!this._duelInfo) return;
-    const activeBtn = document.querySelector('#duel-extra-time-options .time-preset.active');
-    const mins = parseInt(activeBtn?.dataset.extra || 5);
-    this.closeExtraTimeModal();
     try {
-      await API.requestDuelTime(this._duelInfo.duelId, mins);
-      App.toast(`Requested +${mins} min — waiting for opponent`, 'info');
+      await API.addDuelTime(this._duelInfo.duelId, 5);
+      App.toast('+5 min added! ⏰', 'success');
     } catch (e) {
-      App.toast(e.message || 'Failed to request extra time', 'error');
+      App.toast(e.message || 'Failed to add time', 'error');
     }
-  },
-
-  async acceptExtraTime() {
-    if (!this._duelInfo) return;
-    const btn = document.querySelector('.duel-extra-time-accept');
-    if (btn) btn.disabled = true;
-    try {
-      await API.acceptDuelTime(this._duelInfo.duelId);
-      App.toast('Extra time added!', 'success');
-    } catch (e) {
-      App.toast(e.message || 'Failed to accept', 'error');
-    }
-    document.getElementById('duel-extra-time-req').style.display = 'none';
-  },
-
-  async declineExtraTime() {
-    if (!this._duelInfo) return;
-    const btn = document.querySelector('.duel-extra-time-decline');
-    if (btn) btn.disabled = true;
-    try {
-      await API.declineDuelTime(this._duelInfo.duelId);
-      App.toast('Extra time declined', '');
-    } catch (e) {
-      App.toast(e.message || 'Failed to decline', 'error');
-    }
-    document.getElementById('duel-extra-time-req').style.display = 'none';
   },
 
   _stopDuelPolling() {

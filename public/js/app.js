@@ -1060,6 +1060,8 @@ const App = {
           const iForfeited = d.forfeitedBy === this.user.id;
           const oppForfeited = d.forfeitedBy && d.forfeitedBy !== this.user.id;
           const myDocId = isChallenger ? d.challengerDocId : d.opponentDocId;
+          const myWords = isChallenger ? (d.challengerWords || 0) : (d.opponentWords || 0);
+          const oppWords = isChallenger ? (d.opponentWords || 0) : (d.challengerWords || 0);
 
           // Result text with forfeit reason
           let resultText, subtitle;
@@ -1090,7 +1092,9 @@ const App = {
             <div class="duel-history-info">
               <span style="font-size:14px;font-weight:600">
                 <span style="color:var(--${won ? 'success' : tie ? 'text-muted' : 'danger'})">You</span>
+                <span style="color:var(--text-muted);font-size:12px;font-weight:400"> ${myWords} words </span>
                 <span style="color:var(--text-muted)"> vs </span>
+                <span style="color:var(--text-muted);font-size:12px;font-weight:400"> ${oppWords} words </span>
                 <span style="color:var(--${won ? 'danger' : tie ? 'text-muted' : 'success'})">${this.escapeHtml(oppName)}</span>
               </span>
               ${subtitle}

@@ -69,7 +69,7 @@ function completeDuelByTime(duelId) {
 }
 
 // Stale threshold: if a user hasn't polled in this many ms, they're gone
-const STALE_POLL_MS = 30000; // 30 seconds (polls happen every 5s)
+const STALE_POLL_MS = 15000; // 15 seconds (polls happen every 3s)
 
 // Helper: auto-complete stale duels — called on key endpoints
 function cleanupStaleDuels() {
@@ -419,8 +419,8 @@ router.post('/:id/ready', (req, res) => {
   }
 });
 
-// POST /:id/request-time — request extra time (needs both to agree)
-router.post('/:id/request-time', (req, res) => {
+// POST /:id/add-time — either side can add extra time directly (no approval needed)
+router.post('/:id/add-time', (req, res) => {
   try {
     const { minutes } = req.body;
     const duel = findOne('duels.json', d => d.id === req.params.id);
@@ -431,52 +431,9 @@ router.post('/:id/request-time', (req, res) => {
     if (duel.status !== 'active') return res.status(400).json({ error: 'Duel is not active' });
 
     const extraMinutes = Math.min(Math.max(parseInt(minutes) || 5, 1), 30);
-    const update = {
-      extraTimeRequest: {
-        requestedBy: req.user.id,
-        minutes: extraMinutes,
-        accepted: false
-      }
-    };
-    const updated = updateOne('duels.json', d => d.id === req.params.id, update);
-    res.json(updated);
-  } catch {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// POST /:id/accept-time — accept extra time request
-router.post('/:id/accept-time', (req, res) => {
-  try {
-    const duel = findOne('duels.json', d => d.id === req.params.id);
-    if (!duel) return res.status(404).json({ error: 'Duel not found' });
-    if (!duel.extraTimeRequest) return res.status(400).json({ error: 'No time request pending' });
-    if (duel.extraTimeRequest.requestedBy === req.user.id) {
-      return res.status(400).json({ error: 'Cannot accept your own request' });
-    }
-
-    const addedMs = duel.extraTimeRequest.minutes * 60 * 1000;
+    const addedMs = extraMinutes * 60 * 1000;
     const newEnd = new Date(new Date(duel.endAt).getTime() + addedMs).toISOString();
-    const updated = updateOne('duels.json', d => d.id === req.params.id, {
-      endAt: newEnd,
-      extraTimeRequest: null
-    });
-    res.json(updated);
-  } catch {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// POST /:id/decline-time — decline extra time request
-router.post('/:id/decline-time', (req, res) => {
-  try {
-    const duel = findOne('duels.json', d => d.id === req.params.id);
-    if (!duel) return res.status(404).json({ error: 'Duel not found' });
-    if (!duel.extraTimeRequest) return res.status(400).json({ error: 'No time request pending' });
-
-    const updated = updateOne('duels.json', d => d.id === req.params.id, {
-      extraTimeRequest: null
-    });
+    const updated = updateOne('duels.json', d => d.id === req.params.id, { endAt: newEnd });
     res.json(updated);
   } catch {
     res.status(500).json({ error: 'Server error' });
