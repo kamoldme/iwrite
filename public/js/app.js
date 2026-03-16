@@ -533,58 +533,127 @@ const App = {
       this.documents = [];
     }
 
-    // --- Render 7-day bar chart ---
-    this._renderWeekChart();
+    // --- Render activity heatmap ---
+    this._renderHeatmap();
 
     // Only show non-failed, non-admin-deactivated docs in main lists
     const visibleDocs = this.documents.filter(d => !d.deletedBySystem && !d.deactivatedByAdmin);
     this.renderDocumentList('recent-docs', visibleDocs.slice(0, 3));
   },
 
-  _renderWeekChart() {
-    const container = document.getElementById('week-chart');
-    if (!container) return;
+  _renderHeatmap() {
+    const grid = document.getElementById('heatmap-grid');
+    const totalEl = document.getElementById('heatmap-total');
+    if (!grid) return;
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    // Build last 7 days array (oldest first)
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
+    // Build map of last 20 weeks (140 days) — word counts per day
+    const totalDays = 140;
+    const dayMap = {};
+    for (let i = totalDays - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      days.push({ date: d, words: 0 });
+      const key = d.toISOString().slice(0, 10);
+      dayMap[key] = 0;
     }
 
-    // Sum word counts per day from completed documents
+    // Sum word counts from documents
     const allDocs = this.documents || [];
+    let totalWords = 0;
     allDocs.forEach(doc => {
-      if (!doc.updatedAt || !doc.wordCount) return;
-      const docDate = new Date(doc.updatedAt);
-      const docDay = new Date(docDate.getFullYear(), docDate.getMonth(), docDate.getDate());
-      days.forEach(day => {
-        if (day.date.getTime() === docDay.getTime() && !doc.deletedBySystem) {
-          day.words += doc.wordCount;
-        }
-      });
+      if (!doc.updatedAt || !doc.wordCount || doc.deletedBySystem) return;
+      const key = new Date(doc.updatedAt).toISOString().slice(0, 10);
+      if (key in dayMap) {
+        dayMap[key] += doc.wordCount;
+        totalWords += doc.wordCount;
+      }
     });
 
-    const maxWords = Math.max(...days.map(d => d.words), 1);
+    // Find max for intensity scaling
+    const values = Object.values(dayMap);
+    const maxWords = Math.max(...values, 1);
 
-    container.innerHTML = days.map((day, i) => {
-      const pct = Math.max((day.words / maxWords) * 100, 0);
-      const isToday = day.date.getTime() === today.getTime();
-      const isEmpty = day.words === 0;
-      const barClass = isEmpty ? 'week-bar week-bar-empty' : (isToday ? 'week-bar week-bar-today' : 'week-bar');
-      const dayClass = isToday ? 'week-bar-day week-bar-day-today' : 'week-bar-day';
-      const heightStyle = isEmpty ? 'height: 2px' : `height: ${Math.max(pct, 4)}%`;
-      return `<div class="week-bar-col">
-        <span class="week-bar-value">${day.words > 0 ? day.words.toLocaleString() : ''}</span>
-        <div class="${barClass}" style="${heightStyle}"></div>
-        <span class="${dayClass}">${dayNames[day.date.getDay()]}</span>
-      </div>`;
-    }).join('');
+    // Build weeks grid (columns = weeks, rows = days Mon-Sun)
+    // Start from the first Monday on or before the earliest date
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - (totalDays - 1));
+    // Adjust to previous Monday
+    const startDay = startDate.getDay();
+    const mondayOffset = startDay === 0 ? -6 : 1 - startDay;
+    startDate.setDate(startDate.getDate() + mondayOffset);
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dayLabels = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
+
+    // Calculate weeks
+    const weeks = [];
+    const d = new Date(startDate);
+    while (d <= today) {
+      const week = [];
+      for (let dow = 0; dow < 7; dow++) {
+        const key = d.toISOString().slice(0, 10);
+        const words = dayMap[key] || 0;
+        const isFuture = d > today;
+        const isInRange = key in dayMap;
+        let level = 0;
+        if (words > 0) {
+          const ratio = words / maxWords;
+          if (ratio <= 0.25) level = 1;
+          else if (ratio <= 0.5) level = 2;
+          else if (ratio <= 0.75) level = 3;
+          else level = 4;
+        }
+        week.push({
+          key, words, level,
+          hide: isFuture || !isInRange,
+          isToday: key === today.toISOString().slice(0, 10),
+          month: d.getDate() <= 7 && dow === 0 ? months[d.getMonth()] : null
+        });
+        d.setDate(d.getDate() + 1);
+      }
+      weeks.push(week);
+    }
+
+    // Render SVG-like grid using divs
+    let html = '<div class="heatmap-day-labels">';
+    dayLabels.forEach(l => { html += `<span class="heatmap-day-label">${l}</span>`; });
+    html += '</div><div class="heatmap-weeks">';
+
+    // Month labels row
+    html += '<div class="heatmap-month-row">';
+    weeks.forEach((week, wi) => {
+      const monthLabel = week[0].month || '';
+      html += `<span class="heatmap-month-label">${monthLabel}</span>`;
+    });
+    html += '</div>';
+
+    // Grid cells
+    for (let dow = 0; dow < 7; dow++) {
+      html += '<div class="heatmap-row">';
+      weeks.forEach(week => {
+        const cell = week[dow];
+        if (cell.hide) {
+          html += '<div class="heatmap-cell heatmap-cell-hidden"></div>';
+        } else {
+          const todayClass = cell.isToday ? ' heatmap-cell-today' : '';
+          const title = cell.words > 0
+            ? `${cell.words.toLocaleString()} words on ${cell.key}`
+            : `No writing on ${cell.key}`;
+          html += `<div class="heatmap-cell${todayClass}" data-level="${cell.level}" title="${title}"></div>`;
+        }
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    grid.innerHTML = html;
+
+    if (totalEl) {
+      const activeDays = values.filter(v => v > 0).length;
+      totalEl.textContent = `${totalWords.toLocaleString()} words in ${activeDays} days`;
+    }
   },
 
   _renderDonutChart() {
