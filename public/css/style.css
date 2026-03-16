@@ -3393,14 +3393,24 @@ html.light .logo-img-light { display: inline; }
 .streak-indicator {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  background: linear-gradient(135deg, rgba(239,68,68,0.15), rgba(245,158,11,0.15));
+  gap: 4px;
+  padding: 3px 8px 3px 6px;
+  background: rgba(245, 158, 11, 0.08);
   color: #f59e0b;
-  border-radius: var(--radius-sm);
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  letter-spacing: 0.03em;
+  transition: background 0.2s;
+}
+.streak-indicator:hover {
+  background: rgba(245, 158, 11, 0.14);
+}
+.streak-indicator .streak-fire {
   font-size: 12px;
-  font-weight: 600;
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  line-height: 1;
 }
 
 /* ===== STREAK POPUP ===== */
