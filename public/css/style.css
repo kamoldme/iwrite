@@ -1127,15 +1127,48 @@ html.light .logo-img-light { display: inline; }
   letter-spacing: -0.5px;
 }
 
+.session-search-wrap {
+  position: relative;
+  margin-bottom: 16px;
+}
+.session-search-wrap svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.session-search {
+  width: 100%;
+  padding: 9px 12px 9px 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-main);
+  outline: none;
+  transition: border-color var(--transition);
+}
+.session-search:focus {
+  border-color: var(--accent);
+}
+.session-search::placeholder {
+  color: var(--text-muted);
+}
+
 .doc-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 24px;
+  padding: 10px 16px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   cursor: pointer;
   transition: all var(--transition);
   box-shadow: var(--shadow);
@@ -1170,10 +1203,41 @@ html.light .logo-img-light { display: inline; }
   border-left-color: var(--danger);
 }
 
+.doc-card-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+.doc-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.doc-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.doc-icon.doc-icon-completed { background: rgba(108, 92, 231, 0.15); color: var(--accent); }
+.doc-icon.doc-icon-failed { background: rgba(231, 76, 60, 0.15); color: var(--danger); }
+.doc-icon.doc-icon-draft { background: rgba(149, 165, 166, 0.15); color: var(--text-muted); }
+.doc-icon.doc-icon-dangerous { background: rgba(243, 156, 18, 0.15); color: #f39c12; }
+.doc-card-text {
+  min-width: 0;
+  flex: 1;
+}
 .doc-card-info h4 {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .doc-card-meta {
@@ -1231,6 +1295,24 @@ html.light .logo-img-light { display: inline; }
   color: var(--text-secondary);
   font-weight: 500;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.friend-stat svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.section-icon {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.section-icon svg {
+  width: 20px;
+  height: 20px;
 }
 
 /* ===== DUELS ===== */
@@ -1664,13 +1746,19 @@ html.light .logo-img-light { display: inline; }
 }
 
 .activity-icon {
-  font-size: 20px;
   flex-shrink: 0;
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.activity-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .activity-content {
@@ -3459,9 +3547,16 @@ html.light .logo-img-light { display: inline; }
 }
 
 .dash-stat-emoji {
-  font-size: 44px;
   margin-bottom: 10px;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+.dash-stat-emoji svg {
+  width: 32px;
+  height: 32px;
 }
 
 .dash-stat-value {
@@ -5008,7 +5103,7 @@ html.light .logo-img-light { display: inline; }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 18px 20px;
+  padding: 12px 16px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -5016,15 +5111,22 @@ html.light .logo-img-light { display: inline; }
   transition: all var(--transition);
   position: relative;
   box-shadow: var(--shadow);
-  min-height: 60px;
+  min-height: 44px;
 }
 .folder-card:hover {
   border-color: var(--border-hover);
   background: var(--bg-card-hover);
 }
 .folder-card-icon {
-  font-size: 22px;
+  font-size: 18px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+}
+.folder-card-icon svg {
+  width: 18px;
+  height: 18px;
 }
 .folder-card-name {
   font-size: 13px;

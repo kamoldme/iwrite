@@ -9,6 +9,7 @@ const App = {
   _docsCacheDirty: true,
   _docsPage: 1,
   _docsPerPage: 10,
+  _searchQuery: '',
   sessionDuration: 15,
   sessionMode: 'normal',
   toastTimer: null,
@@ -414,6 +415,11 @@ const App = {
 
     document.getElementById('create-folder-btn').addEventListener('click', () => this.createFolder());
     document.getElementById('history-btn').addEventListener('click', () => this.openHistoryModal());
+    document.getElementById('session-search').addEventListener('input', (e) => {
+      this._searchQuery = e.target.value.trim().toLowerCase();
+      this._docsPage = 1;
+      this._renderDocumentsView();
+    });
     document.getElementById('history-close').addEventListener('click', () => this.closeHistorySidebar());
     document.getElementById('history-sidebar-overlay').addEventListener('click', () => this.closeHistorySidebar());
     document.getElementById('comment-history-close').addEventListener('click', () => this.closeCommentHistorySidebar());
@@ -604,7 +610,7 @@ const App = {
       folderContainer.innerHTML = childFolders.map(f => {
         const count = this.countDocsInFolder(f.id, visibleDocs);
         return `<div class="folder-card" data-folder-id="${f.id}">
-          <span class="folder-card-icon">📁</span>
+          <span class="folder-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span>
           <span class="folder-card-name">${this.escapeHtml(f.name)}</span>
           <span class="folder-card-count">${count}</span>
           <button class="folder-card-menu" data-folder-menu="${f.id}" title="Options">⋯</button>
@@ -630,9 +636,14 @@ const App = {
     }
 
     // Filter docs by current folder
-    const folderDocs = this.currentFolder
+    let folderDocs = this.currentFolder
       ? visibleDocs.filter(d => d.folder === this.currentFolder)
       : visibleDocs.filter(d => !d.folder);
+
+    // Apply search filter
+    if (this._searchQuery) {
+      folderDocs = folderDocs.filter(d => (d.title || '').toLowerCase().includes(this._searchQuery));
+    }
 
     this.renderDocumentList('all-docs', folderDocs);
 
@@ -713,15 +724,25 @@ const App = {
 
     let html = pageDocs.map(doc => {
       const isFailed = doc.deletedBySystem;
+      const isDangerous = doc.mode === 'dangerous';
+      const iconClass = isFailed ? 'doc-icon-failed' : isDangerous ? 'doc-icon-dangerous' : doc.completed ? 'doc-icon-completed' : 'doc-icon-draft';
+      const iconSvg = isFailed
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+        : isDangerous
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
       return `
       <div class="doc-card ${isFailed ? 'doc-failed' : ''}" data-id="${doc.id}">
         <div class="doc-card-info">
-          <h4>${this.escapeHtml(doc.title)} ${isFailed ? '<span class="badge badge-failed">FAILED</span>' : ''}</h4>
-          <div class="doc-card-meta">
-            <span>${doc.wordCount || 0} words</span>
-            <span>${doc.mode === 'dangerous' ? '&#x26A1; Dangerous' : 'Normal'}</span>
-            <span>${this.formatDate(doc.updatedAt)}</span>
-            ${doc.xpEarned ? `<span class="xp-gained">+${doc.xpEarned} XP</span>` : ''}
+          <div class="doc-icon ${iconClass}">${iconSvg}</div>
+          <div class="doc-card-text">
+            <h4>${this.escapeHtml(doc.title)} ${isFailed ? '<span class="badge badge-failed">FAILED</span>' : ''}</h4>
+            <div class="doc-card-meta">
+              <span>${doc.wordCount || 0} words</span>
+              <span>${isDangerous ? '&#x26A1; Dangerous' : 'Normal'}</span>
+              <span>${this.formatDate(doc.updatedAt)}</span>
+              ${doc.xpEarned ? `<span class="xp-gained">+${doc.xpEarned} XP</span>` : ''}
+            </div>
           </div>
         </div>
         <button class="doc-card-menu-btn" data-doc-id="${doc.id}" title="Options">
@@ -1031,7 +1052,7 @@ const App = {
           document.getElementById('duel-sent-list').innerHTML = sentDuels.map(d => `
             <div class="duel-request-card duel-sent-card">
               <div class="duel-request-info">
-                <h4>⏳ Waiting for ${this.escapeHtml(d.opponentName)}</h4>
+                <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Waiting for ${this.escapeHtml(d.opponentName)}</h4>
                 <span>${d.duration} min duel</span>
               </div>
               <div class="duel-request-actions">
@@ -1071,13 +1092,13 @@ const App = {
             resultText = 'LOST';
             subtitle = '<span style="font-size:12px;color:var(--text-muted)">You left the session</span>';
           } else if (oppForfeited) {
-            resultText = 'WON 🏆';
+            resultText = 'WON <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/></svg>';
             subtitle = `<span style="font-size:12px;color:var(--text-muted)">${this.escapeHtml(oppName)} left the session</span>`;
           } else if (tie) {
             resultText = 'TIE';
             subtitle = `<span style="font-size:12px;color:var(--text-muted)">${d.duration} min duel</span>`;
           } else {
-            resultText = won ? 'WON 🏆' : 'LOST';
+            resultText = won ? 'WON <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/></svg>' : 'LOST';
             subtitle = `<span style="font-size:12px;color:var(--text-muted)">${d.duration} min duel</span>`;
           }
 
@@ -1571,17 +1592,17 @@ const App = {
             <div class="doc-card-info">
               <h4>${this.escapeHtml(f.name)}</h4>
               <div class="friend-stats">
-                <span class="friend-stat" title="Total words">📝 ${(f.totalWords || 0).toLocaleString()}</span>
-                <span class="friend-stat" title="Streak">🔥 ${f.streak || 0}</span>
-                <span class="friend-stat" title="Level">⭐ Lv${fl.level} (${(f.xp || 0).toLocaleString()} XP)</span>
+                <span class="friend-stat" title="Total words"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>${(f.totalWords || 0).toLocaleString()}</span>
+                <span class="friend-stat" title="Streak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>${f.streak || 0}</span>
+                <span class="friend-stat" title="Level"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>Lv${fl.level} (${(f.xp || 0).toLocaleString()} XP)</span>
               </div>
             </div>
             <div class="doc-card-actions">
               <button class="doc-action-btn" onclick="App.challengeFriend('${f.id}')" title="Challenge to duel">
-                <span style="font-size:16px">⚔️</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>
               </button>
               <button class="doc-action-btn delete" onclick="App.confirmRemoveFriend('${f.id}', '${this.escapeHtml(f.name)}')" title="Remove friend">
-                <span style="font-size:14px">🗑️</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
               </button>
             </div>
           </div>`;
@@ -1686,14 +1707,15 @@ const App = {
   _formatActivity(a) {
     const rawName = this.escapeHtml(a.data?.name || 'Someone');
     const name = `<strong style="color:#d4a017">${rawName}</strong>`;
+    const _ai = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
     switch (a.type) {
-      case 'long_session': return { icon: '✍️', text: `${name} wrote for ${a.data.duration} minutes straight!` };
-      case 'word_milestone': return { icon: '📚', text: `${name} just hit ${(a.data.words || 0).toLocaleString()} total words!` };
-      case 'streak_milestone': return { icon: '🔥', text: `${name} reached a ${a.data.streak}-day streak!` };
-      case 'level_up': return { icon: '⭐', text: `${name} reached Level ${a.data.level}!` };
-      case 'duel_won': { const opp = `<strong style="color:#d4a017">${this.escapeHtml(a.data.opponentName || 'someone')}</strong>`; return { icon: '⚔️', text: `${name} won a duel vs ${opp}!` }; }
-      case 'target_reached': return { icon: '🎯', text: `${name} hit their target of ${a.data.targetWords} words!` };
-      default: return { icon: '📝', text: `${name} did something awesome!` };
+      case 'long_session': return { icon: _ai('<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>'), text: `${name} wrote for ${a.data.duration} minutes straight!` };
+      case 'word_milestone': return { icon: _ai('<path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>'), text: `${name} just hit ${(a.data.words || 0).toLocaleString()} total words!` };
+      case 'streak_milestone': return { icon: _ai('<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>'), text: `${name} reached a ${a.data.streak}-day streak!` };
+      case 'level_up': return { icon: _ai('<polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>'), text: `${name} reached Level ${a.data.level}!` };
+      case 'duel_won': { const opp = `<strong style="color:#d4a017">${this.escapeHtml(a.data.opponentName || 'someone')}</strong>`; return { icon: _ai('<path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/>'), text: `${name} won a duel vs ${opp}!` }; }
+      case 'target_reached': return { icon: _ai('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'), text: `${name} hit their target of ${a.data.targetWords} words!` };
+      default: return { icon: _ai('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'), text: `${name} did something awesome!` };
     }
   },
 
