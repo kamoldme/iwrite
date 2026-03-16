@@ -1076,7 +1076,7 @@ html.light .logo-img-light { display: inline; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 24px 16px;
-  margin-bottom: 32px;
+  margin-bottom: 0;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -3742,6 +3742,8 @@ html.light .logo-img-light { display: inline; }
   padding: 20px;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .heatmap-section::before {
@@ -3782,6 +3784,9 @@ html.light .logo-img-light { display: inline; }
   overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+  flex: 1;
+  display: flex;
+  align-items: center;
 }
 
 .heatmap-scroll::-webkit-scrollbar {
@@ -3803,39 +3808,39 @@ html.light .logo-img-light { display: inline; }
 .heatmap-day-labels {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   margin-right: 6px;
   flex-shrink: 0;
 }
 
 .heatmap-day-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-muted);
-  height: 13px;
-  line-height: 13px;
+  height: 16px;
+  line-height: 16px;
   text-align: right;
-  width: 24px;
+  width: 26px;
 }
 
 .heatmap-weeks {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .heatmap-month-row {
   display: flex;
-  gap: 3px;
+  gap: 4px;
   margin-bottom: 2px;
-  height: 12px;
+  height: 14px;
 }
 
 .heatmap-month-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-muted);
-  width: 13px;
+  width: 16px;
   text-align: left;
   flex-shrink: 0;
   white-space: nowrap;
@@ -3844,13 +3849,13 @@ html.light .logo-img-light { display: inline; }
 
 .heatmap-row {
   display: flex;
-  gap: 3px;
+  gap: 4px;
 }
 
 .heatmap-cell {
-  width: 13px;
-  height: 13px;
-  border-radius: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
   background: var(--border-light);
   transition: outline 0.12s, transform 0.12s;
   flex-shrink: 0;
@@ -3943,7 +3948,7 @@ html.light .logo-img-light { display: inline; }
   grid-template-columns: 1fr 300px;
   gap: 20px;
   margin-bottom: 24px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .dashboard-recent {
