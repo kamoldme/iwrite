@@ -503,7 +503,7 @@ const App = {
     document.getElementById('total-xp').textContent = (this.user.xp || 0).toLocaleString();
 
     const { level, xpInLevel, xpForNextLevel } = this.calcXPLevel(this.user.xp || 0);
-    document.getElementById('xp-level-text').innerHTML = `&#x1F396;&#xFE0F; Level ${level}`;
+    document.getElementById('xp-level-text').innerHTML = `Level ${level}`;
     document.getElementById('xp-progress-text').textContent = `${xpInLevel.toLocaleString()} / ${xpForNextLevel.toLocaleString()} XP`;
     document.getElementById('xp-bar-fill').style.width = `${Math.min(100, (xpInLevel / xpForNextLevel) * 100)}%`;
 
@@ -532,9 +532,100 @@ const App = {
     } catch {
       this.documents = [];
     }
+
+    // --- Render 7-day bar chart ---
+    this._renderWeekChart();
+
+    // --- Render donut chart ---
+    this._renderDonutChart();
+
     // Only show non-failed, non-admin-deactivated docs in main lists
     const visibleDocs = this.documents.filter(d => !d.deletedBySystem && !d.deactivatedByAdmin);
     this.renderDocumentList('recent-docs', visibleDocs.slice(0, 3));
+  },
+
+  _renderWeekChart() {
+    const container = document.getElementById('week-chart');
+    if (!container) return;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    // Build last 7 days array (oldest first)
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      days.push({ date: d, words: 0 });
+    }
+
+    // Sum word counts per day from completed documents
+    const allDocs = this.documents || [];
+    allDocs.forEach(doc => {
+      if (!doc.updatedAt || !doc.wordCount) return;
+      const docDate = new Date(doc.updatedAt);
+      const docDay = new Date(docDate.getFullYear(), docDate.getMonth(), docDate.getDate());
+      days.forEach(day => {
+        if (day.date.getTime() === docDay.getTime() && !doc.deletedBySystem) {
+          day.words += doc.wordCount;
+        }
+      });
+    });
+
+    const maxWords = Math.max(...days.map(d => d.words), 1);
+
+    container.innerHTML = days.map((day, i) => {
+      const pct = Math.max((day.words / maxWords) * 100, 0);
+      const isToday = day.date.getTime() === today.getTime();
+      const isEmpty = day.words === 0;
+      const barClass = isEmpty ? 'week-bar week-bar-empty' : (isToday ? 'week-bar week-bar-today' : 'week-bar');
+      const dayClass = isToday ? 'week-bar-day week-bar-day-today' : 'week-bar-day';
+      const heightStyle = isEmpty ? 'height: 2px' : `height: ${Math.max(pct, 4)}%`;
+      return `<div class="week-bar-col">
+        <span class="week-bar-value">${day.words > 0 ? day.words.toLocaleString() : ''}</span>
+        <div class="${barClass}" style="${heightStyle}"></div>
+        <span class="${dayClass}">${dayNames[day.date.getDay()]}</span>
+      </div>`;
+    }).join('');
+  },
+
+  _renderDonutChart() {
+    const donutEl = document.getElementById('donut-chart');
+    const legendEl = document.getElementById('donut-legend');
+    if (!donutEl || !legendEl) return;
+
+    const allDocs = this.documents || [];
+    const completed = allDocs.filter(d => !d.deletedBySystem && !d.deactivatedByAdmin && d.wordCount > 0).length;
+    const failed = allDocs.filter(d => d.deletedBySystem).length;
+    const total = completed + failed;
+
+    if (total === 0) {
+      donutEl.style.background = 'var(--border)';
+      donutEl.innerHTML = `<div class="donut-center"><span class="donut-center-value">--</span><span class="donut-center-label">No data</span></div>`;
+      legendEl.innerHTML = '';
+      return;
+    }
+
+    const completedPct = Math.round((completed / total) * 100);
+    const failedPct = 100 - completedPct;
+    const completedDeg = (completed / total) * 360;
+
+    donutEl.style.background = `conic-gradient(#34d399 0deg ${completedDeg}deg, #ef4444 ${completedDeg}deg 360deg)`;
+    donutEl.innerHTML = `<div class="donut-center"><span class="donut-center-value">${completedPct}%</span><span class="donut-center-label">Success</span></div>`;
+
+    legendEl.innerHTML = `
+      <div class="donut-legend-item">
+        <span class="donut-legend-dot" style="background:#34d399"></span>
+        Completed
+        <span class="donut-legend-count">${completed}</span>
+      </div>
+      <div class="donut-legend-item">
+        <span class="donut-legend-dot" style="background:#ef4444"></span>
+        Failed
+        <span class="donut-legend-count">${failed}</span>
+      </div>
+    `;
   },
 
   async loadDocuments(forceRefresh) {

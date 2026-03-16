@@ -244,10 +244,18 @@ router.delete('/support/:id', (req, res) => {
 
 // ===== DUELS =====
 router.get('/duels', (req, res) => {
-  const docs = findMany('documents.json');
-  // Duels are tracked as documents with duel-related fields
-  // For now return duel placeholder — the system can be expanded when duels are fully implemented
-  res.json([]);
+  const duels = findMany('duels.json');
+  const users = findMany('users.json');
+  const getName = (id) => {
+    const u = users.find(u => u.id === id);
+    return u ? u.name : 'Unknown';
+  };
+  const enriched = duels.map(d => ({
+    ...d,
+    challengerName: getName(d.challengerId),
+    opponentName: getName(d.opponentId)
+  })).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  res.json(enriched);
 });
 
 // ===== COMMENTS (admin view) =====

@@ -57,12 +57,12 @@
       padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none;
       cursor: pointer; transition: var(--transition);
     }
-    .admin-btn-primary { background: var(--accent); color: white; }
+    .admin-btn-primary { background: var(--accent); color: #0a0a0a; }
     .admin-btn-primary:hover { opacity: 0.85; }
     .admin-btn-danger { background: var(--danger-soft); color: var(--danger); }
     .admin-btn-danger:hover { background: var(--danger); color: white; }
     .admin-btn-success { background: var(--success-soft); color: var(--success); }
-    .admin-btn-success:hover { background: var(--success); color: white; }
+    .admin-btn-success:hover { background: var(--success); color: #0a0a0a; }
     .admin-btn-ghost { background: var(--hover-bg); color: var(--text-secondary); }
     .admin-btn-ghost:hover { background: var(--border); color: var(--text-primary); }
 
@@ -122,10 +122,10 @@
 
     /* Badges */
     .badge { display: inline-block; padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; }
-    .badge-admin { background: var(--gradient-accent); color: white; }
+    .badge-admin { background: var(--gradient-accent); color: #0a0a0a; }
     .badge-user { background: var(--hover-bg); color: var(--text-secondary); }
     .badge-free { background: var(--hover-bg); color: var(--text-secondary); }
-    .badge-premium { background: var(--gradient-accent); color: white; }
+    .badge-premium { background: var(--gradient-accent); color: #0a0a0a; }
     .badge-active { background: var(--success-soft); color: var(--success); }
     .badge-deleted { background: var(--danger-soft); color: var(--danger); }
     .badge-lost { background: rgba(245, 158, 11, 0.12); color: var(--warning); }
@@ -331,6 +331,9 @@
         <!-- DUELS -->
         <div id="tab-duels" style="display:none">
           <div class="admin-page-title">Duel History</div>
+          <div style="margin-bottom: 16px;">
+            <input type="text" id="duels-search" class="admin-search" placeholder="Search duels by player name..." oninput="filterDuels()">
+          </div>
           <div id="duels-list">
             <div class="admin-empty">No duel history yet. Duels will appear here when users start battling.</div>
           </div>
@@ -583,7 +586,7 @@
       document.getElementById('admin-panel').style.display = 'block';
       const savedTab = localStorage.getItem('iwrite_admin_tab') || 'overview';
       switchAdminTab(savedTab);
-      await Promise.all([loadOverview(), loadUsers(), loadDocs(), loadLogs(), loadSupport()]);
+      await Promise.all([loadOverview(), loadUsers(), loadDocs(), loadLogs(), loadSupport(), loadDuels()]);
     }
 
     // ===== OVERVIEW =====
@@ -1010,6 +1013,76 @@
         toast('Ticket deleted', 'success');
         loadSupport();
       } catch { toast('Failed', 'error'); }
+    }
+
+    // ===== DUELS =====
+    let allDuels = [];
+    async function loadDuels() {
+      try {
+        allDuels = await adminRequest('/admin/duels');
+        renderDuels(allDuels);
+      } catch { toast('Failed to load duels', 'error'); }
+    }
+
+    function renderDuels(duels) {
+      const el = document.getElementById('duels-list');
+      if (!duels || duels.length === 0) {
+        el.innerHTML = '<div class="admin-empty">No duel history yet. Duels will appear here when users start battling.</div>';
+        return;
+      }
+      el.innerHTML = `
+        <table class="admin-table">
+          <thead><tr>
+            <th>Challenger</th><th>Opponent</th><th>Duration</th><th>Winner</th><th>Status</th><th>Date</th>
+          </tr></thead>
+          <tbody>${duels.map(d => {
+            const duration = d.duration ? `${d.duration} min` : '—';
+            const date = d.createdAt ? new Date(d.createdAt).toLocaleDateString() : '—';
+            let winnerName = '—';
+            let statusBadge = '';
+            if (d.status === 'completed') {
+              if (d.winnerId === d.challengerId) {
+                winnerName = d.challengerName;
+              } else if (d.winnerId === d.opponentId) {
+                winnerName = d.opponentName;
+              } else if (d.winnerId === 'tie') {
+                winnerName = 'Tie';
+              }
+              statusBadge = d.winnerId === 'tie'
+                ? '<span class="badge badge-lost">Tie</span>'
+                : '<span class="badge badge-active">Won</span>';
+            } else if (d.status === 'pending') {
+              statusBadge = '<span class="badge badge-replied">Pending</span>';
+            } else if (d.status === 'declined') {
+              statusBadge = '<span class="badge badge-deleted">Declined</span>';
+            } else if (d.status === 'active') {
+              statusBadge = '<span class="badge badge-open">Active</span>';
+            } else if (d.status === 'abandoned') {
+              statusBadge = '<span class="badge badge-deleted">Abandoned</span>';
+            } else {
+              statusBadge = '<span class="badge badge-user">' + (d.status || 'Unknown') + '</span>';
+            }
+            return `<tr>
+              <td>${d.challengerName || '—'}</td>
+              <td>${d.opponentName || '—'}</td>
+              <td>${duration}</td>
+              <td>${winnerName}</td>
+              <td>${statusBadge}</td>
+              <td>${date}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      `;
+    }
+
+    function filterDuels() {
+      const q = document.getElementById('duels-search').value.toLowerCase();
+      if (!q) { renderDuels(allDuels); return; }
+      const filtered = allDuels.filter(d =>
+        (d.challengerName || '').toLowerCase().includes(q) ||
+        (d.opponentName || '').toLowerCase().includes(q)
+      );
+      renderDuels(filtered);
     }
 
     // ===== INIT =====
