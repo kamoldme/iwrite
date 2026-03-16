@@ -419,8 +419,8 @@ router.post('/:id/ready', (req, res) => {
   }
 });
 
-// POST /:id/add-time — either side can add extra time directly (no approval needed)
-router.post('/:id/add-time', (req, res) => {
+// POST /:id/request-time — request extra time (other side must accept)
+router.post('/:id/request-time', (req, res) => {
   try {
     const { minutes } = req.body;
     const duel = findOne('duels.json', d => d.id === req.params.id);
@@ -429,12 +429,42 @@ router.post('/:id/add-time', (req, res) => {
       return res.status(403).json({ error: 'Not your duel' });
     }
     if (duel.status !== 'active') return res.status(400).json({ error: 'Duel is not active' });
+    if (duel.extraTimeRequest) return res.status(400).json({ error: 'A time request is already pending' });
 
     const extraMinutes = Math.min(Math.max(parseInt(minutes) || 5, 1), 30);
-    const addedMs = extraMinutes * 60 * 1000;
-    const newEnd = new Date(new Date(duel.endAt).getTime() + addedMs).toISOString();
-    const updated = updateOne('duels.json', d => d.id === req.params.id, { endAt: newEnd });
+    const requesterName = duel.challengerId === req.user.id ? duel.challengerName : duel.opponentName;
+    const updated = updateOne('duels.json', d => d.id === req.params.id, {
+      extraTimeRequest: { requestedBy: req.user.id, requesterName, minutes: extraMinutes }
+    });
     res.json(updated);
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /:id/respond-time — accept or reject extra time request
+router.post('/:id/respond-time', (req, res) => {
+  try {
+    const { accept } = req.body;
+    const duel = findOne('duels.json', d => d.id === req.params.id);
+    if (!duel) return res.status(404).json({ error: 'Duel not found' });
+    if (!duel.extraTimeRequest) return res.status(400).json({ error: 'No time request pending' });
+    if (duel.extraTimeRequest.requestedBy === req.user.id) {
+      return res.status(400).json({ error: 'Cannot respond to your own request' });
+    }
+
+    if (accept) {
+      const addedMs = duel.extraTimeRequest.minutes * 60 * 1000;
+      const newEnd = new Date(new Date(duel.endAt).getTime() + addedMs).toISOString();
+      const updated = updateOne('duels.json', d => d.id === req.params.id, {
+        endAt: newEnd,
+        extraTimeRequest: null
+      });
+      return res.json(updated);
+    } else {
+      const updated = updateOne('duels.json', d => d.id === req.params.id, { extraTimeRequest: null });
+      return res.json(updated);
+    }
   } catch {
     res.status(500).json({ error: 'Server error' });
   }

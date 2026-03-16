@@ -121,6 +121,7 @@ const Editor = {
     this.modeBadge.textContent = mode === 'dangerous' ? 'Dangerous' : 'Normal';
     this.modeBadge.className = `editor-mode-badge ${mode}`;
     // Show session controls (swap add-time buttons for duel mode)
+    document.getElementById('editor-timer').style.display = '';
     document.getElementById('editor-timer-toggle').style.display = '';
     document.querySelector('.editor-add-time').style.display = isDuel ? 'none' : '';
     document.getElementById('duel-add-time-btn').style.display = isDuel ? '' : 'none';
@@ -675,6 +676,21 @@ const Editor = {
         if (rightWords) rightWords.textContent = myWords;
       }
 
+      // Check for incoming extra time request from opponent
+      const myId = this._duelInfo.isChallenger ? duel.challengerId : duel.opponentId;
+      if (duel.extraTimeRequest && duel.extraTimeRequest.requestedBy !== myId) {
+        // Opponent wants extra time — show accept/reject toast
+        const reqEl = document.getElementById('duel-extra-time-req');
+        if (reqEl && reqEl.style.display === 'none') {
+          document.getElementById('duel-extra-time-text').textContent = `+${duel.extraTimeRequest.minutes} min?`;
+          reqEl.style.display = 'flex';
+        }
+      } else {
+        // No pending request or it's mine — hide toast
+        const reqEl = document.getElementById('duel-extra-time-req');
+        if (reqEl) reqEl.style.display = 'none';
+      }
+
       // Detect extra time added (endAt extended since last poll)
       if (this._lastKnownEndAt && duel.endAt && duel.endAt !== this._lastKnownEndAt && new Date(duel.endAt) > new Date(this._lastKnownEndAt)) {
         App.toast('Extra time added! ⏰', 'success');
@@ -708,15 +724,42 @@ const Editor = {
     this._duelPollTimer = setTimeout(() => this._pollDuel(), this._duelPollDelay);
   },
 
-  // Add 5 minutes of extra time — no approval needed, either side can click it
+  // Request +5 min — sends request to opponent who must accept/reject
   async addExtraTime() {
     if (!this._duelInfo) return;
     try {
-      await API.addDuelTime(this._duelInfo.duelId, 5);
+      await API.requestDuelTime(this._duelInfo.duelId, 5);
+      App.toast('Requested +5 min — waiting for opponent', 'info');
+    } catch (e) {
+      App.toast(e.message || 'Failed to request extra time', 'error');
+    }
+  },
+
+  async acceptExtraTime() {
+    if (!this._duelInfo) return;
+    try {
+      await API.respondDuelTime(this._duelInfo.duelId, true);
       App.toast('+5 min added! ⏰', 'success');
     } catch (e) {
-      App.toast(e.message || 'Failed to add time', 'error');
+      App.toast(e.message || 'Failed to accept', 'error');
     }
+    this._hideExtraTimeToast();
+  },
+
+  async declineExtraTime() {
+    if (!this._duelInfo) return;
+    try {
+      await API.respondDuelTime(this._duelInfo.duelId, false);
+      App.toast('Extra time declined', '');
+    } catch (e) {
+      App.toast(e.message || 'Failed to decline', 'error');
+    }
+    this._hideExtraTimeToast();
+  },
+
+  _hideExtraTimeToast() {
+    const el = document.getElementById('duel-extra-time-req');
+    if (el) el.style.display = 'none';
   },
 
   _stopDuelPolling() {

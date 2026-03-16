@@ -548,6 +548,12 @@
         </div>
         <span class="duel-bar-forfeit" id="duel-bar-forfeit" style="display:none">Opponent left!</span>
       </div>
+      <!-- Extra time request toast (accept/reject) -->
+      <div class="duel-extra-time-request" id="duel-extra-time-req" style="display:none">
+        <span id="duel-extra-time-text">+5 min?</span>
+        <button class="duel-extra-time-accept" onclick="Editor.acceptExtraTime()">✓</button>
+        <button class="duel-extra-time-decline" onclick="Editor.declineExtraTime()">✗</button>
+      </div>
       <!-- Row 2: Formatting toolbar (hidden in danger mode) -->
       <div class="editor-format-bar" id="formatting-toolbar" style="display:none">
         <!-- Font selector -->

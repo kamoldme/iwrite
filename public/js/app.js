@@ -785,7 +785,9 @@ const App = {
       document.getElementById('formatting-toolbar').style.display = 'none'; // shown on Edit
       // Hide session-only controls
       document.getElementById('editor-timer-toggle').style.display = 'none';
+      document.getElementById('editor-timer').style.display = 'none';
       document.querySelector('.editor-add-time').style.display = 'none';
+      document.getElementById('duel-add-time-btn').style.display = 'none';
       document.getElementById('editor-topic-bar').style.display = 'none';
 
       // Show Edit button, hide session buttons
@@ -1090,13 +1092,15 @@ const App = {
           return `
           <div class="duel-history-card ${resultClass}">
             <div class="duel-history-info">
-              <span style="font-size:14px;font-weight:600">
+              <div style="font-size:14px;font-weight:600">
                 <span style="color:var(--${won ? 'success' : tie ? 'text-muted' : 'danger'})">You</span>
-                <span style="color:var(--text-muted);font-size:12px;font-weight:400"> ${myWords} words </span>
                 <span style="color:var(--text-muted)"> vs </span>
-                <span style="color:var(--text-muted);font-size:12px;font-weight:400"> ${oppWords} words </span>
                 <span style="color:var(--${won ? 'danger' : tie ? 'text-muted' : 'success'})">${this.escapeHtml(oppName)}</span>
-              </span>
+              </div>
+              <div style="font-size:13px;color:var(--text-secondary);display:flex;gap:24px">
+                <span>${myWords} words</span>
+                <span>${oppWords} words</span>
+              </div>
               ${subtitle}
             </div>
             <div style="display:flex;align-items:center;gap:8px">
