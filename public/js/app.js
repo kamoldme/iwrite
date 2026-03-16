@@ -1069,16 +1069,16 @@ const App = {
           let resultText, subtitle;
           if (iForfeited) {
             resultText = 'LOST';
-            subtitle = '<span style="color:var(--danger);font-size:12px">You left the session</span>';
+            subtitle = '<span style="font-size:12px;color:var(--text-muted)">You left the session</span>';
           } else if (oppForfeited) {
             resultText = 'WON 🏆';
-            subtitle = `<span style="color:var(--success);font-size:12px">${this.escapeHtml(oppName)} left the session</span>`;
+            subtitle = `<span style="font-size:12px;color:var(--text-muted)">${this.escapeHtml(oppName)} left the session</span>`;
           } else if (tie) {
             resultText = 'TIE';
-            subtitle = `<span style="color:var(--text-muted);font-size:12px">${d.duration} min duel</span>`;
+            subtitle = `<span style="font-size:12px;color:var(--text-muted)">${d.duration} min duel</span>`;
           } else {
             resultText = won ? 'WON 🏆' : 'LOST';
-            subtitle = `<span style="color:var(--text-muted);font-size:12px">${d.duration} min duel</span>`;
+            subtitle = `<span style="font-size:12px;color:var(--text-muted)">${d.duration} min duel</span>`;
           }
 
           // Date/time
@@ -1093,11 +1093,11 @@ const App = {
           <div class="duel-history-card ${resultClass}">
             <div class="duel-history-info">
               <div style="font-size:14px;font-weight:600">
-                <span style="color:var(--${won ? 'success' : tie ? 'text-muted' : 'danger'})">You</span>
+                <span style="color:#d4a017">You</span>
                 <span style="color:var(--text-muted)"> vs </span>
-                <span style="color:var(--${won ? 'danger' : tie ? 'text-muted' : 'success'})">${this.escapeHtml(oppName)}</span>
+                <span style="color:#c0392b">${this.escapeHtml(oppName)}</span>
               </div>
-              <div style="font-size:13px;color:var(--text-secondary);display:flex;gap:24px">
+              <div style="font-size:13px;color:var(--text-muted);display:flex;gap:24px">
                 <span>${myWords} words</span>
                 <span>${oppWords} words</span>
               </div>
@@ -1684,15 +1684,16 @@ const App = {
   },
 
   _formatActivity(a) {
-    const name = this.escapeHtml(a.data?.name || 'Someone');
+    const rawName = this.escapeHtml(a.data?.name || 'Someone');
+    const name = `<strong style="color:#d4a017">${rawName}</strong>`;
     switch (a.type) {
-      case 'long_session': return { icon: '✍️', text: `<strong>${name}</strong> wrote for ${a.data.duration} minutes straight!` };
-      case 'word_milestone': return { icon: '📚', text: `<strong>${name}</strong> just hit ${(a.data.words || 0).toLocaleString()} total words!` };
-      case 'streak_milestone': return { icon: '🔥', text: `<strong>${name}</strong> reached a ${a.data.streak}-day streak!` };
-      case 'level_up': return { icon: '⭐', text: `<strong>${name}</strong> reached Level ${a.data.level}!` };
-      case 'duel_won': return { icon: '⚔️', text: `<strong>${name}</strong> won a duel vs ${this.escapeHtml(a.data.opponentName || 'someone')}!` };
-      case 'target_reached': return { icon: '🎯', text: `<strong>${name}</strong> hit their target of ${a.data.targetWords} words!` };
-      default: return { icon: '📝', text: `<strong>${name}</strong> did something awesome!` };
+      case 'long_session': return { icon: '✍️', text: `${name} wrote for ${a.data.duration} minutes straight!` };
+      case 'word_milestone': return { icon: '📚', text: `${name} just hit ${(a.data.words || 0).toLocaleString()} total words!` };
+      case 'streak_milestone': return { icon: '🔥', text: `${name} reached a ${a.data.streak}-day streak!` };
+      case 'level_up': return { icon: '⭐', text: `${name} reached Level ${a.data.level}!` };
+      case 'duel_won': { const opp = `<strong style="color:#d4a017">${this.escapeHtml(a.data.opponentName || 'someone')}</strong>`; return { icon: '⚔️', text: `${name} won a duel vs ${opp}!` }; }
+      case 'target_reached': return { icon: '🎯', text: `${name} hit their target of ${a.data.targetWords} words!` };
+      default: return { icon: '📝', text: `${name} did something awesome!` };
     }
   },
 

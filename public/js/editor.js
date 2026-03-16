@@ -724,12 +724,17 @@ const Editor = {
     this._duelPollTimer = setTimeout(() => this._pollDuel(), this._duelPollDelay);
   },
 
-  // Request +5 min — sends request to opponent who must accept/reject
+  // Request +5 min — if opponent left, adds directly; otherwise sends request
   async addExtraTime() {
     if (!this._duelInfo) return;
     try {
-      await API.requestDuelTime(this._duelInfo.duelId, 5);
-      App.toast('Requested +5 min — waiting for opponent', 'info');
+      const result = await API.requestDuelTime(this._duelInfo.duelId, 5);
+      // If opponent already left, server adds time directly (no extraTimeRequest in response)
+      if (this._duelForfeitNotified || !result.extraTimeRequest) {
+        App.toast('+5 min added! ⏰', 'success');
+      } else {
+        App.toast('Requested +5 min — waiting for opponent', 'info');
+      }
     } catch (e) {
       App.toast(e.message || 'Failed to request extra time', 'error');
     }

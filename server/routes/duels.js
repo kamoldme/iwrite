@@ -432,6 +432,15 @@ router.post('/:id/request-time', (req, res) => {
     if (duel.extraTimeRequest) return res.status(400).json({ error: 'A time request is already pending' });
 
     const extraMinutes = Math.min(Math.max(parseInt(minutes) || 5, 1), 30);
+
+    // If opponent already left, add time directly — no one to ask
+    if (duel.forfeitedBy && duel.forfeitedBy !== req.user.id) {
+      const addedMs = extraMinutes * 60 * 1000;
+      const newEnd = new Date(new Date(duel.endAt).getTime() + addedMs).toISOString();
+      const updated = updateOne('duels.json', d => d.id === req.params.id, { endAt: newEnd });
+      return res.json(updated);
+    }
+
     const requesterName = duel.challengerId === req.user.id ? duel.challengerName : duel.opponentName;
     const updated = updateOne('duels.json', d => d.id === req.params.id, {
       extraTimeRequest: { requestedBy: req.user.id, requesterName, minutes: extraMinutes }

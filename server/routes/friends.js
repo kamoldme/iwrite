@@ -159,7 +159,7 @@ router.get('/feed', (req, res) => {
     const friendIds = new Set(user.friends || []);
     if (friendIds.size === 0) return res.json([]);
     const allActivities = findMany('activities.json', a => friendIds.has(a.userId));
-    const sorted = allActivities.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 50);
+    const sorted = allActivities.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
     res.json(sorted);
   } catch {
     res.status(500).json({ error: 'Server error' });
