@@ -1707,15 +1707,14 @@ const App = {
   _formatActivity(a) {
     const rawName = this.escapeHtml(a.data?.name || 'Someone');
     const name = `<strong style="color:#d4a017">${rawName}</strong>`;
-    const _ai = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
     switch (a.type) {
-      case 'long_session': return { icon: _ai('<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>'), text: `${name} wrote for ${a.data.duration} minutes straight!` };
-      case 'word_milestone': return { icon: _ai('<path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>'), text: `${name} just hit ${(a.data.words || 0).toLocaleString()} total words!` };
-      case 'streak_milestone': return { icon: _ai('<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>'), text: `${name} reached a ${a.data.streak}-day streak!` };
-      case 'level_up': return { icon: _ai('<polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>'), text: `${name} reached Level ${a.data.level}!` };
-      case 'duel_won': { const opp = `<strong style="color:#d4a017">${this.escapeHtml(a.data.opponentName || 'someone')}</strong>`; return { icon: _ai('<path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/>'), text: `${name} won a duel vs ${opp}!` }; }
-      case 'target_reached': return { icon: _ai('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'), text: `${name} hit their target of ${a.data.targetWords} words!` };
-      default: return { icon: _ai('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'), text: `${name} did something awesome!` };
+      case 'long_session': return { icon: '✍️', text: `${name} wrote for ${a.data.duration} minutes straight!` };
+      case 'word_milestone': return { icon: '📚', text: `${name} just hit ${(a.data.words || 0).toLocaleString()} total words!` };
+      case 'streak_milestone': return { icon: '🔥', text: `${name} reached a ${a.data.streak}-day streak!` };
+      case 'level_up': return { icon: '⭐', text: `${name} reached Level ${a.data.level}!` };
+      case 'duel_won': { const opp = `<strong style="color:#d4a017">${this.escapeHtml(a.data.opponentName || 'someone')}</strong>`; return { icon: '⚔️', text: `${name} won a duel vs ${opp}!` }; }
+      case 'target_reached': return { icon: '🎯', text: `${name} hit their target of ${a.data.targetWords} words!` };
+      default: return { icon: '📝', text: `${name} did something awesome!` };
     }
   },
 

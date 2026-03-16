@@ -1320,14 +1320,42 @@ html.light .logo-img-light { display: inline; }
   display: flex;
   justify-content: center;
   margin: 24px 0 32px;
+  position: relative;
+}
+
+@keyframes duel-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(108, 92, 231, 0.5), var(--shadow); }
+  50% { box-shadow: 0 0 20px 8px rgba(108, 92, 231, 0.25), var(--shadow-lg); }
+}
+
+@keyframes duel-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
 }
 
 .duel-big-btn {
-  padding: 16px 48px !important;
+  padding: 18px 52px !important;
   font-size: 18px !important;
   font-weight: 700 !important;
   border-radius: 16px !important;
   letter-spacing: 0.5px;
+  animation: duel-pulse 2.5s ease-in-out infinite;
+  background: linear-gradient(110deg, var(--accent) 0%, var(--accent) 40%, #a78bfa 50%, var(--accent) 60%, var(--accent) 100%) !important;
+  background-size: 200% 100% !important;
+  transition: all 0.3s ease, transform 0.15s ease !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.duel-big-btn:hover {
+  transform: translateY(-3px) scale(1.04) !important;
+  animation: duel-shimmer 1.2s linear infinite, duel-pulse 2s ease-in-out infinite;
+  box-shadow: 0 8px 30px rgba(108, 92, 231, 0.4), var(--shadow-lg) !important;
+}
+
+.duel-big-btn:active {
+  transform: translateY(0) scale(0.98) !important;
+  animation: none;
 }
 
 .duel-section-title {
@@ -1746,19 +1774,13 @@ html.light .logo-img-light { display: inline; }
 }
 
 .activity-icon {
+  font-size: 20px;
   flex-shrink: 0;
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.activity-icon svg {
-  width: 16px;
-  height: 16px;
 }
 
 .activity-content {
@@ -3547,16 +3569,9 @@ html.light .logo-img-light { display: inline; }
 }
 
 .dash-stat-emoji {
+  font-size: 44px;
   margin-bottom: 10px;
   line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-}
-.dash-stat-emoji svg {
-  width: 32px;
-  height: 32px;
 }
 
 .dash-stat-value {
