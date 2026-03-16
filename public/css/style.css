@@ -1339,7 +1339,9 @@ html.light .logo-img-light { display: inline; }
 
 /* ===== FRIEND CARDS ===== */
 .friend-card .doc-card-info {
-  gap: 4px;
+  align-items: flex-start;
+  gap: 1px;
+  flex-direction: column;
 }
 
 .friend-stats {
