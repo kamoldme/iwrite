@@ -203,8 +203,8 @@ const API = {
     });
   },
 
-  async getDuelHistory() {
-    return this.request('/duels/history');
+  async getDuelHistory(page = 1, limit = 10) {
+    return this.request(`/duels/history?page=${page}&limit=${limit}`);
   },
 
   async getActiveDuels() {

@@ -561,15 +561,20 @@ router.post('/:id/set-doc', (req, res) => {
   }
 });
 
-// GET /history — completed duels for current user
+// GET /history — completed duels for current user (paginated)
 router.get('/history', (req, res) => {
   try {
     cleanupStaleDuels();
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
     const duels = findMany('duels.json', d =>
       d.status === 'completed' &&
       (d.challengerId === req.user.id || d.opponentId === req.user.id)
     );
-    res.json(duels.sort((a, b) => new Date(b.endAt || b.createdAt) - new Date(a.endAt || a.createdAt)).slice(0, 20));
+    const sorted = duels.sort((a, b) => new Date(b.endAt || b.createdAt) - new Date(a.endAt || a.createdAt));
+    const total = sorted.length;
+    const items = sorted.slice((page - 1) * limit, page * limit);
+    res.json({ items, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch {
     res.status(500).json({ error: 'Server error' });
   }

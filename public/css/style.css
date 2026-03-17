@@ -1561,6 +1561,26 @@ html.light .logo-img-light { display: inline; }
   margin-bottom: 4px;
 }
 
+.duel-history-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 8px 0;
+}
+
+.duel-history-pager-info {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.duel-history-pager .btn[disabled] {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 .duel-history-result {
   font-size: 13px;
   font-weight: 600;

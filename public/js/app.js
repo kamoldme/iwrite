@@ -1186,11 +1186,15 @@ const App = {
 
   async loadDuelsView() {
     try {
-      const [requests, sentDuels, history] = await Promise.all([
+      const duelHistoryPage = this._duelHistoryPage || 1;
+      const [requests, sentDuels, historyData] = await Promise.all([
         API.getDuelRequests(),
         API.getSentDuels(),
-        API.getDuelHistory()
+        API.getDuelHistory(duelHistoryPage, 10)
       ]);
+      const history = historyData.items || [];
+      const totalPages = historyData.totalPages || 1;
+      const currentPage = historyData.page || 1;
 
       // Incoming requests
       const reqSection = document.getElementById('duel-requests-section');
@@ -1240,10 +1244,10 @@ const App = {
 
       // History
       const historyContainer = document.getElementById('duel-history');
-      if (history.length === 0) {
+      if (history.length === 0 && currentPage === 1) {
         historyContainer.innerHTML = `<div class="empty-state"><p>Your completed duels will appear here.</p></div>`;
       } else {
-        historyContainer.innerHTML = history.map(d => {
+        let html = history.map(d => {
           const isChallenger = d.challengerId === this.user.id;
           const oppName = isChallenger ? d.opponentName : d.challengerName;
           const won = d.winnerId === this.user.id;
@@ -1255,28 +1259,10 @@ const App = {
           const myWords = isChallenger ? (d.challengerWords || 0) : (d.opponentWords || 0);
           const oppWords = isChallenger ? (d.opponentWords || 0) : (d.challengerWords || 0);
 
-          // Result text with forfeit reason
-          let resultText, subtitle;
-          if (iForfeited) {
-            resultText = 'LOST';
-            subtitle = '<span style="font-size:12px;color:var(--text-muted)">You left the session</span>';
-          } else if (oppForfeited) {
-            resultText = 'WON <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/></svg>';
-            subtitle = `<span style="font-size:12px;color:var(--text-muted)">${this.escapeHtml(oppName)} left the session</span>`;
-          } else if (tie) {
-            resultText = 'TIE';
-            subtitle = `<span style="font-size:12px;color:var(--text-muted)">${d.duration} min duel</span>`;
-          } else {
-            resultText = won ? 'WON <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/></svg>' : 'LOST';
-            subtitle = `<span style="font-size:12px;color:var(--text-muted)">${d.duration} min duel</span>`;
-          }
-
-          // Date/time
           const endDate = d.endAt ? new Date(d.endAt) : new Date(d.createdAt);
           const dateStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           const timeStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
-          // No doc button if you forfeited
           const docBtn = (myDocId && !iForfeited) ? `<button class="duel-history-doc-btn" onclick="App.openDocument('${myDocId}')">View Doc</button>` : '';
 
           const detailId = `dhc-detail-${d.id || Math.random().toString(36).slice(2)}`;
@@ -1301,6 +1287,21 @@ const App = {
             ${docBtn}
           </div>`;
         }).join('');
+
+        // Pagination controls
+        if (totalPages > 1) {
+          html += `<div class="duel-history-pager">
+            <button class="btn btn-ghost btn-small" ${currentPage <= 1 ? 'disabled' : ''} onclick="App._duelHistoryPage=${currentPage - 1};App.loadDuelsView()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Prev
+            </button>
+            <span class="duel-history-pager-info">Page ${currentPage} of ${totalPages}</span>
+            <button class="btn btn-ghost btn-small" ${currentPage >= totalPages ? 'disabled' : ''} onclick="App._duelHistoryPage=${currentPage + 1};App.loadDuelsView()">
+              Next <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>`;
+        }
+
+        historyContainer.innerHTML = html;
       }
     } catch {
       this.toast('Failed to load duels', 'error');
