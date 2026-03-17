@@ -189,6 +189,8 @@ const App = {
       sidebar.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar();
     });
     mobileSidebarOverlay.addEventListener('click', closeMobileSidebar);
+    const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
+    if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', closeMobileSidebar);
 
     // Close sidebar on mobile when a nav item is clicked
     sidebar.querySelectorAll('.sidebar-nav-item[data-view]').forEach(btn => {
