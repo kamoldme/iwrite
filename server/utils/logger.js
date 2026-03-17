@@ -1,7 +1,7 @@
 const { v4: uuid } = require('uuid');
 const { insertOne } = require('./storage');
 
-function logAction(action, details = {}, userId = null) {
+async function logAction(action, details = {}, userId = null) {
   const entry = {
     id: uuid(),
     action,
@@ -9,7 +9,7 @@ function logAction(action, details = {}, userId = null) {
     details,
     timestamp: new Date().toISOString()
   };
-  insertOne('logs.json', entry);
+  await insertOne('logs.json', entry);
   return entry;
 }
 

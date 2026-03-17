@@ -1,68 +1,114 @@
-const fs = require('fs');
-const path = require('path');
+const { Pool } = require('pg');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost')
+    ? { rejectUnauthorized: false }
+    : false
+});
 
-// In-memory cache — eliminates blocking file reads on every request
-const _cache = {};
+const TABLE_MAP = {
+  'users.json': 'users',
+  'documents.json': 'documents',
+  'comments.json': 'comments',
+  'duels.json': 'duels',
+  'activities.json': 'activities',
+  'logs.json': 'logs',
+  'support.json': 'support'
+};
 
-function ensureFile(filename, defaultData = []) {
-  const filepath = path.join(DATA_DIR, filename);
-  if (!fs.existsSync(filepath)) {
-    fs.writeFileSync(filepath, JSON.stringify(defaultData, null, 2));
+function getTable(filename) {
+  return TABLE_MAP[filename] || filename.replace('.json', '');
+}
+
+async function initDB() {
+  const tables = Object.values(TABLE_MAP);
+  for (const table of tables) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ${table} (
+        id UUID PRIMARY KEY,
+        data JSONB NOT NULL
+      )
+    `);
   }
-  return filepath;
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users ((data->>'email'))`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_googleid ON users ((data->>'googleId'))`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_documents_userid ON documents ((data->>'userId'))`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_comments_documentid ON comments ((data->>'documentId'))`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_duels_status ON duels ((data->>'status'))`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_activities_userid ON activities ((data->>'userId'))`);
 }
 
-function read(filename) {
-  if (_cache[filename]) return _cache[filename];
-  const filepath = ensureFile(filename);
-  const raw = fs.readFileSync(filepath, 'utf-8');
-  const data = JSON.parse(raw);
-  _cache[filename] = data;
-  return data;
+async function findOne(filename, predicate) {
+  const table = getTable(filename);
+  const { rows } = await pool.query(`SELECT data FROM ${table}`);
+  const items = rows.map(r => r.data);
+  return items.find(predicate) || null;
 }
 
-function write(filename, data) {
-  // Update cache immediately (sync), flush to disk async
-  _cache[filename] = data;
-  const filepath = ensureFile(filename);
-  fs.writeFile(filepath, JSON.stringify(data, null, 2), () => {});
+async function findMany(filename, predicate) {
+  const table = getTable(filename);
+  const { rows } = await pool.query(`SELECT data FROM ${table}`);
+  const items = rows.map(r => r.data);
+  return predicate ? items.filter(predicate) : items;
 }
 
-function findOne(filename, predicate) {
-  const data = read(filename);
-  return data.find(predicate) || null;
-}
-
-function insertOne(filename, record) {
-  const data = read(filename);
-  data.push(record);
-  write(filename, data);
+async function insertOne(filename, record) {
+  const table = getTable(filename);
+  await pool.query(
+    `INSERT INTO ${table} (id, data) VALUES ($1, $2)`,
+    [record.id, JSON.stringify(record)]
+  );
   return record;
 }
 
-function updateOne(filename, predicate, updates) {
-  const data = read(filename);
-  const index = data.findIndex(predicate);
-  if (index === -1) return null;
-  data[index] = { ...data[index], ...updates };
-  write(filename, data);
-  return data[index];
+async function updateOne(filename, predicate, updates) {
+  const table = getTable(filename);
+  const { rows } = await pool.query(`SELECT data FROM ${table}`);
+  const items = rows.map(r => r.data);
+  const item = items.find(predicate);
+  if (!item) return null;
+  const updated = { ...item, ...updates };
+  await pool.query(
+    `UPDATE ${table} SET data = $1 WHERE id = $2`,
+    [JSON.stringify(updated), item.id]
+  );
+  return updated;
 }
 
-function deleteOne(filename, predicate) {
-  const data = read(filename);
-  const index = data.findIndex(predicate);
-  if (index === -1) return false;
-  data.splice(index, 1);
-  write(filename, data);
+async function deleteOne(filename, predicate) {
+  const table = getTable(filename);
+  const { rows } = await pool.query(`SELECT data FROM ${table}`);
+  const items = rows.map(r => r.data);
+  const item = items.find(predicate);
+  if (!item) return false;
+  await pool.query(`DELETE FROM ${table} WHERE id = $1`, [item.id]);
   return true;
 }
 
-function findMany(filename, predicate) {
-  const data = read(filename);
-  return predicate ? data.filter(predicate) : data;
+async function read(filename) {
+  return findMany(filename);
 }
 
-module.exports = { read, write, findOne, insertOne, updateOne, deleteOne, findMany };
+async function write(filename, data) {
+  const table = getTable(filename);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM ${table}`);
+    for (const record of data) {
+      await client.query(
+        `INSERT INTO ${table} (id, data) VALUES ($1, $2)`,
+        [record.id, JSON.stringify(record)]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { initDB, pool, read, write, findOne, findMany, insertOne, updateOne, deleteOne };

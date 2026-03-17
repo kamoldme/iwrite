@@ -3,24 +3,73 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// CORS — lock to your domain
+const allowedOrigins = [
+  'https://iwrite4.me',
+  'https://www.iwrite4.me'
+];
+if (process.env.NODE_ENV !== 'production') {
+  allowedOrigins.push('http://localhost:3000', 'http://localhost:5173');
+}
+app.use(cors({
+  origin(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, server-to-server)
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
+
+// Rate limiting
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 attempts per window
+  message: { error: 'Too many attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 120, // 120 requests per minute
+  message: { error: 'Too many requests, please slow down' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/google', authLimiter);
+app.use('/api', apiLimiter);
+
+app.use(express.json({ limit: '10mb' }));
+
+// Avatar uploads directory (still file-based)
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-['users.json', 'documents.json', 'comments.json', 'logs.json', 'support.json'].forEach(file => {
-  const p = path.join(dataDir, file);
-  if (!fs.existsSync(p)) fs.writeFileSync(p, '[]');
-});
-const avatarsDir = path.join(__dirname, 'data', 'avatars');
+const avatarsDir = path.join(dataDir, 'avatars');
 if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
 
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
 app.use('/uploads/avatars', express.static(avatarsDir));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// Health check
+app.get('/api/health', async (req, res) => {
+  try {
+    const { pool } = require('./utils/storage');
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', uptime: process.uptime() });
+  } catch (e) {
+    res.status(503).json({ status: 'error', message: 'Database unreachable' });
+  }
+});
+
+// Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/documents', require('./routes/documents'));
 app.use('/api/friends', require('./routes/friends'));
@@ -33,26 +82,6 @@ const { findOne, findMany, insertOne } = require('./utils/storage');
 const bcrypt = require('bcryptjs');
 const { v4: uuid } = require('uuid');
 
-// Seed admin account
-(async () => {
-  const admin = findOne('users.json', u => u.email === 'admin@iwrite.app');
-  if (!admin) {
-    const hash = await bcrypt.hash('Admin1234', 12);
-    insertOne('users.json', {
-      id: uuid(),
-      name: 'Admin',
-      email: 'admin@iwrite.app',
-      password: hash,
-      role: 'admin',
-      plan: 'free',
-      xp: 0, level: 0, streak: 0, longestStreak: 0,
-      lastWritingDate: null, treeStage: 0, totalWords: 0, totalSessions: 0,
-      achievements: [], friends: [], friendRequests: [], sentRequests: [], sharedTokens: [],
-      createdAt: new Date().toISOString()
-    });
-    console.log('Admin account seeded');
-  }
-})();
 app.get('/api/auth/google-client-id', (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID || '';
   if (!clientId) {
@@ -61,20 +90,24 @@ app.get('/api/auth/google-client-id', (req, res) => {
   res.json({ clientId });
 });
 
-app.get('/api/stats/public', (req, res) => {
-  const users = findMany('users.json');
-  const docs = findMany('documents.json');
-  res.json({
-    totalWords: users.reduce((sum, u) => sum + (u.totalWords || 0), 0),
-    totalSessions: docs.filter(d => !d.deleted && d.duration > 0).length,
-    totalWriters: users.filter(u => u.role !== 'admin').length
-  });
+app.get('/api/stats/public', async (req, res) => {
+  try {
+    const users = await findMany('users.json');
+    const docs = await findMany('documents.json');
+    res.json({
+      totalWords: users.reduce((sum, u) => sum + (u.totalWords || 0), 0),
+      totalSessions: docs.filter(d => !d.deleted && d.duration > 0).length,
+      totalWriters: users.filter(u => u.role !== 'admin').length
+    });
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-app.get('/api/leaderboard', (req, res) => {
+app.get('/api/leaderboard', async (req, res) => {
   try {
-    const users = findMany('users.json');
-    const docs = findMany('documents.json');
+    const users = await findMany('users.json');
+    const docs = await findMany('documents.json');
 
     const leaderboard = users
       .filter(u => u.role !== 'admin')
@@ -103,6 +136,21 @@ app.get('/api/leaderboard', (req, res) => {
   }
 });
 
+// Simple analytics endpoint
+app.post('/api/analytics/pageview', (req, res) => {
+  // Fire-and-forget — non-critical
+  const { page } = req.body;
+  insertOne('logs.json', {
+    id: uuid(),
+    action: 'pageview',
+    userId: null,
+    details: { page, ua: req.headers['user-agent'] },
+    timestamp: new Date().toISOString()
+  }).catch(() => {});
+  res.json({ ok: true });
+});
+
+// HTML routes
 app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'app.html'));
 });
@@ -112,7 +160,45 @@ app.get('/admin', (req, res) => {
 app.get('/shared/:token', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'shared.html'));
 });
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`iWrite4 running on port ${PORT}`);
+app.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'privacy.html'));
 });
+app.get('/terms', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'terms.html'));
+});
+
+// Initialize database and start
+const { initDB } = require('./utils/storage');
+
+async function start() {
+  // Seed admin account
+  try {
+    await initDB();
+    const admin = await findOne('users.json', u => u.email === 'admin@iwrite.app');
+    if (!admin) {
+      const hash = await bcrypt.hash('Admin1234', 12);
+      await insertOne('users.json', {
+        id: uuid(),
+        name: 'Admin',
+        email: 'admin@iwrite.app',
+        password: hash,
+        role: 'admin',
+        plan: 'free',
+        xp: 0, level: 0, streak: 0, longestStreak: 0,
+        lastWritingDate: null, treeStage: 0, totalWords: 0, totalSessions: 0,
+        achievements: [], friends: [], friendRequests: [], sentRequests: [], sharedTokens: [],
+        createdAt: new Date().toISOString()
+      });
+      console.log('Admin account seeded');
+    }
+  } catch (e) {
+    console.error('DB init error:', e.message);
+    process.exit(1);
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`iWrite4.me running on port ${PORT}`);
+  });
+}
+
+start();

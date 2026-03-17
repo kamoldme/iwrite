@@ -31,7 +31,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    const existing = findOne('users.json', u => u.email === email);
+    const existing = await findOne('users.json', u => u.email === email);
     if (existing) {
       return res.status(409).json({ error: 'Email already registered' });
     }
@@ -60,7 +60,7 @@ router.post('/register', async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    insertOne('users.json', user);
+    await insertOne('users.json', user);
     logAction('user_registered', { name: user.name, email: user.email }, user.id);
     const token = generateToken(user);
     const { password: _, ...safeUser } = user;
@@ -77,7 +77,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = findOne('users.json', u => u.email === email);
+    const user = await findOne('users.json', u => u.email === email);
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -95,16 +95,16 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/me', authenticate, (req, res) => {
-  const user = findOne('users.json', u => u.id === req.user.id);
+router.get('/me', authenticate, async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
   const { password: _, ...safeUser } = user;
   res.json(safeUser);
 });
 
-router.patch('/me', authenticate, (req, res) => {
+router.patch('/me', authenticate, async (req, res) => {
   const { name } = req.body;
-  const updated = updateOne('users.json', u => u.id === req.user.id, { name });
+  const updated = await updateOne('users.json', u => u.id === req.user.id, { name });
   if (!updated) return res.status(404).json({ error: 'User not found' });
   const { password: _, ...safeUser } = updated;
   res.json(safeUser);
@@ -112,7 +112,7 @@ router.patch('/me', authenticate, (req, res) => {
 
 router.post('/change-password', authenticate, async (req, res) => {
   try {
-    const user = findOne('users.json', u => u.id === req.user.id);
+    const user = await findOne('users.json', u => u.id === req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     if (user.provider === 'google') {
@@ -138,7 +138,7 @@ router.post('/change-password', authenticate, async (req, res) => {
     }
 
     const hash = await bcrypt.hash(newPassword, 12);
-    updateOne('users.json', u => u.id === req.user.id, { password: hash });
+    await updateOne('users.json', u => u.id === req.user.id, { password: hash });
 
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
@@ -166,18 +166,18 @@ router.post('/google', async (req, res) => {
     const name = payload.name;
 
     // Find user by googleId first
-    let user = findOne('users.json', u => u.googleId === googleId);
+    let user = await findOne('users.json', u => u.googleId === googleId);
 
     // If not found by googleId, try email
     if (!user) {
-      user = findOne('users.json', u => u.email === email);
+      user = await findOne('users.json', u => u.email === email);
       if (user && !user.googleId) {
         // Link Google to existing email account
-        updateOne('users.json', u => u.id === user.id, {
+        await updateOne('users.json', u => u.id === user.id, {
           googleId,
           provider: 'google'
         });
-        user = findOne('users.json', u => u.id === user.id);
+        user = await findOne('users.json', u => u.id === user.id);
       }
     }
 
@@ -207,7 +207,7 @@ router.post('/google', async (req, res) => {
         sharedTokens: [],
         createdAt: new Date().toISOString()
       };
-      insertOne('users.json', user);
+      await insertOne('users.json', user);
       logAction('user_registered_google', { name: user.name, email: user.email }, user.id);
     }
 
@@ -236,7 +236,7 @@ router.post('/avatar', authenticate, upload.single('avatar'), async (req, res) =
 
     const avatarUrl = `/uploads/avatars/${req.user.id}.jpg`;
     const avatarUpdatedAt = Date.now();
-    const updated = updateOne('users.json', u => u.id === req.user.id, { avatar: avatarUrl, avatarUpdatedAt });
+    const updated = await updateOne('users.json', u => u.id === req.user.id, { avatar: avatarUrl, avatarUpdatedAt });
     const { password: _, ...safeUser } = updated;
     res.json(safeUser);
   } catch (err) {
@@ -245,11 +245,11 @@ router.post('/avatar', authenticate, upload.single('avatar'), async (req, res) =
   }
 });
 
-router.delete('/avatar', authenticate, (req, res) => {
+router.delete('/avatar', authenticate, async (req, res) => {
   try {
     const filepath = path.join(__dirname, '../data/avatars', `${req.user.id}.jpg`);
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
-    const updated = updateOne('users.json', u => u.id === req.user.id, { avatar: null, avatarUpdatedAt: null });
+    const updated = await updateOne('users.json', u => u.id === req.user.id, { avatar: null, avatarUpdatedAt: null });
     const { password: _, ...safeUser } = updated;
     res.json(safeUser);
   } catch (err) {

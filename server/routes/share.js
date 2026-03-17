@@ -5,8 +5,8 @@ const { v4: uuid } = require('uuid');
 
 const router = express.Router();
 
-router.get('/:token', (req, res) => {
-  const docs = findMany('documents.json');
+router.get('/:token', async (req, res) => {
+  const docs = await findMany('documents.json');
   const doc = docs.find(d =>
     d.shareLinks && d.shareLinks.some(s => s.token === req.params.token)
   );
@@ -15,7 +15,7 @@ router.get('/:token', (req, res) => {
   }
 
   const link = doc.shareLinks.find(s => s.token === req.params.token);
-  const owner = findOne('users.json', u => u.id === doc.userId);
+  const owner = await findOne('users.json', u => u.id === doc.userId);
 
   res.json({
     id: doc.id,
@@ -30,17 +30,17 @@ router.get('/:token', (req, res) => {
   });
 });
 
-router.post('/:token/comment', authenticate, (req, res) => {
+router.post('/:token/comment', authenticate, async (req, res) => {
   const { text, highlightedText, startOffset, endOffset } = req.body;
   if (!text) return res.status(400).json({ error: 'Comment text is required' });
 
-  const docs = findMany('documents.json');
+  const docs = await findMany('documents.json');
   const doc = docs.find(d =>
     d.shareLinks && d.shareLinks.some(s => s.token === req.params.token && ['comment', 'edit'].includes(s.type))
   );
   if (!doc) return res.status(404).json({ error: 'Document not found or commenting not allowed' });
 
-  const user = findOne('users.json', u => u.id === req.user.id);
+  const user = await findOne('users.json', u => u.id === req.user.id);
 
   const comment = {
     id: uuid(),
@@ -55,28 +55,28 @@ router.post('/:token/comment', authenticate, (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  insertOne('comments.json', comment);
+  await insertOne('comments.json', comment);
   res.status(201).json(comment);
 });
 
-router.get('/:token/comments', (req, res) => {
-  const docs = findMany('documents.json');
+router.get('/:token/comments', async (req, res) => {
+  const docs = await findMany('documents.json');
   const doc = docs.find(d =>
     d.shareLinks && d.shareLinks.some(s => s.token === req.params.token)
   );
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
-  const comments = findMany('comments.json', c => c.documentId === doc.id && c.status === 'pending');
+  const comments = await findMany('comments.json', c => c.documentId === doc.id && c.status === 'pending');
   res.json(comments);
 });
 
-router.patch('/:token/comments/:commentId/resolve', authenticate, (req, res) => {
+router.patch('/:token/comments/:commentId/resolve', authenticate, async (req, res) => {
   const { status } = req.body;
   if (!['done', 'accepted', 'rejected'].includes(status)) {
     return res.status(400).json({ error: 'Status must be done, accepted or rejected' });
   }
 
-  const docs = findMany('documents.json');
+  const docs = await findMany('documents.json');
   const doc = docs.find(d =>
     d.shareLinks && d.shareLinks.some(s => s.token === req.params.token)
   );
@@ -86,7 +86,7 @@ router.patch('/:token/comments/:commentId/resolve', authenticate, (req, res) => 
     return res.status(403).json({ error: 'Only the document owner can resolve comments' });
   }
 
-  const updated = updateOne('comments.json', c => c.id === req.params.commentId, {
+  const updated = await updateOne('comments.json', c => c.id === req.params.commentId, {
     status,
     resolvedAt: new Date().toISOString()
   });
@@ -96,19 +96,19 @@ router.patch('/:token/comments/:commentId/resolve', authenticate, (req, res) => 
 });
 
 // Register that a logged-in user has accessed a shared document (saves token to their profile)
-router.post('/:token/register', authenticate, (req, res) => {
-  const docs = findMany('documents.json');
+router.post('/:token/register', authenticate, async (req, res) => {
+  const docs = await findMany('documents.json');
   const doc = docs.find(d => d.shareLinks && d.shareLinks.some(s => s.token === req.params.token));
   if (!doc || doc.deleted) return res.status(404).json({ error: 'Not found' });
 
   // Don't register own documents
   if (doc.userId === req.user.id) return res.json({ ok: true });
 
-  const user = findOne('users.json', u => u.id === req.user.id);
+  const user = await findOne('users.json', u => u.id === req.user.id);
   const sharedTokens = user.sharedTokens || [];
   if (!sharedTokens.find(t => t.token === req.params.token)) {
     const link = doc.shareLinks.find(s => s.token === req.params.token);
-    updateOne('users.json', u => u.id === req.user.id, {
+    await updateOne('users.json', u => u.id === req.user.id, {
       sharedTokens: [...sharedTokens, {
         token: req.params.token,
         docId: doc.id,

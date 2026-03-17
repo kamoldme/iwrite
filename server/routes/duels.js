@@ -7,21 +7,21 @@ const router = express.Router();
 router.use(authenticate);
 
 // Helper: complete a duel with a forfeit
-function completeDuelWithForfeit(duelId, forfeiterId) {
-  const duel = findOne('duels.json', d => d.id === duelId);
+async function completeDuelWithForfeit(duelId, forfeiterId) {
+  const duel = await findOne('duels.json', d => d.id === duelId);
   if (!duel || duel.status !== 'active') return;
   const winnerId = duel.challengerId === forfeiterId ? duel.opponentId : duel.challengerId;
-  updateOne('duels.json', d => d.id === duelId, {
+  await updateOne('duels.json', d => d.id === duelId, {
     status: 'completed',
     forfeitedBy: forfeiterId,
     winnerId,
     endAt: new Date().toISOString()
   });
   try {
-    const winner = findOne('users.json', u => u.id === winnerId);
-    const loser = findOne('users.json', u => u.id === forfeiterId);
+    const winner = await findOne('users.json', u => u.id === winnerId);
+    const loser = await findOne('users.json', u => u.id === forfeiterId);
     if (winner && loser) {
-      insertOne('activities.json', {
+      await insertOne('activities.json', {
         id: uuid(),
         userId: winnerId,
         type: 'duel_won',
@@ -34,8 +34,8 @@ function completeDuelWithForfeit(duelId, forfeiterId) {
 
 // Helper: complete a duel by word count (time expired)
 // If forfeitedBy is set, forfeiter loses regardless of word count
-function completeDuelByTime(duelId) {
-  const duel = findOne('duels.json', d => d.id === duelId);
+async function completeDuelByTime(duelId) {
+  const duel = await findOne('duels.json', d => d.id === duelId);
   if (!duel || duel.status !== 'active') return;
   let winnerId;
   if (duel.forfeitedBy) {
@@ -45,18 +45,18 @@ function completeDuelByTime(duelId) {
     winnerId = duel.challengerWords > duel.opponentWords ? duel.challengerId :
                duel.opponentWords > duel.challengerWords ? duel.opponentId : null;
   }
-  updateOne('duels.json', d => d.id === duelId, {
+  await updateOne('duels.json', d => d.id === duelId, {
     status: 'completed',
     winnerId,
     endAt: duel.endAt || new Date().toISOString()
   });
   if (winnerId) {
     try {
-      const winner = findOne('users.json', u => u.id === winnerId);
+      const winner = await findOne('users.json', u => u.id === winnerId);
       const loserId = winnerId === duel.challengerId ? duel.opponentId : duel.challengerId;
-      const loser = findOne('users.json', u => u.id === loserId);
+      const loser = await findOne('users.json', u => u.id === loserId);
       if (winner && loser) {
-        insertOne('activities.json', {
+        await insertOne('activities.json', {
           id: uuid(),
           userId: winnerId,
           type: 'duel_won',
@@ -72,19 +72,19 @@ function completeDuelByTime(duelId) {
 const STALE_POLL_MS = 15000; // 15 seconds (polls happen every 3s)
 
 // Helper: auto-complete stale duels — called on key endpoints
-function cleanupStaleDuels() {
+async function cleanupStaleDuels() {
   const now = Date.now();
 
   // 1. Active duels past endAt → complete by word count
-  const expiredDuels = findMany('duels.json', d =>
+  const expiredDuels = await findMany('duels.json', d =>
     d.status === 'active' && d.endAt && new Date(d.endAt).getTime() <= now
   );
   for (const duel of expiredDuels) {
-    completeDuelByTime(duel.id);
+    await completeDuelByTime(duel.id);
   }
 
   // 2. Active duels where user(s) stopped polling
-  const activeDuels = findMany('duels.json', d => d.status === 'active');
+  const activeDuels = await findMany('duels.json', d => d.status === 'active');
   for (const duel of activeDuels) {
     const challengerGone = duel.challengerLastSeen && (now - new Date(duel.challengerLastSeen).getTime()) > STALE_POLL_MS;
     const opponentGone = duel.opponentLastSeen && (now - new Date(duel.opponentLastSeen).getTime()) > STALE_POLL_MS;
@@ -95,7 +95,7 @@ function cleanupStaleDuels() {
       const remainingGone = remainingIsChallenger ? challengerGone : opponentGone;
       if (remainingGone) {
         // Both gone now — complete the duel. Forfeiter loses.
-        completeDuelWithForfeit(duel.id, duel.forfeitedBy);
+        await completeDuelWithForfeit(duel.id, duel.forfeitedBy);
       }
       // else: remaining player still active, duel continues
     } else if (challengerGone && opponentGone) {
@@ -103,57 +103,57 @@ function cleanupStaleDuels() {
       const challengerTime = new Date(duel.challengerLastSeen).getTime();
       const opponentTime = new Date(duel.opponentLastSeen).getTime();
       if (challengerTime < opponentTime) {
-        completeDuelWithForfeit(duel.id, duel.challengerId);
+        await completeDuelWithForfeit(duel.id, duel.challengerId);
       } else if (opponentTime < challengerTime) {
-        completeDuelWithForfeit(duel.id, duel.opponentId);
+        await completeDuelWithForfeit(duel.id, duel.opponentId);
       } else {
-        completeDuelByTime(duel.id);
+        await completeDuelByTime(duel.id);
       }
     } else if (challengerGone) {
       // Only challenger gone — mark as forfeited but keep duel active
       const winnerId = duel.opponentId;
-      updateOne('duels.json', d => d.id === duel.id, { forfeitedBy: duel.challengerId, winnerId });
+      await updateOne('duels.json', d => d.id === duel.id, { forfeitedBy: duel.challengerId, winnerId });
     } else if (opponentGone) {
       // Only opponent gone — mark as forfeited but keep duel active
       const winnerId = duel.challengerId;
-      updateOne('duels.json', d => d.id === duel.id, { forfeitedBy: duel.opponentId, winnerId });
+      await updateOne('duels.json', d => d.id === duel.id, { forfeitedBy: duel.opponentId, winnerId });
     }
   }
 
   // 3. Stale countdown duels (startAt passed >2min ago)
-  const staleCountdowns = findMany('duels.json', d =>
+  const staleCountdowns = await findMany('duels.json', d =>
     d.status === 'countdown' && d.startAt && (now - new Date(d.startAt).getTime()) > 120000
   );
   for (const duel of staleCountdowns) {
-    updateOne('duels.json', d => d.id === duel.id, {
+    await updateOne('duels.json', d => d.id === duel.id, {
       status: 'expired',
       endAt: new Date().toISOString()
     });
   }
 
   // 4. Expire pending duels older than 5 minutes
-  const stalePending = findMany('duels.json', d =>
+  const stalePending = await findMany('duels.json', d =>
     d.status === 'pending' && (now - new Date(d.createdAt).getTime()) > 5 * 60 * 1000
   );
   for (const duel of stalePending) {
-    updateOne('duels.json', d => d.id === duel.id, { status: 'expired' });
+    await updateOne('duels.json', d => d.id === duel.id, { status: 'expired' });
   }
 }
 
 // POST /challenge — create a new duel challenge
-router.post('/challenge', (req, res) => {
+router.post('/challenge', async (req, res) => {
   try {
-    cleanupStaleDuels();
+    await cleanupStaleDuels();
     const { friendId, duration } = req.body;
     if (!friendId || !duration) return res.status(400).json({ error: 'friendId and duration are required' });
 
-    const me = findOne('users.json', u => u.id === req.user.id);
-    const friend = findOne('users.json', u => u.id === friendId);
+    const me = await findOne('users.json', u => u.id === req.user.id);
+    const friend = await findOne('users.json', u => u.id === friendId);
     if (!me || !friend) return res.status(404).json({ error: 'User not found' });
     if (!(me.friends || []).includes(friendId)) return res.status(400).json({ error: 'You can only challenge friends' });
 
     // Check for existing active duel between these users
-    const existing = findOne('duels.json', d =>
+    const existing = await findOne('duels.json', d =>
       (d.status === 'pending' || d.status === 'accepted' || d.status === 'countdown' || d.status === 'active') &&
       ((d.challengerId === me.id && d.opponentId === friendId) || (d.challengerId === friendId && d.opponentId === me.id))
     );
@@ -178,7 +178,7 @@ router.post('/challenge', (req, res) => {
       winnerId: null
     };
 
-    insertOne('duels.json', duel);
+    await insertOne('duels.json', duel);
     res.json(duel);
   } catch {
     res.status(500).json({ error: 'Server error' });
@@ -186,16 +186,16 @@ router.post('/challenge', (req, res) => {
 });
 
 // GET /requests — incoming duel requests for current user
-router.get('/requests', (req, res) => {
+router.get('/requests', async (req, res) => {
   try {
-    cleanupStaleDuels();
-    const duels = findMany('duels.json', d => d.opponentId === req.user.id && d.status === 'pending');
+    await cleanupStaleDuels();
+    const duels = await findMany('duels.json', d => d.opponentId === req.user.id && d.status === 'pending');
     // Auto-expire duels older than 24h
     const now = Date.now();
     const valid = [];
     for (const d of duels) {
       if (now - new Date(d.createdAt).getTime() > 24 * 60 * 60 * 1000) {
-        updateOne('duels.json', x => x.id === d.id, { status: 'expired' });
+        await updateOne('duels.json', x => x.id === d.id, { status: 'expired' });
       } else {
         valid.push(d);
       }
@@ -207,15 +207,15 @@ router.get('/requests', (req, res) => {
 });
 
 // POST /:id/accept — accept a duel challenge
-router.post('/:id/accept', (req, res) => {
+router.post('/:id/accept', async (req, res) => {
   try {
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (duel.opponentId !== req.user.id) return res.status(403).json({ error: 'Not your challenge' });
     if (duel.status !== 'pending') return res.status(400).json({ error: 'Duel is no longer pending' });
 
     const startAt = new Date(Date.now() + 60 * 1000).toISOString(); // 60s countdown
-    const updated = updateOne('duels.json', d => d.id === req.params.id, {
+    const updated = await updateOne('duels.json', d => d.id === req.params.id, {
       status: 'countdown',
       acceptedAt: new Date().toISOString(),
       startAt
@@ -227,14 +227,14 @@ router.post('/:id/accept', (req, res) => {
 });
 
 // POST /:id/decline — decline a duel challenge
-router.post('/:id/decline', (req, res) => {
+router.post('/:id/decline', async (req, res) => {
   try {
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (duel.opponentId !== req.user.id) return res.status(403).json({ error: 'Not your challenge' });
     if (duel.status !== 'pending') return res.status(400).json({ error: 'Duel is no longer pending' });
 
-    updateOne('duels.json', d => d.id === req.params.id, { status: 'declined' });
+    await updateOne('duels.json', d => d.id === req.params.id, { status: 'declined' });
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: 'Server error' });
@@ -242,14 +242,14 @@ router.post('/:id/decline', (req, res) => {
 });
 
 // POST /:id/cancel — challenger cancels their own pending duel
-router.post('/:id/cancel', (req, res) => {
+router.post('/:id/cancel', async (req, res) => {
   try {
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (duel.challengerId !== req.user.id) return res.status(403).json({ error: 'Not your challenge' });
     if (duel.status !== 'pending' && duel.status !== 'countdown') return res.status(400).json({ error: 'Cannot cancel this duel' });
 
-    updateOne('duels.json', d => d.id === req.params.id, { status: 'cancelled' });
+    await updateOne('duels.json', d => d.id === req.params.id, { status: 'cancelled' });
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: 'Server error' });
@@ -257,15 +257,15 @@ router.post('/:id/cancel', (req, res) => {
 });
 
 // GET /sent — outgoing pending duel challenges from current user
-router.get('/sent', (req, res) => {
+router.get('/sent', async (req, res) => {
   try {
-    const duels = findMany('duels.json', d => d.challengerId === req.user.id && d.status === 'pending');
+    const duels = await findMany('duels.json', d => d.challengerId === req.user.id && d.status === 'pending');
     // Auto-expire duels older than 24h
     const now = Date.now();
     const valid = [];
     for (const d of duels) {
       if (now - new Date(d.createdAt).getTime() > 24 * 60 * 60 * 1000) {
-        updateOne('duels.json', x => x.id === d.id, { status: 'expired' });
+        await updateOne('duels.json', x => x.id === d.id, { status: 'expired' });
       } else {
         valid.push(d);
       }
@@ -277,9 +277,9 @@ router.get('/sent', (req, res) => {
 });
 
 // GET /:id/status — poll duel state (word counts, time remaining)
-router.get('/:id/status', (req, res) => {
+router.get('/:id/status', async (req, res) => {
   try {
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (duel.challengerId !== req.user.id && duel.opponentId !== req.user.id) {
       return res.status(403).json({ error: 'Not your duel' });
@@ -290,14 +290,14 @@ router.get('/:id/status', (req, res) => {
       const seenUpdate = {};
       if (duel.challengerId === req.user.id) seenUpdate.challengerLastSeen = new Date().toISOString();
       else seenUpdate.opponentLastSeen = new Date().toISOString();
-      updateOne('duels.json', d => d.id === req.params.id, seenUpdate);
+      await updateOne('duels.json', d => d.id === req.params.id, seenUpdate);
     }
 
     // Clean up stale duels (including ones where users stopped polling)
-    cleanupStaleDuels();
+    await cleanupStaleDuels();
 
     // Re-read duel in case cleanup changed its status
-    const freshDuel = findOne('duels.json', d => d.id === req.params.id);
+    const freshDuel = await findOne('duels.json', d => d.id === req.params.id);
     if (freshDuel && freshDuel.status === 'completed' && duel.status === 'active') {
       return res.json(freshDuel);
     }
@@ -305,7 +305,7 @@ router.get('/:id/status', (req, res) => {
     // Auto-transition from countdown to active
     if (duel.status === 'countdown' && duel.startAt && new Date(duel.startAt) <= new Date()) {
       const endAt = new Date(new Date(duel.startAt).getTime() + duel.duration * 60 * 1000).toISOString();
-      const updated = updateOne('duels.json', d => d.id === req.params.id, {
+      const updated = await updateOne('duels.json', d => d.id === req.params.id, {
         status: 'active',
         endAt
       });
@@ -314,13 +314,13 @@ router.get('/:id/status', (req, res) => {
 
     // Auto-complete if time is up (uses shared helper which respects forfeitedBy)
     if (duel.status === 'active' && duel.endAt && new Date(duel.endAt) <= new Date()) {
-      completeDuelByTime(req.params.id);
-      const completed = findOne('duels.json', d => d.id === req.params.id);
+      await completeDuelByTime(req.params.id);
+      const completed = await findOne('duels.json', d => d.id === req.params.id);
       return res.json(completed);
     }
 
     // Re-read in case forfeitedBy was set by cleanup or other player
-    const latestDuel = findOne('duels.json', d => d.id === req.params.id);
+    const latestDuel = await findOne('duels.json', d => d.id === req.params.id);
     res.json(latestDuel || duel);
   } catch {
     res.status(500).json({ error: 'Server error' });
@@ -328,10 +328,10 @@ router.get('/:id/status', (req, res) => {
 });
 
 // POST /:id/update — submit current word count during active duel
-router.post('/:id/update', (req, res) => {
+router.post('/:id/update', async (req, res) => {
   try {
     const { wordCount } = req.body;
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (duel.status !== 'active') return res.status(400).json({ error: 'Duel is not active' });
 
@@ -346,7 +346,7 @@ router.post('/:id/update', (req, res) => {
       return res.status(403).json({ error: 'Not your duel' });
     }
 
-    const updated = updateOne('duels.json', d => d.id === req.params.id, update);
+    const updated = await updateOne('duels.json', d => d.id === req.params.id, update);
     res.json(updated);
   } catch {
     res.status(500).json({ error: 'Server error' });
@@ -354,10 +354,10 @@ router.post('/:id/update', (req, res) => {
 });
 
 // POST /:id/complete — submit final word count and determine winner
-router.post('/:id/complete', (req, res) => {
+router.post('/:id/complete', async (req, res) => {
   try {
     const { wordCount } = req.body;
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (duel.status !== 'active' && duel.status !== 'completed') {
       return res.status(400).json({ error: 'Duel cannot be completed' });
@@ -374,12 +374,12 @@ router.post('/:id/complete', (req, res) => {
     }
 
     // Re-read to get latest state
-    const latest = updateOne('duels.json', d => d.id === req.params.id, update);
+    const latest = await updateOne('duels.json', d => d.id === req.params.id, update);
     const cw = latest.challengerWords || 0;
     const ow = latest.opponentWords || 0;
     const winnerId = cw > ow ? latest.challengerId : ow > cw ? latest.opponentId : null;
 
-    const completed = updateOne('duels.json', d => d.id === req.params.id, {
+    const completed = await updateOne('duels.json', d => d.id === req.params.id, {
       status: 'completed',
       winnerId
     });
@@ -391,9 +391,9 @@ router.post('/:id/complete', (req, res) => {
 });
 
 // POST /:id/ready — signal ready to skip countdown
-router.post('/:id/ready', (req, res) => {
+router.post('/:id/ready', async (req, res) => {
   try {
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (duel.challengerId !== req.user.id && duel.opponentId !== req.user.id) {
       return res.status(403).json({ error: 'Not your duel' });
@@ -412,7 +412,7 @@ router.post('/:id/ready', (req, res) => {
       update.endAt = new Date(now.getTime() + duel.duration * 60 * 1000).toISOString();
     }
 
-    const updated = updateOne('duels.json', d => d.id === req.params.id, update);
+    const updated = await updateOne('duels.json', d => d.id === req.params.id, update);
     res.json(updated);
   } catch {
     res.status(500).json({ error: 'Server error' });
@@ -420,10 +420,10 @@ router.post('/:id/ready', (req, res) => {
 });
 
 // POST /:id/request-time — request extra time (other side must accept)
-router.post('/:id/request-time', (req, res) => {
+router.post('/:id/request-time', async (req, res) => {
   try {
     const { minutes } = req.body;
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (duel.challengerId !== req.user.id && duel.opponentId !== req.user.id) {
       return res.status(403).json({ error: 'Not your duel' });
@@ -437,12 +437,12 @@ router.post('/:id/request-time', (req, res) => {
     if (duel.forfeitedBy && duel.forfeitedBy !== req.user.id) {
       const addedMs = extraMinutes * 60 * 1000;
       const newEnd = new Date(new Date(duel.endAt).getTime() + addedMs).toISOString();
-      const updated = updateOne('duels.json', d => d.id === req.params.id, { endAt: newEnd });
+      const updated = await updateOne('duels.json', d => d.id === req.params.id, { endAt: newEnd });
       return res.json(updated);
     }
 
     const requesterName = duel.challengerId === req.user.id ? duel.challengerName : duel.opponentName;
-    const updated = updateOne('duels.json', d => d.id === req.params.id, {
+    const updated = await updateOne('duels.json', d => d.id === req.params.id, {
       extraTimeRequest: { requestedBy: req.user.id, requesterName, minutes: extraMinutes }
     });
     res.json(updated);
@@ -452,10 +452,10 @@ router.post('/:id/request-time', (req, res) => {
 });
 
 // POST /:id/respond-time — accept or reject extra time request
-router.post('/:id/respond-time', (req, res) => {
+router.post('/:id/respond-time', async (req, res) => {
   try {
     const { accept } = req.body;
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (!duel.extraTimeRequest) return res.status(400).json({ error: 'No time request pending' });
     if (duel.extraTimeRequest.requestedBy === req.user.id) {
@@ -465,13 +465,13 @@ router.post('/:id/respond-time', (req, res) => {
     if (accept) {
       const addedMs = duel.extraTimeRequest.minutes * 60 * 1000;
       const newEnd = new Date(new Date(duel.endAt).getTime() + addedMs).toISOString();
-      const updated = updateOne('duels.json', d => d.id === req.params.id, {
+      const updated = await updateOne('duels.json', d => d.id === req.params.id, {
         endAt: newEnd,
         extraTimeRequest: null
       });
       return res.json(updated);
     } else {
-      const updated = updateOne('duels.json', d => d.id === req.params.id, { extraTimeRequest: null });
+      const updated = await updateOne('duels.json', d => d.id === req.params.id, { extraTimeRequest: null });
       return res.json(updated);
     }
   } catch {
@@ -480,9 +480,9 @@ router.post('/:id/respond-time', (req, res) => {
 });
 
 // POST /:id/forfeit — leaving = instant loss, other side wins
-router.post('/:id/forfeit', (req, res) => {
+router.post('/:id/forfeit', async (req, res) => {
   try {
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (duel.challengerId !== req.user.id && duel.opponentId !== req.user.id) {
       return res.status(403).json({ error: 'Not your duel' });
@@ -497,7 +497,7 @@ router.post('/:id/forfeit', (req, res) => {
 
     // Mark forfeiter — but keep duel ACTIVE so the other person can keep writing
     const winnerId = duel.challengerId === req.user.id ? duel.opponentId : duel.challengerId;
-    const updated = updateOne('duels.json', d => d.id === req.params.id, {
+    const updated = await updateOne('duels.json', d => d.id === req.params.id, {
       forfeitedBy: req.user.id,
       winnerId
       // NOTE: status stays 'active', endAt stays the same — other player continues until timer
@@ -510,7 +510,7 @@ router.post('/:id/forfeit', (req, res) => {
 });
 
 // POST /:id/beacon-forfeit — sendBeacon-compatible forfeit (token in body, no auth header)
-router.post('/:id/beacon-forfeit', (req, res) => {
+router.post('/:id/beacon-forfeit', async (req, res) => {
   try {
     const jwt = require('jsonwebtoken');
     const { SECRET } = require('../middleware/auth');
@@ -520,7 +520,7 @@ router.post('/:id/beacon-forfeit', (req, res) => {
     let user;
     try { user = jwt.verify(token, SECRET); } catch { return res.status(401).json({ error: 'Invalid token' }); }
 
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
     if (duel.challengerId !== user.id && duel.opponentId !== user.id) {
       return res.status(403).json({ error: 'Not your duel' });
@@ -531,7 +531,7 @@ router.post('/:id/beacon-forfeit', (req, res) => {
 
     // Mark forfeiter but keep duel active for the other player
     const winnerId = duel.challengerId === user.id ? duel.opponentId : duel.challengerId;
-    const updated = updateOne('duels.json', d => d.id === req.params.id, {
+    const updated = await updateOne('duels.json', d => d.id === req.params.id, {
       forfeitedBy: user.id,
       winnerId
     });
@@ -543,10 +543,10 @@ router.post('/:id/beacon-forfeit', (req, res) => {
 });
 
 // POST /:id/set-doc — associate a document with a duel participant
-router.post('/:id/set-doc', (req, res) => {
+router.post('/:id/set-doc', async (req, res) => {
   try {
     const { docId } = req.body;
-    const duel = findOne('duels.json', d => d.id === req.params.id);
+    const duel = await findOne('duels.json', d => d.id === req.params.id);
     if (!duel) return res.status(404).json({ error: 'Duel not found' });
 
     const update = {};
@@ -554,7 +554,7 @@ router.post('/:id/set-doc', (req, res) => {
     else if (duel.opponentId === req.user.id) update.opponentDocId = docId;
     else return res.status(403).json({ error: 'Not your duel' });
 
-    const updated = updateOne('duels.json', d => d.id === req.params.id, update);
+    const updated = await updateOne('duels.json', d => d.id === req.params.id, update);
     res.json(updated);
   } catch {
     res.status(500).json({ error: 'Server error' });
@@ -562,12 +562,12 @@ router.post('/:id/set-doc', (req, res) => {
 });
 
 // GET /history — completed duels for current user (paginated)
-router.get('/history', (req, res) => {
+router.get('/history', async (req, res) => {
   try {
-    cleanupStaleDuels();
+    await cleanupStaleDuels();
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
-    const duels = findMany('duels.json', d =>
+    const duels = await findMany('duels.json', d =>
       d.status === 'completed' &&
       (d.challengerId === req.user.id || d.opponentId === req.user.id)
     );
@@ -581,9 +581,9 @@ router.get('/history', (req, res) => {
 });
 
 // GET /active — active/pending/countdown duels for current user
-router.get('/active', (req, res) => {
+router.get('/active', async (req, res) => {
   try {
-    const duels = findMany('duels.json', d =>
+    const duels = await findMany('duels.json', d =>
       ['pending', 'accepted', 'countdown', 'active'].includes(d.status) &&
       (d.challengerId === req.user.id || d.opponentId === req.user.id)
     );

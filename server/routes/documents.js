@@ -8,7 +8,7 @@ const { logAction } = require('../utils/logger');
 const WORD_MILESTONES = [1000, 5000, 10000, 25000, 50000, 100000];
 const STREAK_MILESTONES = [7, 14, 30, 50, 100];
 
-function generateActivities(userId, userName, prevUser, newUser, wordCount, durationSeconds) {
+async function generateActivities(userId, userName, prevUser, newUser, wordCount, durationSeconds) {
   const activities = [];
   const now = new Date().toISOString();
   const duration = Math.round((durationSeconds || 0) / 60); // Convert seconds to minutes
@@ -45,7 +45,7 @@ function generateActivities(userId, userName, prevUser, newUser, wordCount, dura
 
   // Save activities
   for (const activity of activities) {
-    insertOne('activities.json', activity);
+    await insertOne('activities.json', activity);
   }
 }
 
@@ -65,13 +65,13 @@ const router = express.Router();
 
 router.use(authenticate);
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   // Include system-deleted (failed) docs for history, admin-deactivated docs, but not manually deleted
-  const docs = findMany('documents.json', d => d.userId === req.user.id && (!d.deleted || d.deletedBySystem || d.deactivatedByAdmin));
+  const docs = await findMany('documents.json', d => d.userId === req.user.id && (!d.deleted || d.deletedBySystem || d.deactivatedByAdmin));
   res.json(docs.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)));
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { title, content, mode } = req.body;
   const doc = {
     id: uuid(),
@@ -88,16 +88,16 @@ router.post('/', (req, res) => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  insertOne('documents.json', doc);
+  await insertOne('documents.json', doc);
   res.status(201).json(doc);
 });
 
-router.get('/shared-with-me', (req, res) => {
-  const user = findOne('users.json', u => u.id === req.user.id);
+router.get('/shared-with-me', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.user.id);
   const sharedTokens = user.sharedTokens || [];
   if (sharedTokens.length === 0) return res.json([]);
 
-  const docs = findMany('documents.json');
+  const docs = await findMany('documents.json');
   const result = [];
   for (const entry of sharedTokens) {
     const doc = docs.find(d => !d.deleted && d.shareLinks && d.shareLinks.some(s => s.token === entry.token));
@@ -117,35 +117,35 @@ router.get('/shared-with-me', (req, res) => {
 });
 
 // ===== FOLDER MANAGEMENT ===== (must be before /:id routes)
-router.get('/folders/list', (req, res) => {
-  const user = findOne('users.json', u => u.id === req.user.id);
+router.get('/folders/list', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.user.id);
   res.json(user.folders || []);
 });
 
-router.post('/folders', (req, res) => {
+router.post('/folders', async (req, res) => {
   const { name, parentFolder } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Folder name required' });
-  const user = findOne('users.json', u => u.id === req.user.id);
+  const user = await findOne('users.json', u => u.id === req.user.id);
   const folders = user.folders || [];
   const folder = { id: uuid(), name: name.trim(), parentFolder: parentFolder || null, createdAt: new Date().toISOString() };
   folders.push(folder);
-  updateOne('users.json', u => u.id === req.user.id, { folders });
+  await updateOne('users.json', u => u.id === req.user.id, { folders });
   res.status(201).json(folder);
 });
 
-router.patch('/folders/:folderId', (req, res) => {
-  const user = findOne('users.json', u => u.id === req.user.id);
+router.patch('/folders/:folderId', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.user.id);
   const folders = user.folders || [];
   const folder = folders.find(f => f.id === req.params.folderId);
   if (!folder) return res.status(404).json({ error: 'Folder not found' });
   if (req.body.name !== undefined) folder.name = req.body.name.trim();
   if (req.body.parentFolder !== undefined) folder.parentFolder = req.body.parentFolder;
-  updateOne('users.json', u => u.id === req.user.id, { folders });
+  await updateOne('users.json', u => u.id === req.user.id, { folders });
   res.json(folder);
 });
 
-router.delete('/folders/:folderId', (req, res) => {
-  const user = findOne('users.json', u => u.id === req.user.id);
+router.delete('/folders/:folderId', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.user.id);
   let folders = user.folders || [];
   // Collect folder and all descendants
   const toDelete = new Set();
@@ -156,15 +156,17 @@ router.delete('/folders/:folderId', (req, res) => {
   collect(req.params.folderId);
   const parent = folders.find(f => f.id === req.params.folderId)?.parentFolder || null;
   folders = folders.filter(f => !toDelete.has(f.id));
-  updateOne('users.json', u => u.id === req.user.id, { folders });
+  await updateOne('users.json', u => u.id === req.user.id, { folders });
   // Move docs from deleted folders to the parent folder
-  const docs = findMany('documents.json', d => d.userId === req.user.id && toDelete.has(d.folder));
-  docs.forEach(d => updateOne('documents.json', dd => dd.id === d.id, { folder: parent }));
+  const docs = await findMany('documents.json', d => d.userId === req.user.id && toDelete.has(d.folder));
+  for (const d of docs) {
+    await updateOne('documents.json', dd => dd.id === d.id, { folder: parent });
+  }
   res.json({ success: true });
 });
 
-router.get('/:id', (req, res) => {
-  const doc = findOne('documents.json', d => d.id === req.params.id);
+router.get('/:id', async (req, res) => {
+  const doc = await findOne('documents.json', d => d.id === req.params.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
   const isOwner = doc.userId === req.user.id;
@@ -177,8 +179,8 @@ router.get('/:id', (req, res) => {
   res.json(doc);
 });
 
-router.patch('/:id', (req, res) => {
-  const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+router.patch('/:id', async (req, res) => {
+  const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
   const updates = {};
@@ -190,36 +192,36 @@ router.patch('/:id', (req, res) => {
   if (req.body.folder !== undefined) updates.folder = req.body.folder;
   updates.updatedAt = new Date().toISOString();
 
-  const updated = updateOne('documents.json', d => d.id === req.params.id, updates);
+  const updated = await updateOne('documents.json', d => d.id === req.params.id, updates);
   res.json(updated);
 });
 
-router.delete('/:id', (req, res) => {
-  const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+router.delete('/:id', async (req, res) => {
+  const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
-  updateOne('documents.json', d => d.id === req.params.id, { deleted: true });
+  await updateOne('documents.json', d => d.id === req.params.id, { deleted: true });
   res.json({ success: true });
 });
 
-router.post('/:id/complete', (req, res) => {
+router.post('/:id/complete', async (req, res) => {
   const { wordCount, duration, xpEarned } = req.body;
-  const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+  const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
   // Don't count empty sessions — no XP, no streak, no stats
   if (!wordCount || wordCount <= 0) {
-    const { password: _, ...safeUser } = findOne('users.json', u => u.id === req.user.id);
+    const { password: _, ...safeUser } = await findOne('users.json', u => u.id === req.user.id);
     return res.json({ document: doc, user: safeUser });
   }
 
-  updateOne('documents.json', d => d.id === req.params.id, {
+  await updateOne('documents.json', d => d.id === req.params.id, {
     wordCount: wordCount || doc.wordCount,
     duration: duration || 0,
     xpEarned: xpEarned || 0,
     updatedAt: new Date().toISOString()
   });
 
-  const user = findOne('users.json', u => u.id === req.user.id);
+  const user = await findOne('users.json', u => u.id === req.user.id);
   const today = new Date().toISOString().split('T')[0];
   const lastDate = user.lastWritingDate;
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -243,7 +245,7 @@ router.post('/:id/complete', (req, res) => {
   const totalWords = (user.totalWords || 0) + (wordCount || 0);
 
   const newXP = user.xp + (xpEarned || 0);
-  const updatedUser = updateOne('users.json', u => u.id === req.user.id, {
+  const updatedUser = await updateOne('users.json', u => u.id === req.user.id, {
     xp: newXP,
     level: calcLevel(newXP),
     streak: newStreak,
@@ -256,37 +258,37 @@ router.post('/:id/complete', (req, res) => {
 
   // Generate activities for friends feed
   try {
-    generateActivities(req.user.id, user.name, user, { ...user, xp: newXP, totalWords, streak: newStreak }, wordCount, duration);
+    await generateActivities(req.user.id, user.name, user, { ...user, xp: newXP, totalWords, streak: newStreak }, wordCount, duration);
   } catch (e) { /* activity generation is non-critical */ }
 
-  logAction('session_completed', { docId: req.params.id, wordCount, duration, xpEarned }, req.user.id);
+  await logAction('session_completed', { docId: req.params.id, wordCount, duration, xpEarned }, req.user.id);
   const { password: _, ...safeUser } = updatedUser;
-  res.json({ document: findOne('documents.json', d => d.id === req.params.id), user: safeUser });
+  res.json({ document: await findOne('documents.json', d => d.id === req.params.id), user: safeUser });
 });
 
-router.get('/:id/comments', (req, res) => {
-  const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+router.get('/:id/comments', async (req, res) => {
+  const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
-  const comments = findMany('comments.json', c => c.documentId === doc.id && c.status === 'pending');
+  const comments = await findMany('comments.json', c => c.documentId === doc.id && c.status === 'pending');
   res.json(comments);
 });
 
-router.get('/:id/comments/history', (req, res) => {
-  const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+router.get('/:id/comments/history', async (req, res) => {
+  const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
-  const comments = findMany('comments.json', c => c.documentId === doc.id && c.status !== 'pending');
+  const comments = await findMany('comments.json', c => c.documentId === doc.id && c.status !== 'pending');
   res.json(comments.sort((a, b) => new Date(b.resolvedAt || b.createdAt) - new Date(a.resolvedAt || a.createdAt)));
 });
 
-router.post('/:id/share', (req, res) => {
+router.post('/:id/share', async (req, res) => {
   const { type } = req.body;
   if (!['view', 'comment', 'edit'].includes(type)) {
     return res.status(400).json({ error: 'Invalid share type' });
   }
 
-  const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+  const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
   const shareLink = {
@@ -297,23 +299,23 @@ router.post('/:id/share', (req, res) => {
   };
 
   const links = [...doc.shareLinks, shareLink];
-  updateOne('documents.json', d => d.id === req.params.id, { shareLinks: links });
+  await updateOne('documents.json', d => d.id === req.params.id, { shareLinks: links });
   res.json(shareLink);
 });
 
-router.post('/:id/abandon', (req, res) => {
-  const doc = findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+router.post('/:id/abandon', async (req, res) => {
+  const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
   const { reason } = req.body; // 'typing_stopped' | 'tab_left'
-  updateOne('documents.json', d => d.id === req.params.id, {
+  await updateOne('documents.json', d => d.id === req.params.id, {
     deletedBySystem: true,
     deleted: true,
     failReason: reason || 'unknown',
     failedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });
-  logAction('session_failed', { docId: req.params.id, reason: reason || 'unknown', title: doc.title, wordCount: doc.wordCount }, req.user.id);
+  await logAction('session_failed', { docId: req.params.id, reason: reason || 'unknown', title: doc.title, wordCount: doc.wordCount }, req.user.id);
   res.json({ success: true, message: 'Document lost' });
 });
 

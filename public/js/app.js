@@ -49,6 +49,13 @@ const App = {
       API.clearToken();
       this.showAuth();
     }
+
+    // Analytics pageview
+    fetch('/api/analytics/pageview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: window.location.pathname })
+    }).catch(() => {});
   },
 
   showAuth() {
@@ -2675,7 +2682,7 @@ const App = {
   _helpTopics: {
     'how-it-works': {
       title: 'How It Works',
-      html: `<p>iWrite4 is a distraction-free writing tool built on one rule: <strong>write it or lose it</strong>.</p>
+      html: `<p>iWrite4.me is a distraction-free writing tool built on one rule: <strong>write it or lose it</strong>.</p>
         <ol><li>Set a timer and choose a mode.</li><li>The editor opens — tab switching is locked.</li><li>Leave the tab and a 10-second countdown starts. Don't come back in time and your writing is deleted forever.</li><li>Complete the session to save your document and earn XP.</li></ol>`
     },
     'writing-modes': {
