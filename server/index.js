@@ -192,7 +192,9 @@ async function start() {
       console.log('Admin account seeded');
     }
   } catch (e) {
-    console.error('DB init error:', e.message);
+    console.error('DB init error:', e.message || e);
+    console.error('DATABASE_URL set:', !!process.env.DATABASE_URL);
+    console.error('Full error:', e);
     process.exit(1);
   }
 

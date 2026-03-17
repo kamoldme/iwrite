@@ -1,10 +1,12 @@
 const { Pool } = require('pg');
 
+const connStr = process.env.DATABASE_URL;
+const isInternal = connStr && connStr.includes('.railway.internal');
+const isLocal = !connStr || connStr.includes('localhost');
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost')
-    ? { rejectUnauthorized: false }
-    : false
+  connectionString: connStr,
+  ssl: (!isLocal && !isInternal) ? { rejectUnauthorized: false } : false
 });
 
 const TABLE_MAP = {
