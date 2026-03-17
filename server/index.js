@@ -151,7 +151,7 @@ app.post('/api/analytics/pageview', (req, res) => {
 });
 
 // One-time migration endpoint — reads JSON files from Railway volume and inserts into PostgreSQL
-app.post('/api/admin/migrate-volume', async (req, res) => {
+app.post('/api/migrate-volume', async (req, res) => {
   const secret = req.headers['x-migrate-secret'];
   if (secret !== process.env.JWT_SECRET) return res.status(403).json({ error: 'Forbidden' });
 
