@@ -150,6 +150,47 @@ app.post('/api/analytics/pageview', (req, res) => {
   res.json({ ok: true });
 });
 
+// One-time migration endpoint — reads JSON files from Railway volume and inserts into PostgreSQL
+app.post('/api/admin/migrate-volume', async (req, res) => {
+  const secret = req.headers['x-migrate-secret'];
+  if (secret !== process.env.JWT_SECRET) return res.status(403).json({ error: 'Forbidden' });
+
+  const { pool } = require('./utils/storage');
+  const dataDir = path.join(__dirname, 'data');
+  const files = {
+    'users.json': 'users',
+    'documents.json': 'documents',
+    'comments.json': 'comments',
+    'duels.json': 'duels',
+    'activities.json': 'activities',
+    'logs.json': 'logs',
+    'support.json': 'support'
+  };
+
+  const results = {};
+  for (const [filename, table] of Object.entries(files)) {
+    const filepath = path.join(dataDir, filename);
+    if (!fs.existsSync(filepath)) { results[filename] = 'not found'; continue; }
+    try {
+      const records = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
+      if (!Array.isArray(records)) { results[filename] = 'not an array'; continue; }
+      let inserted = 0, skipped = 0;
+      for (const record of records) {
+        if (!record.id) { skipped++; continue; }
+        try {
+          await pool.query(
+            `INSERT INTO ${table} (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = $2`,
+            [record.id, JSON.stringify(record)]
+          );
+          inserted++;
+        } catch { skipped++; }
+      }
+      results[filename] = `${inserted} upserted, ${skipped} skipped (of ${records.length})`;
+    } catch (e) { results[filename] = `error: ${e.message}`; }
+  }
+  res.json({ results });
+});
+
 // HTML routes
 app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'app.html'));
