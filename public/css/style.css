@@ -4861,7 +4861,7 @@ html.light .logo-img-light { display: inline; }
   66% { transform: translateX(-50%) translateY(-10px); }
 }
 
-/* Monsters positioned around the iWrite title (title sits near center vertically ~48%) */
+/* Monsters positioned around the iWrite4 title (title sits near center vertically ~48%) */
 .auth-monster-1 {
   left: 18%; top: 28%;
   animation: monsterEntrance 0.8s ease-out forwards, monsterFloat1 4s ease-in-out 0.8s infinite;

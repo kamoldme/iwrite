@@ -1101,7 +1101,7 @@ const App = {
             <td><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
             <td>${entry.totalSessions || 0}</td>
             <td>${entry.minutesWritten || 0}m</td>
-            <td><span class="lb-level">Lv.${this.calcXPLevel(entry.totalWords || 0).level}</span></td>
+            <td><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
             <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
           </tr>`;
       }).join('');
@@ -2672,7 +2672,7 @@ const App = {
   _helpTopics: {
     'how-it-works': {
       title: 'How It Works',
-      html: `<p>iWrite is a distraction-free writing tool built on one rule: <strong>write it or lose it</strong>.</p>
+      html: `<p>iWrite4 is a distraction-free writing tool built on one rule: <strong>write it or lose it</strong>.</p>
         <ol><li>Set a timer and choose a mode.</li><li>The editor opens — tab switching is locked.</li><li>Leave the tab and a 10-second countdown starts. Don't come back in time and your writing is deleted forever.</li><li>Complete the session to save your document and earn XP.</li></ol>`
     },
     'writing-modes': {

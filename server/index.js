@@ -114,5 +114,5 @@ app.get('/shared/:token', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`iWrite running on port ${PORT}`);
+  console.log(`iWrite4 running on port ${PORT}`);
 });
