@@ -321,6 +321,10 @@ const API = {
     });
   },
 
+  async useCopy() {
+    return this.request('/documents/copy', { method: 'POST' });
+  },
+
   logout() {
     this.clearToken();
     window.location.href = '/app';

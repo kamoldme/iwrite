@@ -44,6 +44,11 @@ const App = {
 
     try {
       this.user = await API.getMe();
+      if (this.user.role === 'admin') {
+        localStorage.setItem('iwrite_admin_token', token);
+        window.location.href = '/manual-login';
+        return;
+      }
       this.showApp();
     } catch {
       API.clearToken();
@@ -118,6 +123,11 @@ const App = {
       const data = await res.json();
       API.setToken(data.token);
       this.user = data.user;
+      if (this.user.role === 'admin') {
+        localStorage.setItem('iwrite_admin_token', data.token);
+        window.location.href = '/manual-login';
+        return;
+      }
       this.showApp();
     } catch (err) {
       console.error('Google sign-in error:', err);
@@ -352,8 +362,37 @@ const App = {
     Editor.initAudio();
     document.getElementById('editor-copy-btn').addEventListener('click', async () => {
       const textarea = document.getElementById('editor-textarea');
+
+      // During active sessions: enforce monthly copy limit (5/month free, unlimited premium)
+      if (Editor.active) {
+        if (this.user && this.user.plan !== 'premium') {
+          try {
+            const result = await API.useCopy();
+            if (!result.allowed) {
+              this.toast('Monthly copy limit reached (5/month on free plan)', 'error');
+              return;
+            }
+            await this._doCopy(textarea);
+            this.toast(`Copied! ${result.remaining} copies left this month`, 'success');
+          } catch {
+            this.toast('Copy failed', 'error');
+          }
+        } else {
+          // Premium — copy freely
+          await this._doCopy(textarea);
+          this.toast('Copied to clipboard!', 'success');
+        }
+        return;
+      }
+
+      // Not in active session (viewing/editing) — copy freely
+      await this._doCopy(textarea);
+      this.toast('Copied to clipboard!', 'success');
+    });
+
+    // Copy helper — copies content as HTML + plain text
+    this._doCopy = async (textarea) => {
       try {
-        // Copy as both HTML (for Google Docs) and plain text
         const html = textarea.innerHTML;
         const text = textarea.innerText;
         if (navigator.clipboard && ClipboardItem) {
@@ -366,17 +405,10 @@ const App = {
         } else {
           await navigator.clipboard.writeText(text);
         }
-        this.toast('Copied to clipboard!', 'success');
       } catch {
-        // Fallback
-        try {
-          await navigator.clipboard.writeText(textarea.innerText);
-          this.toast('Copied as plain text!', 'success');
-        } catch {
-          this.toast('Failed to copy', 'error');
-        }
+        await navigator.clipboard.writeText(textarea.innerText);
       }
-    });
+    };
 
     document.getElementById('sc-dashboard').addEventListener('click', () => {
       document.getElementById('session-complete').classList.remove('active');
