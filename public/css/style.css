@@ -3723,8 +3723,6 @@ html.light .logo-img-light { display: inline; }
     transform: translateX(-100%);
     z-index: 9500;
     width: 280px;
-    isolation: isolate;
-    will-change: transform;
   }
 
   .sidebar.open {
