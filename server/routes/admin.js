@@ -14,7 +14,12 @@ router.get('/stats', async (req, res) => {
   const docs = await findMany('documents.json');
   const support = await findMany('support.json');
   const logs = await findMany('logs.json');
+  // Get active users count from the in-memory tracker on the main app
+  const activeUsersMap = req.app.get('activeUsers');
+  const activeNow = activeUsersMap ? activeUsersMap.size : 0;
+
   res.json({
+    activeNow,
     totalUsers: users.filter(u => u.role !== 'admin').length,
     totalDocuments: docs.length,
     activeDocuments: docs.filter(d => !d.deleted).length,

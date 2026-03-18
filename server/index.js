@@ -77,6 +77,7 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 
 // Active users tracker (in-memory, 5-minute window)
 const activeUsers = new Map(); // userId → { name, lastSeen }
+app.set('activeUsers', activeUsers); // share with routes
 app.use('/api', (req, res, next) => {
   if (req.headers.authorization) {
     try {

@@ -101,6 +101,7 @@ const Editor = {
     this.lastKeystroke = Date.now();
 
     this.container.classList.add('active');
+    document.body.classList.add('editor-active');
     this.textarea.innerHTML = '';
     this.textarea.contentEditable = 'true';
     this.textarea.focus();
@@ -382,6 +383,10 @@ const Editor = {
     }
     this.tabWarning.classList.remove('active');
     this.tabLeftTime = null;
+    // Immediately update session timer so it shows correct remaining time
+    if (!this.abandoned && this.active) {
+      this.updateTimer();
+    }
     if (!this.abandoned) {
       this.textarea.focus();
       // Re-enter fullscreen if they return in time
@@ -430,7 +435,7 @@ const Editor = {
           this._stopDuelPolling();
           this.tabWarning.classList.remove('active');
           document.getElementById('status-bar').style.display = 'none';
-          this.container.classList.remove('active');
+          this.container.classList.remove('active'); document.body.classList.remove('editor-active');
           App._showDuelResults(duelStatus);
           return;
         }
@@ -443,7 +448,7 @@ const Editor = {
           this._stopDuelPolling();
           this.tabWarning.classList.remove('active');
           document.getElementById('status-bar').style.display = 'none';
-          this.container.classList.remove('active');
+          this.container.classList.remove('active'); document.body.classList.remove('editor-active');
           // Show win result
           const finalDuel = await API.getDuelStatus(this._duelInfo.duelId);
           App._showDuelResults(finalDuel.status === 'completed' ? finalDuel : { ...finalDuel, status: 'completed', winnerId: this._duelInfo.isChallenger ? finalDuel.challengerId : finalDuel.opponentId });
@@ -458,7 +463,7 @@ const Editor = {
 
     this.tabWarning.classList.remove('active');
     document.getElementById('status-bar').style.display = 'none';
-    this.container.classList.remove('active');
+    this.container.classList.remove('active'); document.body.classList.remove('editor-active');
     App.showSessionFailed('You left the tab. Your writing is gone.');
   },
 
@@ -514,7 +519,7 @@ const Editor = {
     }
 
     document.getElementById('status-bar').style.display = 'none';
-    this.container.classList.remove('active');
+    this.container.classList.remove('active'); document.body.classList.remove('editor-active');
     App.showSessionFailed('You stopped typing. Your writing is gone.');
   },
 
@@ -900,7 +905,7 @@ const Editor = {
         try { await API.abandonDocument(this.documentId, 'empty_session'); } catch {}
       }
       document.getElementById('status-bar').style.display = 'none';
-      this.container.classList.remove('active');
+      this.container.classList.remove('active'); document.body.classList.remove('editor-active');
       App.toast('Session discarded — no words written', 'info');
       App._docsCacheDirty = true;
       try { await App.loadDocuments(true); } catch {}
@@ -921,13 +926,13 @@ const Editor = {
     try {
       result = await API.completeSession(this.documentId, { wordCount, duration, xpEarned });
     } catch {
-      this.container.classList.remove('active');
+      this.container.classList.remove('active'); document.body.classList.remove('editor-active');
       App.loadDashboard();
       return;
     }
 
     document.getElementById('status-bar').style.display = 'none';
-    this.container.classList.remove('active');
+    this.container.classList.remove('active'); document.body.classList.remove('editor-active');
 
     // If in duel mode, submit final word count. Don't forfeit — timer expired naturally.
     // The server auto-completes the duel when status is polled after endAt.
@@ -1514,7 +1519,7 @@ const Editor = {
         this.textarea.innerHTML = this.originalContent;
         this.titleInput.value = this.originalTitle;
         this.exitEditMode();
-        this.container.classList.remove('active');
+        this.container.classList.remove('active'); document.body.classList.remove('editor-active');
         document.getElementById('editor-comment-history-btn').style.display = 'none';
         document.getElementById('status-bar').style.display = 'none';
       }
@@ -1523,7 +1528,7 @@ const Editor = {
 
     // Just viewing — close
     if (this.isEditing) this.exitEditMode();
-    this.container.classList.remove('active');
+    this.container.classList.remove('active'); document.body.classList.remove('editor-active');
     document.getElementById('formatting-toolbar').style.display = 'none';
     document.getElementById('editor-comment-history-btn').style.display = 'none';
     document.getElementById('status-bar').style.display = 'none';

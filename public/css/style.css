@@ -2296,6 +2296,11 @@ html.light .logo-img-light { display: inline; }
   pointer-events: auto;
 }
 
+/* Hide mobile hamburger when editor is active — toggled via body class */
+body.editor-active .mobile-sidebar-toggle {
+  display: none !important;
+}
+
 .editor-toolbar {
   display: flex;
   align-items: center;
@@ -3206,6 +3211,13 @@ html.light .logo-img-light { display: inline; }
   margin-top: 36px;
 }
 
+.modal-actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  justify-content: center;
+}
+
 /* ===== AUTH ===== */
 
 .auth-card .logo {
@@ -4024,11 +4036,15 @@ html.light .logo-img-light { display: inline; }
 .online-indicator {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   margin-top: 8px;
   font-size: 12px;
   color: var(--text-muted);
   font-weight: 400;
+}
+
+#online-count {
+  padding: 0px 3px;
 }
 
 .online-dot {
@@ -6854,35 +6870,54 @@ html {
   /* ── Editor toolbar: 2-row layout on mobile ── */
   .editor-toolbar {
     flex-wrap: wrap;
-    padding: 8px 12px 6px;
+    padding: 8px 10px 6px;
     gap: 0;
     row-gap: 6px;
   }
 
-  /* Row 1: left (back + title) takes all remaining space */
+  /* Row 1: back + title + buttons + Complete — ALL on one line */
   .editor-toolbar-left {
     order: 1;
-    gap: 8px;
-    flex: 1 1 auto;
+    gap: 6px;
+    flex: 1 1 0;
     min-width: 0;
+    overflow: hidden;
+  }
+
+  .editor-back-btn {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    font-size: 14px;
   }
 
   .editor-title-input {
     min-width: 0;
     flex: 1 1 0;
     max-width: none;
-    font-size: 14px;
+    font-size: 13px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  /* Row 1: right (buttons) stays on same line as left */
+  /* Row 1: right (buttons) stays on same line */
   .editor-toolbar-right {
     order: 2;
-    gap: 4px;
+    gap: 3px;
     flex-shrink: 0;
     align-items: center;
+  }
+
+  /* Hide less-essential icon buttons on mobile to keep row 1 compact */
+  .editor-toolbar-right #editor-theme-btn,
+  .editor-toolbar-right #editor-fullscreen-btn {
+    display: none !important;
+  }
+
+  .editor-toolbar-right .btn-small {
+    font-size: 11px;
+    padding: 6px 12px;
   }
 
   /* Row 2: timer + controls spans full width, centered */
@@ -6912,8 +6947,8 @@ html {
   }
 
   .doc-action-btn {
-    width: 30px !important;
-    height: 30px !important;
+    width: 28px !important;
+    height: 28px !important;
   }
 
   .editor-area {
