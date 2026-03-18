@@ -215,13 +215,13 @@ async function start() {
   // Seed admin account
   try {
     await initDB();
-    const admin = await findOne('users.json', u => u.email === 'admin@iwrite.app');
+    const admin = await findOne('users.json', u => u.email === 'admin@iwrite4.me');
     if (!admin) {
       const hash = await bcrypt.hash('Admin1234', 12);
       await insertOne('users.json', {
         id: uuid(),
         name: 'Admin',
-        email: 'admin@iwrite.app',
+        email: 'admin@iwrite4.me',
         password: hash,
         role: 'admin',
         plan: 'free',
