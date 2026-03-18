@@ -1208,7 +1208,6 @@ html.light .logo-img-light { display: inline; }
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: 9400;
-  backdrop-filter: blur(2px);
 }
 
 .sidebar {
@@ -3724,6 +3723,8 @@ html.light .logo-img-light { display: inline; }
     transform: translateX(-100%);
     z-index: 9500;
     width: 280px;
+    isolation: isolate;
+    will-change: transform;
   }
 
   .sidebar.open {
@@ -6749,5 +6750,251 @@ html.light .logo-img-light { display: inline; }
   /* Sidebar full width on small phones */
   .sidebar {
     width: 100%;
+  }
+}
+
+/* ===== MOBILE RESPONSIVENESS (iPhone / Android) ===== */
+
+/* Prevent tap highlight and enforce box-sizing */
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent font size inflation on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* ── Editor on mobile ── */
+@media (max-width: 768px) {
+  .editor-toolbar {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .editor-toolbar-left {
+    gap: 8px;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  .editor-title-input {
+    min-width: 0;
+    max-width: 120px;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .editor-toolbar-center {
+    position: static;
+    transform: none;
+    flex-shrink: 0;
+  }
+
+  .editor-timer {
+    font-size: 18px;
+    min-width: 60px;
+  }
+
+  .editor-toolbar-right {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .doc-action-btn {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .editor-area {
+    padding: 32px 16px 80px;
+  }
+
+  .editor-textarea {
+    font-size: 16px; /* prevents iOS zoom on focus */
+    line-height: 1.8;
+  }
+
+  .formatting-toolbar {
+    padding: 4px 8px;
+    gap: 2px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fmt-btn {
+    min-width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+
+  .status-bar {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  .danger-countdown-num {
+    font-size: 120px;
+  }
+}
+
+/* ── Dashboard on mobile ── */
+@media (max-width: 768px) {
+  .view-header {
+    padding: 16px 0 12px;
+  }
+
+  .view-header h1 {
+    font-size: 22px;
+  }
+
+  .docs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .doc-card-actions {
+    opacity: 1; /* always visible on touch */
+  }
+
+  .modal-content {
+    width: calc(100vw - 32px);
+    max-height: 85vh;
+    padding: 20px;
+  }
+
+  .session-modal {
+    width: calc(100vw - 32px);
+    padding: 24px 20px;
+  }
+
+  .session-duration-options {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .duration-btn {
+    min-width: 60px;
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .session-complete {
+    padding: 28px 20px;
+  }
+
+  .sc-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .friends-list {
+    gap: 8px;
+  }
+
+  .friend-card {
+    padding: 12px;
+  }
+
+  .leaderboard-podium {
+    gap: 6px;
+  }
+
+  .podium-slot {
+    padding: 12px 8px;
+  }
+
+  .podium-name {
+    font-size: 11px;
+  }
+
+  .settings-section {
+    padding: 16px;
+  }
+}
+
+/* ── Small phones (≤ 390px — iPhone SE, older Androids) ── */
+@media (max-width: 390px) {
+  .editor-title-input {
+    max-width: 90px;
+  }
+
+  .editor-timer {
+    font-size: 16px;
+    min-width: 52px;
+  }
+
+  .editor-add-time {
+    display: none;
+  }
+
+  .dashboard-stats-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .modal-content,
+  .session-modal {
+    width: calc(100vw - 16px);
+    padding: 16px;
+  }
+
+  .view-header h1 {
+    font-size: 19px;
+  }
+}
+
+/* ── Landing page on mobile ── */
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: clamp(36px, 10vw, 60px);
+  }
+
+  .hero-sub {
+    font-size: 15px;
+  }
+
+  .stats-bar {
+    padding: 24px 16px;
+  }
+
+  .stat-num {
+    font-size: 32px;
+  }
+
+  .section-header h2 {
+    font-size: clamp(24px, 6vw, 40px);
+  }
+
+  .features {
+    padding: 60px 16px;
+  }
+
+  .how-it-works {
+    padding: 60px 16px;
+  }
+
+  .cta {
+    padding: 60px 16px;
+  }
+
+  .cta h2 {
+    font-size: clamp(22px, 5.5vw, 36px);
+  }
+}
+
+/* ── Touch — bigger tap targets ── */
+@media (pointer: coarse) {
+  .btn, button, .sidebar-nav-item, .doc-action-btn,
+  .admin-nav-item, .duration-btn, .fmt-btn {
+    min-height: 44px;
+  }
+
+  .sidebar-nav-item {
+    padding: 12px 16px;
+  }
+
+  input, select, textarea {
+    font-size: 16px; /* prevents iOS zoom */
   }
 }

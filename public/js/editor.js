@@ -152,7 +152,6 @@ const Editor = {
     // Block all copying during active session
     this._blockCopy();
 
-
     // Save session state periodically so it survives page refresh
     this.sessionSaveInterval = setInterval(() => this._saveSessionState(), 5000);
     this._saveSessionState();
