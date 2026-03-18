@@ -63,17 +63,18 @@ const avatarsDir = path.join(dataDir, 'avatars');
 if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
 
 app.use('/uploads/avatars', express.static(avatarsDir));
-app.use(express.static(path.join(__dirname, '..', 'public'), {
-  maxAge: 0,
-  etag: true,
-  lastModified: true,
-  setHeaders: (res, filePath) => {
-    // No caching for CSS/JS/HTML so updates are immediate
-    if (filePath.endsWith('.css') || filePath.endsWith('.js') || filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-    }
+// Force no-cache on HTML/CSS/JS so deployments are instant
+app.use((req, res, next) => {
+  const url = req.url.split('?')[0];
+  if (url.endsWith('.html') || url === '/' || url === '/app' || url === '/manual-login') {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+  } else if (url.endsWith('.css') || url.endsWith('.js')) {
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   }
-}));
+  next();
+});
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Active users tracker (in-memory, 5-minute window)
 const activeUsers = new Map(); // userId → { name, lastSeen }
