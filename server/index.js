@@ -63,7 +63,17 @@ const avatarsDir = path.join(dataDir, 'avatars');
 if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
 
 app.use('/uploads/avatars', express.static(avatarsDir));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  maxAge: 0,
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // No caching for CSS/JS/HTML so updates are immediate
+    if (filePath.endsWith('.css') || filePath.endsWith('.js') || filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    }
+  }
+}));
 
 // Active users tracker (in-memory, 5-minute window)
 const activeUsers = new Map(); // userId → { name, lastSeen }
