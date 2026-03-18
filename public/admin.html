@@ -229,7 +229,7 @@
   <div id="admin-auth" class="admin-login-screen">
     <div class="admin-login-card">
       <a href="/" class="logo">iWrite4.me</a>
-      <h2>Admin Login</h2>
+      <h2>Login</h2>
       <p class="auth-sub">Enter your admin credentials</p>
       <div class="auth-error" id="admin-error"></div>
       <div class="auth-field">
@@ -529,7 +529,12 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        if (data.user.role !== 'admin') throw new Error('Not an admin account');
+        if (data.user.role !== 'admin') {
+          // Non-admin: store token for /app and redirect
+          localStorage.setItem('iwrite_token', data.token);
+          window.location.href = '/app';
+          return;
+        }
         adminToken = data.token;
         localStorage.setItem('iwrite_admin_token', adminToken);
         showPanel();

@@ -149,6 +149,10 @@ const Editor = {
     if (mode !== 'dangerous') this.bindFormatting();
     this.updateWordCount();
 
+    // Block all copying during active session
+    this._blockCopy();
+
+
     // Save session state periodically so it survives page refresh
     this.sessionSaveInterval = setInterval(() => this._saveSessionState(), 5000);
     this._saveSessionState();
@@ -1484,6 +1488,8 @@ const Editor = {
     document.getElementById('editor-topic-bar').style.display = 'none';
     document.getElementById('selection-popup').style.display = 'none';
     this.stopAudio();
+    // Unblock copying when session ends
+    this._unblockCopy();
     // Exit fullscreen when session ends
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       try {
@@ -1522,5 +1528,40 @@ const Editor = {
     document.getElementById('formatting-toolbar').style.display = 'none';
     document.getElementById('editor-comment-history-btn').style.display = 'none';
     document.getElementById('status-bar').style.display = 'none';
+  },
+
+  // ── Copy blocking during active sessions ──
+  _onCopyBlock(e) {
+    if (Editor.active) {
+      e.preventDefault();
+      e.stopPropagation();
+      App.toast('Copying is disabled during sessions', 'error');
+    }
+  },
+
+  _onContextMenuBlock(e) {
+    if (Editor.active) {
+      e.preventDefault();
+    }
+  },
+
+  _blockCopy() {
+    document.addEventListener('copy', this._onCopyBlock, true);
+    document.addEventListener('cut', this._onCopyBlock, true);
+    document.addEventListener('contextmenu', this._onContextMenuBlock, true);
+    // Block text selection in the editor during sessions
+    this.textarea.style.userSelect = 'none';
+    this.textarea.style.webkitUserSelect = 'none';
+    // Still allow typing in contentEditable
+    this.textarea.style.caretColor = 'var(--text-primary)';
+  },
+
+  _unblockCopy() {
+    document.removeEventListener('copy', this._onCopyBlock, true);
+    document.removeEventListener('cut', this._onCopyBlock, true);
+    document.removeEventListener('contextmenu', this._onContextMenuBlock, true);
+    this.textarea.style.userSelect = '';
+    this.textarea.style.webkitUserSelect = '';
+    this.textarea.style.caretColor = '';
   }
 };

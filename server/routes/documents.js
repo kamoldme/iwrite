@@ -319,4 +319,33 @@ router.post('/:id/abandon', async (req, res) => {
   res.json({ success: true, message: 'Document lost' });
 });
 
+// Copy tracking — free users: 5 copies per month
+router.post('/copy', authenticate, async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${now.getMonth()}`;
+  let copyCount = user.copyCount || 0;
+  const resetAt = user.copyCountResetAt || '';
+
+  // Reset count if new month
+  if (resetAt !== currentMonth) {
+    copyCount = 0;
+  }
+
+  const limit = user.plan === 'premium' ? Infinity : 5;
+  if (copyCount >= limit) {
+    return res.json({ allowed: false, remaining: 0, limit });
+  }
+
+  copyCount++;
+  await updateOne('users.json', u => u.id === req.user.id, {
+    copyCount,
+    copyCountResetAt: currentMonth
+  });
+
+  res.json({ allowed: true, remaining: Math.max(0, limit - copyCount), limit });
+});
+
 module.exports = router;

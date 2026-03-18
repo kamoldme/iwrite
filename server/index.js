@@ -8,6 +8,9 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust Railway's reverse proxy
+app.set('trust proxy', 1);
+
 // CORS — lock to your domain
 const allowedOrigins = [
   'https://iwrite4.me',
@@ -15,6 +18,10 @@ const allowedOrigins = [
 ];
 if (process.env.NODE_ENV !== 'production') {
   allowedOrigins.push('http://localhost:3000', 'http://localhost:5173');
+}
+// Add Railway staging domain
+if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+  allowedOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
 }
 app.use(cors({
   origin(origin, callback) {
@@ -58,15 +65,51 @@ if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
 app.use('/uploads/avatars', express.static(avatarsDir));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// Active users tracker (in-memory, 5-minute window)
+const activeUsers = new Map(); // userId → { name, lastSeen }
+app.use('/api', (req, res, next) => {
+  if (req.headers.authorization) {
+    try {
+      const jwt = require('jsonwebtoken');
+      const token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'iwrite-dev-secret-change-in-production');
+      if (decoded.id) activeUsers.set(decoded.id, { email: decoded.email, lastSeen: Date.now() });
+    } catch {}
+  }
+  next();
+});
+// Cleanup stale entries every 60s
+setInterval(() => {
+  const cutoff = Date.now() - 5 * 60 * 1000;
+  for (const [id, data] of activeUsers) {
+    if (data.lastSeen < cutoff) activeUsers.delete(id);
+  }
+}, 60000);
+
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
     const { pool } = require('./utils/storage');
     await pool.query('SELECT 1');
-    res.json({ status: 'ok', uptime: process.uptime() });
+    res.json({ status: 'ok', uptime: process.uptime(), activeUsers: activeUsers.size });
   } catch (e) {
     res.status(503).json({ status: 'error', message: 'Database unreachable' });
   }
+});
+
+// Active users count (admin only, checked via JWT)
+app.get('/api/active-users', (req, res) => {
+  const { authenticate, requireAdmin } = require('./middleware/auth');
+  authenticate(req, res, () => {
+    requireAdmin(req, res, () => {
+      const now = Date.now();
+      const users = [];
+      for (const [id, data] of activeUsers) {
+        users.push({ id, email: data.email, minutesAgo: Math.round((now - data.lastSeen) / 60000) });
+      }
+      res.json({ count: users.length, users: users.sort((a, b) => a.minutesAgo - b.minutesAgo) });
+    });
+  });
 });
 
 // Routes
@@ -195,7 +238,7 @@ app.post('/api/migrate-volume', async (req, res) => {
 app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'app.html'));
 });
-app.get('/admin', (req, res) => {
+app.get('/manual-login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
 });
 app.get('/shared/:token', (req, res) => {
@@ -206,6 +249,11 @@ app.get('/privacy', (req, res) => {
 });
 app.get('/terms', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'terms.html'));
+});
+
+// 404 catch-all — must be after all other routes
+app.use((req, res) => {
+  res.status(404).sendFile(path.join(__dirname, '..', 'public', '404.html'));
 });
 
 // Initialize database and start

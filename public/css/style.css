@@ -41,35 +41,337 @@
 
 /* ===== LIGHT THEME ===== */
 .light {
-  --bg-primary: #f4f4f4;
+  --bg-primary: #f5f5f0;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
-  --bg-card-hover: #f0f0f0;
-  --bg-elevated: #fafafa;
-  --bg-glass: rgba(255, 255, 255, 0.88);
-  --text-primary: #0a0a0a;
-  --text-secondary: rgba(10, 10, 10, 0.60);
-  --text-muted: rgba(10, 10, 10, 0.38);
-  --border: rgba(0, 0, 0, 0.09);
-  --border-light: rgba(0, 0, 0, 0.05);
-  --border-hover: rgba(0, 0, 0, 0.18);
-  --hover-bg: rgba(0, 0, 0, 0.04);
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0,0,0,0.04);
-  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0,0,0,0.06);
-  --shadow-3d: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255,255,255,0.9);
-  --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.4) 100%);
-  --gradient-hero: radial-gradient(ellipse at 50% 0%, rgba(74,222,128,0.08) 0%, transparent 60%);
+  --bg-card-hover: #f7f7f2;
+  --bg-elevated: #fafaf7;
+  --bg-glass: rgba(255, 255, 255, 0.92);
+  --text-primary: #1a1a1a;
+  --text-secondary: rgba(26, 26, 26, 0.64);
+  --text-muted: rgba(26, 26, 26, 0.40);
+  --accent: #22c55e;
+  --accent-soft: rgba(34, 197, 94, 0.10);
+  --accent-glow: rgba(34, 197, 94, 0.20);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-light: rgba(0, 0, 0, 0.04);
+  --border-hover: rgba(0, 0, 0, 0.16);
+  --hover-bg: rgba(0, 0, 0, 0.03);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-3d: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 30px rgba(34, 197, 94, 0.08);
+  --shadow-inset-glow: inset 0 1px 0 rgba(255,255,255,0.8);
+  --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(245,245,240,0.5) 100%);
+  --gradient-hero: radial-gradient(ellipse at 50% 0%, rgba(34,197,94,0.06) 0%, transparent 60%);
 }
+
+/* ── Light: base overrides ── */
 .light body, .light {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
-.light .nav {
-  background: rgba(244, 244, 244, 0.92);
+
+/* Grid pattern — subtle dark lines instead of white */
+.light body::before {
+  background-image:
+    linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
 }
+
+/* Vignette — very subtle on light */
+.light body::after {
+  background: radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0,0,0,0.06) 100%);
+}
+
+/* ── Light: nav ── */
+.light .nav {
+  background: rgba(245, 245, 240, 0.94);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.light .logo {
+  text-shadow: none;
+}
+.light .logo-img {
+  filter: none;
+}
+
+/* ── Light: sidebar ── */
 .light .sidebar {
   background: var(--bg-secondary);
   border-right-color: var(--border);
+  box-shadow: 1px 0 8px rgba(0,0,0,0.04);
+}
+.light .sidebar-nav-item.active {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.18);
+  box-shadow: none;
+}
+.light .user-avatar {
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.20);
+}
+
+/* ── Light: buttons ── */
+.light .btn-small,
+.light .btn-primary {
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.18);
+}
+.light .btn-small:hover,
+.light .btn-primary:hover {
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.22);
+}
+.light .btn-ghost {
+  border-color: var(--border);
+}
+.light .btn-ghost:hover {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+/* ── Light: hero section (landing) ── */
+.light .hero-title em {
+  text-shadow: none;
+}
+.light .stat-num {
+  text-shadow: none;
+}
+
+/* ── Light: mock editor ── */
+.light .mock-editor {
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0,0,0,0.06);
+}
+.light .mock-editor:hover {
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0,0,0,0.06);
+}
+.light .mock-toolbar {
+  background: rgba(0, 0, 0, 0.02);
+}
+.light .mock-dots span {
+  background: rgba(0, 0, 0, 0.08);
+}
+.light .mock-cursor {
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.3);
+}
+
+/* ── Light: feature cards ── */
+.light .feature-card {
+  box-shadow: var(--shadow);
+}
+.light .feature-card::before {
+  background: linear-gradient(90deg, transparent, rgba(34,197,94,0.12), transparent);
+}
+.light .feature-card:hover {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.20);
+}
+.light .feature-card:hover .feature-icon {
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.12);
+}
+.light .feature-card:hover .feature-icon svg {
+  filter: none;
+}
+
+/* ── Light: how-it-works section ── */
+.light .how-it-works::before {
+  background: radial-gradient(ellipse, rgba(34,197,94,0.06) 0%, transparent 70%);
+}
+
+/* ── Light: CTA section ── */
+.light .cta::before {
+  background: radial-gradient(ellipse, rgba(34,197,94,0.08) 0%, transparent 70%);
+}
+
+/* ── Light: dashboard cards ── */
+.light .stat-card,
+.light .dash-stat-card {
+  box-shadow: var(--shadow);
+}
+.light .stat-card::before,
+.light .dash-stat-card::before {
+  background: linear-gradient(90deg, transparent, rgba(34,197,94,0.10), transparent);
+}
+.light .dash-stat-card:hover {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
+  border-color: rgba(34, 197, 94, 0.14);
+}
+.light .dashboard-hero {
+  box-shadow: var(--shadow);
+}
+.light .dashboard-hero::before {
+  background: radial-gradient(circle, rgba(34,197,94,0.06) 0%, transparent 70%);
+}
+
+/* ── Light: heatmap ── */
+.light .heatmap-section {
+  box-shadow: var(--shadow);
+}
+.light .heatmap-section::before {
+  background: linear-gradient(90deg, transparent, rgba(34,197,94,0.08), transparent);
+}
+.light .heatmap-cell[data-level="0"] { background: rgba(0, 0, 0, 0.04); }
+.light .heatmap-cell[data-level="1"] { background: rgba(34, 197, 94, 0.22); }
+.light .heatmap-cell[data-level="2"] { background: rgba(34, 197, 94, 0.42); }
+.light .heatmap-cell[data-level="3"] { background: rgba(34, 197, 94, 0.62); }
+.light .heatmap-cell:hover {
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.15);
+}
+.light .heatmap-legend-cell[data-level="0"] { background: rgba(0,0,0,0.04); }
+.light .heatmap-legend-cell[data-level="1"] { background: rgba(34,197,94,0.22); }
+.light .heatmap-legend-cell[data-level="2"] { background: rgba(34,197,94,0.42); }
+.light .heatmap-legend-cell[data-level="3"] { background: rgba(34,197,94,0.62); }
+
+/* ── Light: tree ── */
+.light .tree-container {
+  box-shadow: var(--shadow);
+}
+.light .tree-container::before {
+  background: linear-gradient(90deg, transparent, rgba(34,197,94,0.10), transparent);
+}
+
+/* ── Light: XP bar ── */
+.light .xp-bar-fill {
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.15);
+}
+
+/* ── Light: document cards ── */
+.light .doc-card:hover {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  border-color: rgba(34, 197, 94, 0.16);
+}
+.light .doc-action-btn {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* ── Light: editor ── */
+.light .editor-back-btn {
+  background: rgba(0, 0, 0, 0.02);
+}
+.light .danger-progress {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* ── Light: modals ── */
+.light .modal-overlay {
+  background: rgba(0, 0, 0, 0.40);
+}
+.light .tab-warning {
+  background: rgba(255, 255, 255, 0.97);
+}
+.light .duel-countdown-overlay {
+  background: rgba(255, 255, 255, 0.95);
+}
+.light .streak-popup-overlay {
+  background: rgba(0, 0, 0, 0.30);
+}
+.light .session-complete::before {
+  background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 60%);
+}
+.light .session-failed::before {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.06) 0%, transparent 60%);
+}
+
+/* ── Light: toast ── */
+.light .toast.success {
+  border-color: rgba(34, 197, 94, 0.25);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ── Light: spinner ── */
+.light .spinner {
+  border-color: rgba(0, 0, 0, 0.08);
+  border-top-color: var(--accent);
+}
+
+/* ── Light: admin table ── */
+.light .admin-table tr:hover td {
+  background: rgba(0, 0, 0, 0.02);
+}
+.light .leaderboard-table th {
+  background: rgba(0, 0, 0, 0.02);
+}
+.light .leaderboard-table tr:hover td {
+  background: rgba(34, 197, 94, 0.04);
+}
+
+/* ── Light: leaderboard / podium ── */
+.light .podium-slot:nth-child(1) .podium-pedestal {
+  background: linear-gradient(180deg, rgba(192,192,192,0.30), rgba(192,192,192,0.10));
+  border: 1px solid rgba(192,192,192,0.40);
+}
+.light .podium-slot:nth-child(2) .podium-pedestal {
+  background: linear-gradient(180deg, rgba(255,200,0,0.25), rgba(255,215,0,0.08));
+  border: 1px solid rgba(255,200,0,0.40);
+  box-shadow: 0 0 20px rgba(255,200,0,0.08);
+}
+.light .podium-slot:nth-child(3) .podium-pedestal {
+  background: linear-gradient(180deg, rgba(205,127,50,0.25), rgba(205,127,50,0.08));
+  border: 1px solid rgba(205,127,50,0.35);
+}
+.light .podium-avatar {
+  box-shadow: 0 3px 12px rgba(34, 197, 94, 0.25);
+}
+.light .podium-name {
+  color: var(--text-primary);
+}
+.light .leaderboard-me td {
+  background: rgba(34, 197, 94, 0.06) !important;
+}
+.light .leaderboard-table-wrap {
+  box-shadow: var(--shadow);
+}
+
+/* ── Light: profile section ── */
+.light .profile-section {
+  box-shadow: var(--shadow);
+}
+.light .achievement-card.earned:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+/* ── Light: duel cards ── */
+.light .duel-sent-card {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.04), var(--bg-card));
+}
+.light .duel-bar {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(34, 197, 94, 0.03));
+}
+
+/* ── Light: selection popup ── */
+.light .selection-popup {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06);
+}
+
+/* ── Light: XP float ── */
+.light .editor-xp-float {
+  text-shadow: none;
+}
+
+/* ── Light: mobile overlay ── */
+.light .mobile-sidebar-overlay {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* ── Light: landing animations ── */
+.light .landing .stat-num {
+  animation: none;
+}
+.light .motivate-toast {
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.12);
+}
+
+/* ── Light: duel animations ── */
+.light .duel-big-btn {
+  animation: duel-pulse-light 2.5s ease-in-out infinite;
+}
+@keyframes duel-pulse-light {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.3), var(--shadow); }
+  50% { box-shadow: 0 0 16px 4px rgba(34, 197, 94, 0.15), var(--shadow-lg); }
+}
+
+/* ── Light: streak popup ── */
+.light .streak-popup {
+  box-shadow: var(--shadow-lg);
 }
 
 *, *::before, *::after {
@@ -4336,26 +4638,7 @@ html.light .logo-img-light { display: inline; }
   color: var(--xp-color);
 }
 
-/* Light mode: brighter podium pedestals */
-.light .podium-slot:nth-child(1) .podium-pedestal {
-  background: linear-gradient(180deg, rgba(192,192,192,0.35), rgba(192,192,192,0.12));
-  border: 1px solid rgba(192,192,192,0.5);
-}
-.light .podium-slot:nth-child(2) .podium-pedestal {
-  background: linear-gradient(180deg, rgba(255,200,0,0.3), rgba(255,215,0,0.1));
-  border: 1px solid rgba(255,200,0,0.5);
-  box-shadow: 0 0 30px rgba(255,200,0,0.15);
-}
-.light .podium-slot:nth-child(3) .podium-pedestal {
-  background: linear-gradient(180deg, rgba(205,127,50,0.3), rgba(205,127,50,0.1));
-  border: 1px solid rgba(205,127,50,0.45);
-}
-.light .podium-avatar {
-  box-shadow: 0 4px 16px rgba(74,222,128,0.5);
-}
-.light .podium-name {
-  color: var(--text-primary);
-}
+/* Light mode podium: overrides moved to main .light theme section above */
 
 /* ===== LANDING 3D ANIMATIONS ===== */
 .landing .hero-title {
