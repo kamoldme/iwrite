@@ -667,6 +667,8 @@
             <div class="label">Active Now</div>
             <div class="value" style="color:#22c55e">${stats.activeNow || 0}</div>
             <div class="admin-online-dot"></div>
+            <button class="admin-btn admin-btn-ghost" style="position:absolute;bottom:16px;right:16px;font-size:11px;padding:4px 12px" onclick="toggleActiveUsersList()">View</button>
+            <div id="active-users-list" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px"></div>
           </div>
           <div class="admin-stat-card"><div class="label">Users</div><div class="value">${stats.totalUsers}</div></div>
           <div class="admin-stat-card"><div class="label">Documents</div><div class="value">${stats.totalDocuments}</div></div>
@@ -696,6 +698,26 @@
         }
       } catch { toast('Failed to load stats', 'error'); }
     }
+
+    async function toggleActiveUsersList() {
+      const el = document.getElementById('active-users-list');
+      if (el.style.display !== 'none') { el.style.display = 'none'; return; }
+      try {
+        const data = await adminRequest('/active-users');
+        if (data.users.length === 0) {
+          el.innerHTML = '<div style="color:var(--text-muted);font-size:12px">No active users</div>';
+        } else {
+          el.innerHTML = data.users.map(u => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:13px">
+              <span style="color:var(--text-primary)">${u.email}</span>
+              <span style="color:var(--text-muted);font-size:11px">${u.minutesAgo === 0 ? 'just now' : u.minutesAgo + 'm ago'}</span>
+            </div>
+          `).join('');
+        }
+        el.style.display = 'block';
+      } catch { toast('Failed to load active users', 'error'); }
+    }
+
 
     function formatAction(action) {
       return action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());

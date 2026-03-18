@@ -110,7 +110,18 @@ const Editor = {
     // Show correct buttons for active session
     // In dangerous mode or duel mode, hide the Complete button — session ends only when time runs out
     const isDuel = !!sessionStorage.getItem('activeDuel');
-    document.getElementById('editor-save-btn').style.display = (mode === 'dangerous' || isDuel) ? 'none' : 'inline-flex';
+    const saveBtn = document.getElementById('editor-save-btn');
+    saveBtn.style.display = (mode === 'dangerous' || isDuel) ? 'none' : 'inline-flex';
+    // Gray out Complete button if early complete limit reached
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const earlyUsed = (App.user.earlyCompletesMonth === currentMonth) ? (App.user.earlyCompletes || 0) : 0;
+    if (earlyUsed >= 5) {
+      saveBtn.classList.add('btn-disabled');
+      saveBtn.style.opacity = '0.4';
+    } else {
+      saveBtn.classList.remove('btn-disabled');
+      saveBtn.style.opacity = '';
+    }
     document.getElementById('editor-edit-btn').style.display = 'none';
     document.getElementById('editor-save-edit-btn').style.display = 'none';
     document.getElementById('editor-comment-history-btn').style.display = 'none';
@@ -596,7 +607,7 @@ const Editor = {
     }
 
     if (remaining <= 0) {
-      this.completeSession();
+      this.completeSession(true);
     }
   },
 
@@ -891,9 +902,30 @@ const Editor = {
     }
   },
 
-  async completeSession() {
+  _isTimerExpired() {
+    if (this.duration === 0) return false; // unlimited sessions can always complete
+    const totalSeconds = this.duration * 60;
+    const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+    return elapsed >= totalSeconds;
+  },
+
+  async completeSession(timerExpired) {
     if (!this.active || this.abandoned) return;
+
+    // Check early complete limit (only when user clicks Complete, not when timer expires)
+    const isEarly = !timerExpired && !this._isTimerExpired();
+    if (isEarly) {
+      const user = App.user;
+      const currentMonth = new Date().toISOString().slice(0, 7); // "2026-03"
+      const usedThisMonth = (user.earlyCompletesMonth === currentMonth) ? (user.earlyCompletes || 0) : 0;
+      if (usedThisMonth >= 5) {
+        App.toast('Early complete limit reached (5/month). Wait for the timer to finish.', 'warning');
+        return;
+      }
+    }
+
     this.active = false;
+    this._earlyComplete = isEarly;
     this.cleanup();
 
     const wordCount = this.getWordCount();
@@ -924,7 +956,7 @@ const Editor = {
 
     let result;
     try {
-      result = await API.completeSession(this.documentId, { wordCount, duration, xpEarned });
+      result = await API.completeSession(this.documentId, { wordCount, duration, xpEarned, earlyComplete: !!this._earlyComplete });
     } catch {
       this.container.classList.remove('active'); document.body.classList.remove('editor-active');
       App.loadDashboard();
@@ -949,6 +981,16 @@ const Editor = {
     }
 
     // Auto-refresh sessions tab so new doc appears immediately
+    // Sync user data (includes earlyCompletes count)
+    if (result.user) App.user = { ...App.user, ...result.user };
+
+    // Toast early complete usage
+    if (this._earlyComplete && result.user) {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const used = (result.user.earlyCompletesMonth === currentMonth) ? (result.user.earlyCompletes || 0) : 0;
+      App.toast(`Early finish used (${used}/5 this month)`, 'info');
+    }
+
     App._docsCacheDirty = true;
     try { await App.loadDocuments(true); } catch {}
     this.showComplete(wordCount, duration, xpEarned, result.user);

@@ -204,7 +204,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 router.post('/:id/complete', async (req, res) => {
-  const { wordCount, duration, xpEarned } = req.body;
+  const { wordCount, duration, xpEarned, earlyComplete } = req.body;
   const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
@@ -212,6 +212,20 @@ router.post('/:id/complete', async (req, res) => {
   if (!wordCount || wordCount <= 0) {
     const { password: _, ...safeUser } = await findOne('users.json', u => u.id === req.user.id);
     return res.json({ document: doc, user: safeUser });
+  }
+
+  // Track early completes (5/month limit)
+  if (earlyComplete) {
+    const user = await findOne('users.json', u => u.id === req.user.id);
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const usedThisMonth = (user.earlyCompletesMonth === currentMonth) ? (user.earlyCompletes || 0) : 0;
+    if (usedThisMonth >= 5) {
+      return res.status(429).json({ error: 'Early complete limit reached (5/month)' });
+    }
+    await updateOne('users.json', u => u.id === req.user.id, {
+      earlyCompletes: usedThisMonth + 1,
+      earlyCompletesMonth: currentMonth
+    });
   }
 
   await updateOne('documents.json', d => d.id === req.params.id, {
