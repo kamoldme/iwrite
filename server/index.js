@@ -150,7 +150,8 @@ app.get('/api/stats/public', async (req, res) => {
     res.json({
       totalWords: users.reduce((sum, u) => sum + (u.totalWords || 0), 0),
       totalSessions: docs.filter(d => !d.deleted && d.duration > 0).length,
-      totalWriters: users.filter(u => u.role !== 'admin').length
+      totalWriters: users.filter(u => u.role !== 'admin').length,
+      activeNow: activeUsers.size
     });
   } catch {
     res.status(500).json({ error: 'Server error' });

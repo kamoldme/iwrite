@@ -543,6 +543,10 @@ const App = {
     document.getElementById('longest-streak-text').textContent = `Best: ${this.user.longestStreak || 0}`;
     document.getElementById('total-xp').textContent = (this.user.xp || 0).toLocaleString();
 
+    // Fetch and display active users count
+    this.loadOnlineCount();
+    this._onlineInterval = setInterval(() => this.loadOnlineCount(), 60000);
+
     const { level, xpInLevel, xpForNextLevel } = this.calcXPLevel(this.user.xp || 0);
     document.getElementById('xp-level-text').innerHTML = `Level ${level}`;
     document.getElementById('xp-progress-text').textContent = `${xpInLevel.toLocaleString()} / ${xpForNextLevel.toLocaleString()} XP`;
@@ -1098,6 +1102,22 @@ const App = {
   },
 
   // ===== LEADERBOARD =====
+  async loadOnlineCount() {
+    try {
+      const res = await fetch('/api/stats/public');
+      const data = await res.json();
+      const count = data.activeNow || 0;
+      const el = document.getElementById('online-indicator');
+      if (el && count > 0) {
+        document.getElementById('online-count').textContent = count;
+        document.getElementById('online-plural').textContent = count === 1 ? '' : 's';
+        el.style.display = 'inline-flex';
+      } else if (el) {
+        el.style.display = 'none';
+      }
+    } catch {}
+  },
+
   async loadLeaderboard() {
     const tbody = document.querySelector('#leaderboard-table tbody');
     const podium = document.getElementById('leaderboard-podium');
