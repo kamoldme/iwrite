@@ -41,10 +41,9 @@
       <span></span>
       <span></span>
     </button>
-    <!-- Mobile sidebar backdrop -->
-    <div class="mobile-sidebar-overlay" id="mobile-sidebar-overlay"></div>
-
     <div class="app-container">
+      <!-- Mobile sidebar backdrop — must be inside app-container so z-index is in the same stacking context as .sidebar -->
+      <div class="mobile-sidebar-overlay" id="mobile-sidebar-overlay"></div>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
@@ -248,9 +247,9 @@
                     <th>Rank</th>
                     <th>Writer</th>
                     <th>Words</th>
-                    <th>Sessions</th>
-                    <th>Time</th>
-                    <th>Level</th>
+                    <th class="lb-col-sessions">Sessions</th>
+                    <th class="lb-col-time">Time</th>
+                    <th class="lb-col-level">Level</th>
                     <th>Streak</th>
                   </tr>
                 </thead>

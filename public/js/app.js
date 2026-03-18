@@ -1140,9 +1140,9 @@ const App = {
             <td class="lb-rank">${rankEmoji}</td>
             <td class="lb-name">${this.escapeHtml(entry.name)} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
             <td><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
-            <td>${entry.totalSessions || 0}</td>
-            <td>${entry.minutesWritten || 0}m</td>
-            <td><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
+            <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
+            <td class="lb-col-time">${entry.minutesWritten || 0}m</td>
+            <td class="lb-col-level"><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
             <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
           </tr>`;
       }).join('');

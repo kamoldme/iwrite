@@ -4795,18 +4795,79 @@ html.light .logo-img-light { display: inline; }
 
   .leaderboard-podium {
     gap: 8px;
+    padding: 12px 8px;
+    margin-bottom: 24px;
+    justify-content: flex-start;
   }
 
   .podium-slot {
-    min-width: 90px;
+    min-width: 0;
+    flex: 1 1 0;
+    max-width: 120px;
+  }
+
+  .podium-avatar {
+    width: 42px;
+    height: 42px;
+    font-size: 16px;
+  }
+
+  .podium-name {
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .podium-words {
+    font-size: 11px;
   }
 
   .leaderboard-container {
-    width: calc(100% + 40px);
-    margin-left: -20px;
-    margin-right: -20px;
-    padding-left: 20px;
-    padding-right: 20px;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .leaderboard-table-wrap {
+    border-radius: var(--radius);
+  }
+
+  /* Hide Sessions and Time columns on phone-size screens */
+  .lb-col-sessions,
+  .lb-col-time {
+    display: none;
+  }
+
+  .leaderboard-table {
+    table-layout: auto;
+  }
+
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 11px 10px;
+    font-size: 13px;
+    text-align: left;
+  }
+
+  .leaderboard-table th {
+    font-size: 9px;
+    padding: 10px 10px;
+  }
+
+  .leaderboard-table th:first-child,
+  .leaderboard-table td.lb-rank {
+    width: 40px;
+    text-align: center;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .leaderboard-table td.lb-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -6766,40 +6827,64 @@ html {
 
 /* ── Editor on mobile ── */
 @media (max-width: 768px) {
+  /* ── Editor toolbar: 2-row layout on mobile ── */
   .editor-toolbar {
-    padding: 8px 12px;
-    gap: 6px;
+    flex-wrap: wrap;
+    padding: 8px 12px 6px;
+    gap: 0;
+    row-gap: 6px;
   }
 
+  /* Row 1: left (back + title) takes all remaining space */
   .editor-toolbar-left {
+    order: 1;
     gap: 8px;
+    flex: 1 1 auto;
     min-width: 0;
-    flex-shrink: 1;
   }
 
   .editor-title-input {
     min-width: 0;
-    max-width: 120px;
-    font-size: 13px;
+    flex: 1 1 0;
+    max-width: none;
+    font-size: 14px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
+  /* Row 1: right (buttons) stays on same line as left */
+  .editor-toolbar-right {
+    order: 2;
+    gap: 4px;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
+  /* Row 2: timer + controls spans full width, centered */
   .editor-toolbar-center {
+    order: 3;
     position: static;
     transform: none;
-    flex-shrink: 0;
+    flex: 0 0 100%;
+    justify-content: center;
+    padding: 4px 0 2px;
+    border-top: 1px solid var(--border-light);
+    gap: 8px;
   }
 
   .editor-timer {
-    font-size: 18px;
-    min-width: 60px;
+    font-size: 20px;
+    min-width: 68px;
   }
 
-  .editor-toolbar-right {
+  .editor-add-time {
     gap: 4px;
-    flex-shrink: 0;
+  }
+
+  .editor-add-time-btn {
+    padding: 3px 10px;
+    font-size: 10px;
   }
 
   .doc-action-btn {
@@ -6808,7 +6893,7 @@ html {
   }
 
   .editor-area {
-    padding: 32px 16px 80px;
+    padding: 24px 16px 80px;
   }
 
   .editor-textarea {
@@ -6816,17 +6901,27 @@ html {
     line-height: 1.8;
   }
 
-  .formatting-toolbar {
-    padding: 4px 8px;
+  /* Format bar: wrap to 2 lines instead of horizontal scroll */
+  .editor-format-bar {
+    padding: 4px 12px;
+    flex-wrap: wrap;
     gap: 2px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    row-gap: 4px;
+  }
+
+  #formatting-toolbar {
+    flex-wrap: wrap;
+    gap: 2px;
   }
 
   .fmt-btn {
-    min-width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     flex-shrink: 0;
+  }
+
+  .fmt-font-wrap {
+    flex: 0 0 auto;
   }
 
   .status-bar {
@@ -6896,15 +6991,36 @@ html {
   }
 
   .leaderboard-podium {
-    gap: 6px;
+    gap: 4px;
+    padding: 8px 4px;
   }
 
   .podium-slot {
-    padding: 12px 8px;
+    padding: 8px 4px;
+  }
+
+  .podium-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
   }
 
   .podium-name {
-    font-size: 11px;
+    font-size: 10px;
+  }
+
+  .podium-words {
+    font-size: 10px;
+  }
+
+  .podium-medal {
+    font-size: 26px;
+  }
+
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 10px 8px;
+    font-size: 12px;
   }
 
   .settings-section {
@@ -6914,6 +7030,10 @@ html {
 
 /* ── Small phones (≤ 390px — iPhone SE, older Androids) ── */
 @media (max-width: 390px) {
+  /* Hide Level column on very small screens — keep Rank, Name, Words, Streak */
+  .lb-col-level {
+    display: none;
+  }
   .editor-title-input {
     max-width: 90px;
   }
@@ -6986,10 +7106,15 @@ html {
   .btn, button, .sidebar-nav-item, .doc-action-btn,
   .admin-nav-item, .duration-btn, .fmt-btn {
     min-height: 44px;
+    touch-action: manipulation; /* remove 300ms tap delay on iOS */
   }
 
   .sidebar-nav-item {
     padding: 12px 16px;
+  }
+
+  .mobile-sidebar-toggle {
+    touch-action: manipulation;
   }
 
   input, select, textarea {
