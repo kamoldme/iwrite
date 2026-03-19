@@ -347,8 +347,19 @@
         <!-- USERS -->
         <div id="tab-users" style="display:none">
           <div class="admin-page-title">Users</div>
-          <div class="admin-toolbar">
+          <div class="admin-toolbar" style="flex-wrap:wrap">
             <input class="admin-search" id="users-search" placeholder="Search users by name or email...">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <select id="users-sort" class="admin-search" style="width:auto;max-width:180px;padding:6px 10px">
+                <option value="name-asc">Name A-Z</option>
+                <option value="name-desc">Name Z-A</option>
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="premium">Premium Only</option>
+                <option value="streak">By Streak</option>
+                <option value="words">By Words</option>
+              </select>
+            </div>
           </div>
           <table class="admin-table" id="users-table">
             <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Plan</th><th>Level</th><th>XP</th><th>Streak</th><th>Words</th><th>Sessions</th><th>Actions</th></tr></thead>
@@ -433,6 +444,16 @@
       <button class="admin-btn admin-btn-ghost" id="doc-view-close">&times; Close</button>
     </div>
     <div class="user-detail-body" id="doc-view-body"></div>
+  </div>
+
+  <!-- USER DOCUMENTS SIDEBAR -->
+  <div class="user-detail-overlay" id="user-docs-overlay" style="display:none"></div>
+  <div class="user-detail-panel" id="user-docs-panel" style="display:none;width:560px">
+    <div class="user-detail-header">
+      <h3 id="user-docs-title" style="font-size:18px;font-weight:700">User Documents</h3>
+      <button class="admin-btn admin-btn-ghost" id="user-docs-close">&times; Close</button>
+    </div>
+    <div class="user-detail-body" id="user-docs-body" style="max-height:calc(100vh - 80px);overflow-y:auto"></div>
   </div>
 
   <!-- IN-APP CONFIRM DIALOG -->
@@ -613,6 +634,8 @@
     document.getElementById('edit-user-overlay').addEventListener('click', closeEditUser);
     document.getElementById('doc-view-close').addEventListener('click', closeDocView);
     document.getElementById('doc-view-overlay').addEventListener('click', closeDocView);
+    document.getElementById('user-docs-close').addEventListener('click', closeUserDocs);
+    document.getElementById('user-docs-overlay').addEventListener('click', closeUserDocs);
 
     function closeUserDetail() {
       document.getElementById('user-detail-panel').style.display = 'none';
@@ -626,11 +649,53 @@
       document.getElementById('doc-view-panel').style.display = 'none';
       document.getElementById('doc-view-overlay').style.display = 'none';
     }
+    function closeUserDocs() {
+      document.getElementById('user-docs-panel').style.display = 'none';
+      document.getElementById('user-docs-overlay').style.display = 'none';
+    }
+    async function showUserDocs(userId) {
+      try {
+        const u = await adminRequest(`/admin/users/${userId}`);
+        document.getElementById('user-docs-title').textContent = `${u.name}'s Documents`;
+        const body = document.getElementById('user-docs-body');
+        if (!u.documents || u.documents.length === 0) {
+          body.innerHTML = '<div class="admin-empty">No documents found for this user.</div>';
+        } else {
+          const docs = u.documents.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+          body.innerHTML = `
+            <table class="admin-table" style="font-size:12px">
+              <thead><tr><th>Title</th><th>Words</th><th>Mode</th><th>Status</th><th>Updated</th><th>Actions</th></tr></thead>
+              <tbody>
+                ${docs.map(d => `
+                  <tr>
+                    <td><strong>${esc(d.title)}</strong></td>
+                    <td>${d.wordCount || 0}</td>
+                    <td>${d.mode || 'normal'}</td>
+                    <td>${renderStatusBadge(d)}</td>
+                    <td style="font-size:11px">${d.updatedAt ? new Date(d.updatedAt).toLocaleDateString() : '—'}</td>
+                    <td class="actions">
+                      <button class="admin-btn admin-btn-primary" onclick="viewDoc('${d.id}')">View</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+        document.getElementById('user-docs-panel').style.display = 'block';
+        document.getElementById('user-docs-overlay').style.display = 'block';
+      } catch { toast('Failed to load user documents', 'error'); }
+    }
 
     // ===== SEARCH =====
     document.getElementById('users-search').addEventListener('input', (e) => {
       const q = e.target.value.toLowerCase();
-      renderUsersTable(allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)));
+      renderUsersTable(allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q)));
+    });
+    document.getElementById('users-sort').addEventListener('change', () => {
+      const q = document.getElementById('users-search').value.toLowerCase();
+      const filtered = q ? allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q)) : allUsers;
+      renderUsersTable(filtered);
     });
     document.getElementById('docs-search').addEventListener('input', (e) => {
       const q = e.target.value.toLowerCase();
@@ -668,7 +733,7 @@
             <div class="value" style="color:#22c55e">${stats.activeNow || 0}</div>
             <div class="admin-online-dot"></div>
             <button class="admin-btn admin-btn-ghost" style="position:absolute;bottom:16px;right:16px;font-size:11px;padding:4px 12px" onclick="toggleActiveUsersList()">View</button>
-            <div id="active-users-list" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px"></div>
+            <div id="active-users-list" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;max-height:200px;overflow-y:auto"></div>
           </div>
           <div class="admin-stat-card"><div class="label">Users</div><div class="value">${stats.totalUsers}</div></div>
           <div class="admin-stat-card"><div class="label">Documents</div><div class="value">${stats.totalDocuments}</div></div>
@@ -744,11 +809,28 @@
       } catch { toast('Failed to load users', 'error'); }
     }
 
+    function sortAndFilterUsers(users) {
+      const sort = document.getElementById('users-sort').value;
+      let filtered = [...users];
+      if (sort === 'premium') filtered = filtered.filter(u => u.plan === 'premium');
+      filtered.sort((a, b) => {
+        if (sort === 'name-asc') return (a.name || '').localeCompare(b.name || '');
+        if (sort === 'name-desc') return (b.name || '').localeCompare(a.name || '');
+        if (sort === 'newest') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        if (sort === 'oldest') return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+        if (sort === 'streak') return (b.streak || 0) - (a.streak || 0);
+        if (sort === 'words') return (b.totalWords || 0) - (a.totalWords || 0);
+        return 0;
+      });
+      return filtered;
+    }
+
     function renderUsersTable(users) {
+      const sorted = sortAndFilterUsers(users);
       const tbody = document.querySelector('#users-table tbody');
-      tbody.innerHTML = users.map(u => `
+      tbody.innerHTML = sorted.map(u => `
         <tr style="cursor:pointer" onclick="viewUser('${u.id}')">
-          <td><strong>${esc(u.name)}</strong></td>
+          <td><strong>${esc(u.name)}</strong>${u.username ? `<div style="font-size:11px;color:var(--text-muted)">@${esc(u.username)}</div>` : ''}</td>
           <td>${esc(u.email)}</td>
           <td><span class="badge badge-${u.role}">${u.role}</span></td>
           <td><span class="badge badge-${u.plan}">${u.plan}</span></td>
@@ -759,6 +841,7 @@
           <td>${u.totalSessions || 0}</td>
           <td class="actions" onclick="event.stopPropagation()">
             <button class="admin-btn admin-btn-primary" onclick="editUser('${u.id}')">Edit</button>
+            <button class="admin-btn admin-btn-ghost" onclick="showUserDocs('${u.id}')">Docs</button>
             <button class="admin-btn admin-btn-ghost" onclick="togglePlan('${u.id}','${u.plan}')">Plan</button>
             ${u.role !== 'admin' ? `<button class="admin-btn admin-btn-danger" onclick="deleteUser('${u.id}')">Delete</button>` : ''}
           </td>
@@ -776,6 +859,7 @@
             <h4>Account Info</h4>
             <div class="user-detail-grid">
               <div class="user-detail-stat"><div class="label">Email</div><div class="value" style="font-size:13px;word-break:break-all">${esc(u.email)}</div></div>
+              <div class="user-detail-stat"><div class="label">Username</div><div class="value" style="font-size:13px">${u.username ? '@' + esc(u.username) : '<em style="color:var(--text-muted)">None</em>'}</div></div>
               <div class="user-detail-stat"><div class="label">Role</div><div class="value"><span class="badge badge-${u.role}">${u.role}</span></div></div>
               <div class="user-detail-stat"><div class="label">Plan</div><div class="value"><span class="badge badge-${u.plan}">${u.plan}</span></div></div>
               <div class="user-detail-stat"><div class="label">Joined</div><div class="value" style="font-size:13px">${new Date(u.createdAt).toLocaleDateString()}</div></div>

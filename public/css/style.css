@@ -2478,6 +2478,36 @@ body.editor-active .mobile-sidebar-toggle {
   position: relative;
 }
 
+/* Word limit indicator for free tier */
+.word-limit-indicator {
+  position: fixed;
+  bottom: 36px;
+  left: 16px;
+  z-index: 9001;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.word-limit-indicator.limit-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.word-limit-indicator.limit-reached {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  animation: limitPulse 1.5s ease-in-out infinite;
+}
+@keyframes limitPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 .status-bar #editor-word-count,
 .editor-word-count {
   font-size: 12px;
@@ -4458,6 +4488,17 @@ body.editor-active .mobile-sidebar-toggle {
   font-weight: 700;
   font-size: 14px;
   margin-bottom: 2px;
+}
+.podium-username {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-bottom: 2px;
+}
+.lb-username {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
   text-align: center;
 }
 

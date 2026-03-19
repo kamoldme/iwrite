@@ -611,10 +611,43 @@ const Editor = {
     }
   },
 
+  FREE_WORD_LIMIT: 1500,
+
   updateWordCount() {
     const words = this.getWordCount();
     const el = document.getElementById('editor-word-count');
     if (el) el.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+
+    // Word limit for free tier
+    if (this.active && App.user && App.user.plan !== 'premium') {
+      const limit = this.FREE_WORD_LIMIT;
+      const limitIndicator = document.getElementById('word-limit-indicator');
+      if (words >= limit) {
+        // At limit - prevent further input
+        if (limitIndicator) {
+          limitIndicator.textContent = `Word limit reached (${limit}/${limit})`;
+          limitIndicator.className = 'word-limit-indicator limit-reached';
+          limitIndicator.style.display = 'block';
+        }
+        // Trim content to limit
+        const text = this.textarea.innerText || '';
+        const wordsArr = text.trim().split(/\s+/);
+        if (wordsArr.length > limit) {
+          // Use execCommand to maintain undo history
+          const trimmed = wordsArr.slice(0, limit).join(' ');
+          this.textarea.innerText = trimmed;
+        }
+      } else if (words >= limit - 100) {
+        // Near limit warning (within 100 words)
+        if (limitIndicator) {
+          limitIndicator.textContent = `${words}/${limit} words`;
+          limitIndicator.className = 'word-limit-indicator limit-warning';
+          limitIndicator.style.display = 'block';
+        }
+      } else {
+        if (limitIndicator) limitIndicator.style.display = 'none';
+      }
+    }
 
     if (this.active) {
       const milestone = this.wordMilestones.find(m => words >= m && m > this.lastWordMilestone);

@@ -19,13 +19,51 @@ const upload = multer({
   }
 });
 
+// Restricted words list for usernames and names
+const RESTRICTED_WORDS = [
+  'admin', 'administrator', 'moderator', 'mod', 'staff', 'support', 'system', 'official',
+  'fuck', 'shit', 'ass', 'bitch', 'damn', 'dick', 'pussy', 'cock', 'cunt', 'bastard',
+  'whore', 'slut', 'fag', 'faggot', 'nigger', 'nigga', 'retard', 'rape', 'rapist',
+  'nazi', 'hitler', 'porn', 'sex', 'penis', 'vagina', 'anus', 'dildo', 'hentai',
+  'kill', 'murder', 'suicide', 'terrorist', 'bomb', 'drug', 'cocaine', 'heroin',
+  'asshole', 'motherfucker', 'wanker', 'twat', 'piss', 'bollocks', 'crap',
+  'iwrite', 'iwrite4me', 'root', 'superuser', 'null', 'undefined'
+];
+
+function containsBadWord(str) {
+  if (!str) return false;
+  const lower = str.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return RESTRICTED_WORDS.some(w => lower.includes(w));
+}
+
+function validateUsername(username) {
+  if (!username) return 'Username is required';
+  if (username.length < 3) return 'Username must be at least 3 characters';
+  if (username.length > 30) return 'Username must be at most 30 characters';
+  if (!/^[a-zA-Z0-9_.-]+$/.test(username)) return 'Username can only contain letters, numbers, underscores, dots, and hyphens';
+  if (containsBadWord(username)) return 'Username contains inappropriate content';
+  return null;
+}
+
+function generateRandomUsername() {
+  const adjectives = ['swift', 'bright', 'quiet', 'bold', 'keen', 'wild', 'calm', 'warm', 'cool', 'free'];
+  const nouns = ['writer', 'scribe', 'author', 'poet', 'muse', 'quill', 'ink', 'page', 'story', 'word'];
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const num = Math.floor(Math.random() * 9999);
+  return `${adj}_${noun}_${num}`;
+}
+
 const router = express.Router();
 
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, username } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'All fields are required' });
+    }
+    if (containsBadWord(name)) {
+      return res.status(400).json({ error: 'Name contains inappropriate content' });
     }
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
@@ -36,10 +74,22 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
+    // Validate username if provided, otherwise generate one
+    let finalUsername = username;
+    if (finalUsername) {
+      const usernameError = validateUsername(finalUsername);
+      if (usernameError) return res.status(400).json({ error: usernameError });
+      const usernameTaken = await findOne('users.json', u => u.username && u.username.toLowerCase() === finalUsername.toLowerCase());
+      if (usernameTaken) return res.status(409).json({ error: 'Username is already taken' });
+    } else {
+      finalUsername = generateRandomUsername();
+    }
+
     const hash = await bcrypt.hash(password, 12);
     const user = {
       id: uuid(),
       name,
+      username: finalUsername,
       email,
       password: hash,
       role: 'user',
@@ -57,6 +107,7 @@ router.post('/register', async (req, res) => {
       friendRequests: [],
       sentRequests: [],
       sharedTokens: [],
+      lastUsernameChange: null,
       createdAt: new Date().toISOString()
     };
 
@@ -103,11 +154,55 @@ router.get('/me', authenticate, async (req, res) => {
 });
 
 router.patch('/me', authenticate, async (req, res) => {
-  const { name } = req.body;
-  const updated = await updateOne('users.json', u => u.id === req.user.id, { name });
-  if (!updated) return res.status(404).json({ error: 'User not found' });
-  const { password: _, ...safeUser } = updated;
-  res.json(safeUser);
+  try {
+    const user = await findOne('users.json', u => u.id === req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const updates = {};
+
+    // Name update (always allowed)
+    if (req.body.name !== undefined) {
+      if (containsBadWord(req.body.name)) {
+        return res.status(400).json({ error: 'Name contains inappropriate content' });
+      }
+      updates.name = req.body.name;
+    }
+
+    // Username update (once per month)
+    if (req.body.username !== undefined) {
+      const usernameError = validateUsername(req.body.username);
+      if (usernameError) return res.status(400).json({ error: usernameError });
+
+      // Check once-per-month limit
+      if (user.lastUsernameChange) {
+        const lastChange = new Date(user.lastUsernameChange);
+        const now = new Date();
+        const diffDays = (now - lastChange) / (1000 * 60 * 60 * 24);
+        if (diffDays < 30) {
+          const daysLeft = Math.ceil(30 - diffDays);
+          return res.status(400).json({ error: `You can change your username again in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}` });
+        }
+      }
+
+      // Check uniqueness
+      const taken = await findOne('users.json', u => u.id !== req.user.id && u.username && u.username.toLowerCase() === req.body.username.toLowerCase());
+      if (taken) return res.status(409).json({ error: 'Username is already taken' });
+
+      updates.username = req.body.username;
+      updates.lastUsernameChange = new Date().toISOString();
+    }
+
+    // Clear needsProfile flag
+    if (req.body.needsProfile === false) {
+      updates.needsProfile = false;
+    }
+
+    const updated = await updateOne('users.json', u => u.id === req.user.id, updates);
+    const { password: _, ...safeUser } = updated;
+    res.json(safeUser);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 router.post('/change-password', authenticate, async (req, res) => {
@@ -182,10 +277,13 @@ router.post('/google', async (req, res) => {
     }
 
     // If still not found, create new user
+    let isNewUser = false;
     if (!user) {
+      isNewUser = true;
       user = {
         id: uuid(),
         name,
+        username: generateRandomUsername(),
         email,
         password: null,
         googleId,
@@ -205,6 +303,8 @@ router.post('/google', async (req, res) => {
         friendRequests: [],
         sentRequests: [],
         sharedTokens: [],
+        lastUsernameChange: null,
+        needsProfile: true,
         createdAt: new Date().toISOString()
       };
       await insertOne('users.json', user);
@@ -213,7 +313,7 @@ router.post('/google', async (req, res) => {
 
     const token = generateToken(user);
     const { password: _, ...safeUser } = user;
-    res.json({ token, user: safeUser });
+    res.json({ token, user: safeUser, isNewUser });
   } catch (err) {
     console.error('Google OAuth error:', err);
     res.status(401).json({ error: 'Google authentication failed' });

@@ -171,7 +171,9 @@ app.get('/api/leaderboard', async (req, res) => {
         const userDocs = docs.filter(d => d.userId === u.id && !d.deleted && d.duration > 0);
         const minutesWritten = Math.round(userDocs.reduce((sum, d) => sum + (d.duration / 60), 0) * 10) / 10;
         return {
+          id: u.id,
           name: u.name,
+          username: u.username || null,
           totalWords: u.totalWords || 0,
           totalSessions: u.totalSessions || 0,
           xp: u.xp || 0,
@@ -182,7 +184,7 @@ app.get('/api/leaderboard', async (req, res) => {
           avatarUpdatedAt: u.avatarUpdatedAt || null
         };
       })
-      .sort((a, b) => b.totalWords - a.totalWords)
+      .sort((a, b) => b.streak - a.streak || b.totalWords - a.totalWords)
       .slice(0, 10)
       .map((entry, i) => ({ rank: i + 1, ...entry }));
 

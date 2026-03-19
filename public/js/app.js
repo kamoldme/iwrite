@@ -50,6 +50,9 @@ const App = {
         return;
       }
       this.showApp();
+      if (this.user.needsProfile) {
+        this.showProfileCompleteModal();
+      }
     } catch {
       API.clearToken();
       this.showAuth();
@@ -129,6 +132,10 @@ const App = {
         return;
       }
       this.showApp();
+      // Show profile completion modal for new Google users
+      if (data.isNewUser || this.user.needsProfile) {
+        this.showProfileCompleteModal();
+      }
     } catch (err) {
       console.error('Google sign-in error:', err);
       if (errorEl) errorEl.textContent = 'Google sign-in failed';
@@ -849,9 +856,26 @@ const App = {
       ? visibleDocs.filter(d => d.folder === this.currentFolder)
       : visibleDocs.filter(d => !d.folder);
 
-    // Apply search filter
+    // Apply search filter (supports column:value format)
     if (this._searchQuery) {
-      folderDocs = folderDocs.filter(d => (d.title || '').toLowerCase().includes(this._searchQuery));
+      const colonMatch = this._searchQuery.match(/^(\w+)\s*:\s*(.+)$/);
+      if (colonMatch) {
+        const col = colonMatch[1].toLowerCase();
+        const val = colonMatch[2].trim().toLowerCase();
+        folderDocs = folderDocs.filter(d => {
+          if (col === 'title') return (d.title || '').toLowerCase().includes(val);
+          if (col === 'mode') return (d.mode || 'normal').toLowerCase().includes(val);
+          if (col === 'words') return String(d.wordCount || 0).includes(val);
+          if (col === 'status') {
+            const status = d.deletedBySystem ? 'lost' : d.deleted ? 'deleted' : 'active';
+            return status.includes(val);
+          }
+          if (col === 'date') return (d.updatedAt || '').toLowerCase().includes(val);
+          return (d.title || '').toLowerCase().includes(val);
+        });
+      } else {
+        folderDocs = folderDocs.filter(d => (d.title || '').toLowerCase().includes(this._searchQuery));
+      }
     }
 
     this.renderDocumentList('all-docs', folderDocs);
@@ -1110,7 +1134,7 @@ const App = {
       const el = document.getElementById('online-indicator');
       if (el && count > 0) {
         document.getElementById('online-count').textContent = count;
-        document.getElementById('online-plural').textContent = count === 1 ? '' : 's';
+        document.getElementById('online-writer-text').textContent = count === 1 ? 'writer' : 'writers';
         el.style.display = 'inline-flex';
       } else if (el) {
         el.style.display = 'none';
@@ -1143,6 +1167,7 @@ const App = {
             ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
             <div class="podium-avatar">${avatarContent}</div>
             <div class="podium-name">${this.escapeHtml(entry.name)}</div>
+            ${entry.username ? `<div class="podium-username">@${this.escapeHtml(entry.username)}</div>` : ''}
             <div class="podium-words">${(entry.totalWords || 0).toLocaleString()} words</div>
             <div class="podium-pedestal" style="height:${heights[i]}">
               <span class="podium-medal">${medals[i]}</span>
@@ -1154,11 +1179,11 @@ const App = {
       // Full table
       tbody.innerHTML = data.map((entry, i) => {
         const rankEmoji = i === 0 ? '&#x1F947;' : i === 1 ? '&#x1F948;' : i === 2 ? '&#x1F949;' : `${i + 1}`;
-        const isMe = this.user && entry.name === this.user.name;
+        const isMe = this.user && (entry.id === this.user.id || entry.name === this.user.name);
         return `
           <tr class="${isMe ? 'leaderboard-me' : ''}">
             <td class="lb-rank">${rankEmoji}</td>
-            <td class="lb-name">${this.escapeHtml(entry.name)} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
+            <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <span class="lb-username">@${this.escapeHtml(entry.username)}</span>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
             <td><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
             <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
             <td class="lb-col-time">${entry.minutesWritten || 0}m</td>
@@ -1710,6 +1735,22 @@ const App = {
   loadProfile() {
     document.getElementById('profile-name').value = this.user.name;
     document.getElementById('profile-email').value = this.user.email;
+    const usernameEl = document.getElementById('profile-username');
+    if (usernameEl) usernameEl.value = this.user.username || '';
+    // Show username change info
+    const usernameInfo = document.getElementById('profile-username-info');
+    if (usernameInfo && this.user.lastUsernameChange) {
+      const lastChange = new Date(this.user.lastUsernameChange);
+      const diffDays = Math.floor((Date.now() - lastChange.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays < 30) {
+        usernameInfo.textContent = `Can change again in ${30 - diffDays} day${30 - diffDays !== 1 ? 's' : ''}`;
+        usernameInfo.style.display = 'block';
+        usernameEl.disabled = true;
+      } else {
+        usernameInfo.style.display = 'none';
+        usernameEl.disabled = false;
+      }
+    }
     const pwSection = document.getElementById('change-password-section');
     if (pwSection) pwSection.style.display = this.user.provider === 'google' ? 'none' : '';
     document.getElementById('profile-since').value = new Date(this.user.createdAt).toLocaleDateString('en-US', {
@@ -2439,13 +2480,71 @@ const App = {
 
   async saveProfile() {
     const name = document.getElementById('profile-name').value;
+    const updates = { name };
+
+    // Username change (if field exists and value changed)
+    const usernameEl = document.getElementById('profile-username');
+    if (usernameEl && usernameEl.value !== (this.user.username || '')) {
+      updates.username = usernameEl.value;
+    }
+
     try {
-      await API.request('/auth/me', { method: 'PATCH', body: JSON.stringify({ name }) });
-      this.user.name = name;
+      const updated = await API.request('/auth/me', { method: 'PATCH', body: JSON.stringify(updates) });
+      this.user = updated;
       this.updateUserUI();
+      this.loadProfile();
       this.toast('Profile updated!', 'success');
-    } catch {
-      this.toast('Failed to update profile', 'error');
+    } catch (err) {
+      this.toast(err.message || 'Failed to update profile', 'error');
+    }
+  },
+
+  showProfileCompleteModal() {
+    const overlay = document.getElementById('profile-complete-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+    const nameInput = document.getElementById('profile-complete-name');
+    const usernameInput = document.getElementById('profile-complete-username');
+    if (nameInput) nameInput.value = this.user.name || '';
+
+    const btn = document.getElementById('profile-complete-btn');
+    if (btn && !btn._bound) {
+      btn._bound = true;
+      btn.addEventListener('click', async () => {
+        const name = nameInput.value.trim();
+        const username = usernameInput.value.trim();
+        const errorEl = document.getElementById('profile-complete-error');
+
+        if (!name) {
+          errorEl.textContent = 'Name is required';
+          errorEl.classList.add('visible');
+          return;
+        }
+        if (!username || username.length < 3) {
+          errorEl.textContent = 'Username must be at least 3 characters';
+          errorEl.classList.add('visible');
+          return;
+        }
+        if (username.length > 30) {
+          errorEl.textContent = 'Username must be at most 30 characters';
+          errorEl.classList.add('visible');
+          return;
+        }
+
+        try {
+          const updated = await API.request('/auth/me', {
+            method: 'PATCH',
+            body: JSON.stringify({ name, username, needsProfile: false })
+          });
+          this.user = updated;
+          this.updateUserUI();
+          overlay.style.display = 'none';
+          this.toast('Welcome to iWrite!', 'success');
+        } catch (err) {
+          errorEl.textContent = err.message || 'Failed to save profile';
+          errorEl.classList.add('visible');
+        }
+      });
     }
   },
 

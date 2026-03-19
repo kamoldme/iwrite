@@ -61,7 +61,7 @@ router.get('/users/:id', async (req, res) => {
 });
 
 router.patch('/users/:id', async (req, res) => {
-  const allowedFields = ['name', 'email', 'role', 'plan', 'xp', 'level', 'streak', 'longestStreak', 'treeStage', 'totalWords', 'totalSessions'];
+  const allowedFields = ['name', 'username', 'email', 'role', 'plan', 'xp', 'level', 'streak', 'longestStreak', 'treeStage', 'totalWords', 'totalSessions'];
   const updates = {};
   for (const field of allowedFields) {
     if (req.body[field] !== undefined) updates[field] = req.body[field];
@@ -199,7 +199,7 @@ router.get('/logs', async (req, res) => {
   const userMap = {};
   users.forEach(u => { userMap[u.id] = u.name; });
 
-  res.json(logs.map(l => ({
+  res.json(logs.filter(l => l.action !== 'pageview').map(l => ({
     ...l,
     userName: userMap[l.userId] || 'System'
   })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 200));

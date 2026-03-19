@@ -126,7 +126,7 @@
               <p class="dashboard-hero-sub">Your writing journey continues. Pick up where you left off.</p>
               <div class="online-indicator" id="online-indicator" style="display:none">
                 <span class="online-dot"></span>
-                <span id="online-count">0</span> writer<span id="online-plural">s</span> online now
+                <span id="online-count">0</span> <span id="online-writer-text">writers</span> online now
               </div>
             </div>
             <button class="btn btn-primary btn-large dashboard-start-btn" id="new-doc-btn">
@@ -221,7 +221,7 @@
           </div>
           <div class="session-search-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" class="session-search" id="session-search" placeholder="Search sessions by title...">
+            <input type="text" class="session-search" id="session-search" placeholder="Search by title, or use title: mode: words: status:">
           </div>
           <!-- Folder back button -->
           <div id="folder-back-btn" style="display:none"></div>
@@ -370,6 +370,11 @@
                   <div class="auth-field">
                     <label>Name</label>
                     <input type="text" id="profile-name">
+                  </div>
+                  <div class="auth-field">
+                    <label>Username <span style="font-weight:400;color:var(--text-muted)">(can change once/month)</span></label>
+                    <input type="text" id="profile-username" maxlength="30" minlength="3" placeholder="your_username">
+                    <div id="profile-username-info" style="display:none;font-size:11px;color:var(--text-muted);margin-top:4px"></div>
                   </div>
                   <div class="auth-field">
                     <label>Email</label>
@@ -677,6 +682,8 @@
       <span class="status-separator">|</span>
       <span id="editor-words-remaining" style="display:none"></span>
     </div>
+    <!-- Word limit indicator (bottom-left, above status bar) -->
+    <div class="word-limit-indicator" id="word-limit-indicator" style="display:none"></div>
 
     <!-- YouTube iframe container (hidden) -->
     <div id="yt-player-container" style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;overflow:hidden"></div>
@@ -849,6 +856,24 @@
           <button class="btn btn-ghost btn-full" style="padding:12px 32px" onclick="document.getElementById('confirm-remove-friend-modal').classList.remove('active')">Cancel</button>
           <button class="btn btn-danger btn-full" style="padding:12px 32px" onclick="App.removeFriend()">Remove</button>
         </div>
+      </div>
+    </div>
+
+    <!-- PROFILE COMPLETION MODAL (for new Google users) -->
+    <div class="modal-overlay" id="profile-complete-overlay" style="display:none">
+      <div class="modal" style="max-width:420px;padding:32px">
+        <h2 style="font-family:var(--font-display);font-size:22px;font-weight:800;margin-bottom:4px">Complete Your Profile</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px">Choose your display name and a unique username.</p>
+        <div class="auth-error" id="profile-complete-error"></div>
+        <div class="auth-field">
+          <label>Full Name</label>
+          <input type="text" id="profile-complete-name" placeholder="Your name">
+        </div>
+        <div class="auth-field">
+          <label>Username <span style="font-weight:400;color:var(--text-muted)">(3-30 chars, can change once/month)</span></label>
+          <input type="text" id="profile-complete-username" placeholder="your_username" maxlength="30" minlength="3">
+        </div>
+        <button class="btn btn-primary btn-full" id="profile-complete-btn" style="margin-top:12px">Save & Continue</button>
       </div>
     </div>
 
