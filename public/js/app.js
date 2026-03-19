@@ -856,22 +856,23 @@ const App = {
       ? visibleDocs.filter(d => d.folder === this.currentFolder)
       : visibleDocs.filter(d => !d.folder);
 
-    // Apply search filter (supports column:value format)
+    // Apply search filter — supports column=value format (e.g. status=active, mode=dangerous)
     if (this._searchQuery) {
-      const colonMatch = this._searchQuery.match(/^(\w+)\s*:\s*(.+)$/);
-      if (colonMatch) {
-        const col = colonMatch[1].toLowerCase();
-        const val = colonMatch[2].trim().toLowerCase();
+      const filterMatch = this._searchQuery.match(/^(\w+)\s*=\s*(.*)$/);
+      if (filterMatch) {
+        const col = filterMatch[1].toLowerCase();
+        const val = filterMatch[2].trim().toLowerCase();
         folderDocs = folderDocs.filter(d => {
           if (col === 'title') return (d.title || '').toLowerCase().includes(val);
-          if (col === 'mode') return (d.mode || 'normal').toLowerCase().includes(val);
-          if (col === 'words') return String(d.wordCount || 0).includes(val);
+          if (col === 'mode') return (d.mode || 'normal').toLowerCase() === val || (d.mode || 'normal').toLowerCase().includes(val);
+          if (col === 'words' || col === 'wordcount') return String(d.wordCount || 0).includes(val);
           if (col === 'status') {
             const status = d.deletedBySystem ? 'lost' : d.deleted ? 'deleted' : 'active';
-            return status.includes(val);
+            return status === val || status.includes(val);
           }
           if (col === 'date') return (d.updatedAt || '').toLowerCase().includes(val);
-          return (d.title || '').toLowerCase().includes(val);
+          if (col === 'xp') return String(d.xpEarned || 0).includes(val);
+          return false;
         });
       } else {
         folderDocs = folderDocs.filter(d => (d.title || '').toLowerCase().includes(this._searchQuery));

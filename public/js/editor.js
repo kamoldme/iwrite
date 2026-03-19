@@ -189,16 +189,18 @@ const Editor = {
       }
     } catch {}
 
-    // Request fullscreen automatically for both normal and dangerous mode
+    // Request fullscreen automatically for dangerous mode only
     this._fullscreenActive = false;
     this._blurCooldown = false;
-    try {
-      const el = document.documentElement;
-      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-      if (req) {
-        req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
-      }
-    } catch(e) {}
+    if (this.mode === 'dangerous') {
+      try {
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (req) {
+          req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
+        }
+      } catch(e) {}
+    }
   },
 
   bindFormatting() {
@@ -493,13 +495,7 @@ const Editor = {
         this.vignette.style.opacity = 0;
       }
 
-      // Progressive text color fade to red — text only, no opacity/blur
-      if (ratio > 0.3) {
-        const redIntensity = Math.min((ratio - 0.3) / 0.7, 1);
-        this.textarea.style.color = `rgba(239, 68, 68, ${0.4 + redIntensity * 0.6})`;
-      } else {
-        this.textarea.style.color = '';
-      }
+      // Vignette already handles the red surrounding — keep text color normal
 
       if (elapsed >= this.dangerThreshold) {
         this.failDangerMode();
