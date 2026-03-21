@@ -3657,7 +3657,6 @@ const App = {
     // Reconnect anti-tamper MutationObserver on new DOM elements
     // _applyProLocks() only runs at init, but _renderAnalytics() replaces innerHTML,
     // creating new .analytics-pro-blur-content elements the old observer can't see.
-    const isPro = this.user && this.user.plan === 'premium';
     if (this._proBlurObserver) {
       this._proBlurObserver.disconnect();
       this._proBlurObserver = null;
