@@ -6,7 +6,7 @@ const fs = require('fs');
 const multer = require('multer');
 const sharp = require('sharp');
 const { findOne, insertOne, updateOne } = require('../utils/storage');
-const { generateToken, authenticate } = require('../middleware/auth');
+const { generateToken, authenticate, checkSubscriptionExpiry } = require('../middleware/auth');
 const { logAction } = require('../utils/logger');
 const { OAuth2Client } = require('google-auth-library');
 
@@ -94,6 +94,9 @@ router.post('/register', async (req, res) => {
       password: hash,
       role: 'user',
       plan: 'free',
+      planDuration: null,
+      planStartedAt: null,
+      planExpiresAt: null,
       xp: 0,
       level: 0,
       streak: 0,
@@ -146,10 +149,14 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/me', authenticate, async (req, res) => {
+router.get('/me', authenticate, checkSubscriptionExpiry, async (req, res) => {
   const user = await findOne('users.json', u => u.id === req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
   const { password: _, ...safeUser } = user;
+  // If subscription just expired during this request, notify the frontend
+  if (req.subscriptionExpired) {
+    safeUser.subscriptionJustExpired = true;
+  }
   res.json(safeUser);
 });
 
@@ -168,19 +175,31 @@ router.patch('/me', authenticate, async (req, res) => {
       updates.name = req.body.name;
     }
 
-    // Username update (once per month)
+    // Username update — Free: once per 30 days, Pro: 3 times per month
     if (req.body.username !== undefined) {
       const usernameError = validateUsername(req.body.username);
       if (usernameError) return res.status(400).json({ error: usernameError });
 
-      // Check once-per-month limit
-      if (user.lastUsernameChange) {
-        const lastChange = new Date(user.lastUsernameChange);
-        const now = new Date();
-        const diffDays = (now - lastChange) / (1000 * 60 * 60 * 24);
-        if (diffDays < 30) {
-          const daysLeft = Math.ceil(30 - diffDays);
-          return res.status(400).json({ error: `You can change your username again in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}` });
+      const isPro = user.plan === 'premium';
+      if (isPro) {
+        // Pro: 3 changes per calendar month
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const changesThisMonth = (user.usernameChangesMonth === currentMonth) ? (user.usernameChangesCount || 0) : 0;
+        if (changesThisMonth >= 3) {
+          return res.status(400).json({ error: 'Username change limit reached (3/month for Pro)' });
+        }
+        updates.usernameChangesCount = changesThisMonth + 1;
+        updates.usernameChangesMonth = currentMonth;
+      } else {
+        // Free: once per 30 days
+        if (user.lastUsernameChange) {
+          const lastChange = new Date(user.lastUsernameChange);
+          const now = new Date();
+          const diffDays = (now - lastChange) / (1000 * 60 * 60 * 24);
+          if (diffDays < 30) {
+            const daysLeft = Math.ceil(30 - diffDays);
+            return res.status(400).json({ error: `You can change your username again in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}` });
+          }
         }
       }
 
@@ -290,6 +309,9 @@ router.post('/google', async (req, res) => {
         provider: 'google',
         role: 'user',
         plan: 'free',
+        planDuration: null,
+        planStartedAt: null,
+        planExpiresAt: null,
         xp: 0,
         level: 0,
         streak: 0,

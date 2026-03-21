@@ -98,6 +98,83 @@ setInterval(() => {
   }
 }, 60000);
 
+// ===== MAINTENANCE MODE (in-memory) =====
+const maintenanceState = {
+  active: false,
+  scheduledAt: null,  // ISO timestamp when maintenance should start
+  startedAt: null,    // ISO timestamp when maintenance actually started
+  message: 'Platform maintenance in progress. Please save your work.',
+  countdownMinutes: 5
+};
+app.set('maintenanceState', maintenanceState);
+
+// Public endpoint — polled by clients every 10s
+app.get('/api/maintenance-status', (req, res) => {
+  const ms = app.get('maintenanceState');
+  if (!ms.active && !ms.scheduledAt) {
+    return res.json({ active: false });
+  }
+  const now = Date.now();
+  // Check if scheduled maintenance should auto-trigger
+  if (ms.scheduledAt && !ms.active) {
+    const triggerAt = new Date(ms.scheduledAt).getTime() - ms.countdownMinutes * 60 * 1000;
+    if (now >= triggerAt) {
+      ms.active = true;
+      ms.startedAt = new Date().toISOString();
+      ms.scheduledAt = null;
+    }
+  }
+  if (!ms.active) {
+    return res.json({ active: false, scheduled: ms.scheduledAt });
+  }
+  const elapsed = Math.floor((now - new Date(ms.startedAt).getTime()) / 1000);
+  const countdownTotal = ms.countdownMinutes * 60;
+  const remaining = Math.max(countdownTotal - elapsed, 0);
+  res.json({
+    active: true,
+    message: ms.message,
+    remaining,        // seconds until shutdown
+    shutdownReady: remaining <= 0,
+    startedAt: ms.startedAt
+  });
+});
+
+// Admin endpoint — start/stop/schedule maintenance
+app.post('/api/admin/maintenance', (req, res) => {
+  // Inline auth check
+  const { authenticate, requireAdmin } = require('./middleware/auth');
+  authenticate(req, res, () => {
+    requireAdmin(req, res, () => {
+      const ms = app.get('maintenanceState');
+      const { action, scheduledAt, message, countdownMinutes } = req.body;
+
+      if (action === 'start') {
+        ms.active = true;
+        ms.startedAt = new Date().toISOString();
+        ms.scheduledAt = null;
+        if (message) ms.message = message;
+        if (countdownMinutes) ms.countdownMinutes = countdownMinutes;
+        return res.json({ ok: true, state: 'started', startedAt: ms.startedAt });
+      }
+      if (action === 'schedule') {
+        ms.scheduledAt = scheduledAt;
+        ms.active = false;
+        ms.startedAt = null;
+        if (message) ms.message = message;
+        if (countdownMinutes) ms.countdownMinutes = countdownMinutes;
+        return res.json({ ok: true, state: 'scheduled', scheduledAt: ms.scheduledAt });
+      }
+      if (action === 'cancel') {
+        ms.active = false;
+        ms.scheduledAt = null;
+        ms.startedAt = null;
+        return res.json({ ok: true, state: 'cancelled' });
+      }
+      res.status(400).json({ error: 'Invalid action. Use start, schedule, or cancel.' });
+    });
+  });
+});
+
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
@@ -133,7 +210,7 @@ app.use('/api/share', require('./routes/share'));
 app.use('/api/support', require('./routes/support'));
 app.use('/api/duels', require('./routes/duels'));
 
-const { findOne, findMany, insertOne } = require('./utils/storage');
+const { findOne, findMany, insertOne, updateOne } = require('./utils/storage');
 const bcrypt = require('bcryptjs');
 const { v4: uuid } = require('uuid');
 
@@ -181,7 +258,8 @@ app.get('/api/leaderboard', async (req, res) => {
           streak: u.streak || 0,
           minutesWritten,
           avatar: u.avatar || null,
-          avatarUpdatedAt: u.avatarUpdatedAt || null
+          avatarUpdatedAt: u.avatarUpdatedAt || null,
+          plan: u.plan || 'free'
         };
       })
       .sort((a, b) => b.streak - a.streak || b.totalWords - a.totalWords)
@@ -266,6 +344,22 @@ app.get('/terms', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'terms.html'));
 });
 
+/// Public user lookup by username (for invite popup)
+app.get('/api/users/lookup/:username', async (req, res) => {
+  try {
+    const { findOne } = require('./utils/storage');
+    const user = await findOne('users.json', u => u.username && u.username.toLowerCase() === req.params.username.toLowerCase());
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ name: user.name, username: user.username });
+  } catch { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Invite route: /invite/:username → redirect to /app with invite param + friends view
+app.get('/invite/:username', (req, res) => {
+  const username = encodeURIComponent(req.params.username);
+  res.redirect(`/app?invite=${username}&view=friends`);
+});
+
 // 404 catch-all — must be after all other routes
 app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, '..', 'public', '404.html'));
@@ -295,6 +389,22 @@ async function start() {
       });
       console.log('Admin account seeded');
     }
+
+    // Migrate: assign random usernames to existing users without one
+    const allUsers = await findMany('users.json');
+    const adjectives = ['swift', 'bright', 'quiet', 'bold', 'keen', 'wild', 'calm', 'warm', 'cool', 'free'];
+    const nouns = ['writer', 'scribe', 'author', 'poet', 'muse', 'quill', 'ink', 'page', 'story', 'word'];
+    let migrated = 0;
+    for (const u of allUsers) {
+      if (!u.username) {
+        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const noun = nouns[Math.floor(Math.random() * nouns.length)];
+        const num = Math.floor(Math.random() * 9999);
+        await updateOne('users.json', usr => usr.id === u.id, { username: `${adj}_${noun}_${num}` });
+        migrated++;
+      }
+    }
+    if (migrated > 0) console.log(`Assigned random usernames to ${migrated} existing users`);
   } catch (e) {
     console.error('DB init error:', e.message || e);
     console.error('DATABASE_URL set:', !!process.env.DATABASE_URL);

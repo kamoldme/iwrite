@@ -73,6 +73,25 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const { title, content, mode } = req.body;
+
+  // Weekly session limit: 10/week for free users, unlimited for pro
+  const user = await findOne('users.json', u => u.id === req.user.id);
+  if (user && user.plan !== 'premium') {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay()); // Sunday
+    weekStart.setHours(0, 0, 0, 0);
+    const weekISO = weekStart.toISOString().split('T')[0];
+    const sessionsThisWeek = (user.weeklySessionsWeek === weekISO) ? (user.weeklySessions || 0) : 0;
+    if (sessionsThisWeek >= 10) {
+      return res.status(429).json({ error: 'Weekly session limit reached (10/week on free plan). Upgrade to Pro for unlimited sessions.' });
+    }
+    await updateOne('users.json', u => u.id === req.user.id, {
+      weeklySessions: sessionsThisWeek + 1,
+      weeklySessionsWeek: weekISO
+    });
+  }
+
   const doc = {
     id: uuid(),
     userId: req.user.id,
@@ -208,19 +227,23 @@ router.post('/:id/complete', async (req, res) => {
   const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
-  // Don't count empty sessions — no XP, no streak, no stats
+  // Don't save empty sessions — delete the document entirely
   if (!wordCount || wordCount <= 0) {
+    await deleteOne('documents.json', d => d.id === req.params.id);
     const { password: _, ...safeUser } = await findOne('users.json', u => u.id === req.user.id);
-    return res.json({ document: doc, user: safeUser });
+    return res.json({ document: null, user: safeUser });
   }
 
-  // Track early completes (5/month limit)
+  // Track early completes (3/month free, 15/month pro) — bypass during maintenance
   if (earlyComplete) {
+    const ms = req.app.get('maintenanceState');
+    const maintenanceBypass = ms && ms.active;
     const user = await findOne('users.json', u => u.id === req.user.id);
     const currentMonth = new Date().toISOString().slice(0, 7);
     const usedThisMonth = (user.earlyCompletesMonth === currentMonth) ? (user.earlyCompletes || 0) : 0;
-    if (usedThisMonth >= 5) {
-      return res.status(429).json({ error: 'Early complete limit reached (5/month)' });
+    const earlyLimit = user.plan === 'premium' ? 15 : 3;
+    if (usedThisMonth >= earlyLimit && !maintenanceBypass) {
+      return res.status(429).json({ error: `Early complete limit reached (${earlyLimit}/month)` });
     }
     await updateOne('users.json', u => u.id === req.user.id, {
       earlyCompletes: usedThisMonth + 1,
@@ -322,6 +345,13 @@ router.post('/:id/abandon', async (req, res) => {
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
   const { reason } = req.body; // 'typing_stopped' | 'tab_left'
+
+  // If zero words written, just delete — no point saving
+  if (!doc.wordCount || doc.wordCount <= 0) {
+    await deleteOne('documents.json', d => d.id === req.params.id);
+    return res.json({ success: true, message: 'Empty session removed' });
+  }
+
   await updateOne('documents.json', d => d.id === req.params.id, {
     deletedBySystem: true,
     deleted: true,
@@ -333,7 +363,7 @@ router.post('/:id/abandon', async (req, res) => {
   res.json({ success: true, message: 'Document lost' });
 });
 
-// Copy tracking — free users: 5 copies per month
+// Copy tracking — free: 3/month, pro: 15/month
 router.post('/copy', authenticate, async (req, res) => {
   const user = await findOne('users.json', u => u.id === req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
@@ -348,8 +378,10 @@ router.post('/copy', authenticate, async (req, res) => {
     copyCount = 0;
   }
 
-  const limit = user.plan === 'premium' ? Infinity : 5;
-  if (copyCount >= limit) {
+  const limit = user.plan === 'premium' ? 15 : 3;
+  const ms = req.app.get('maintenanceState');
+  const maintenanceBypass = ms && ms.active;
+  if (copyCount >= limit && !maintenanceBypass) {
     return res.json({ allowed: false, remaining: 0, limit });
   }
 
@@ -360,6 +392,234 @@ router.post('/copy', authenticate, async (req, res) => {
   });
 
   res.json({ allowed: true, remaining: Math.max(0, limit - copyCount), limit });
+});
+
+// Pin/unpin document (Pro only)
+router.post('/:id/pin', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.user.id);
+  if (!user || user.plan !== 'premium') {
+    return res.status(403).json({ error: 'Pin is a Pro feature' });
+  }
+  const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+  if (!doc) return res.status(404).json({ error: 'Document not found' });
+  const pinned = !doc.pinned;
+  await updateOne('documents.json', d => d.id === req.params.id, { pinned });
+  res.json({ pinned });
+});
+
+// Export document to PDF (Pro only) — returns HTML for client-side PDF generation
+router.get('/:id/export', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.user.id);
+  if (!user || user.plan !== 'premium') {
+    return res.status(403).json({ error: 'Export is a Pro feature' });
+  }
+  const doc = await findOne('documents.json', d => d.id === req.params.id && d.userId === req.user.id);
+  if (!doc) return res.status(404).json({ error: 'Document not found' });
+  res.json({ title: doc.title, content: doc.content, wordCount: doc.wordCount, createdAt: doc.createdAt });
+});
+
+// Session analytics (available to all users — Pro gets full insights)
+router.get('/analytics/sessions', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const isPro = user.plan === 'premium';
+  const allDocs = await findMany('documents.json', d => d.userId === req.user.id);
+  const docs = allDocs.filter(d => !d.deleted);
+  const completed = docs.filter(d => d.xpEarned > 0);
+
+  // ── Basic stats (all users) ──
+  // Calculate from actual documents (user.totalWords can be inflated by repeated completions)
+  const totalSessions = completed.length;
+  const totalWords = completed.reduce((s, d) => s + (d.wordCount || 0), 0);
+  const totalWritingTime = completed.reduce((s, d) => s + (d.duration || 0), 0);
+
+  // ── Personal Records ──
+  // Longest session (by duration)
+  const longestSession = completed.reduce((best, d) => {
+    if ((d.duration || 0) > (best.duration || 0)) return { duration: d.duration, words: d.wordCount || 0, date: d.createdAt };
+    return best;
+  }, { duration: 0, words: 0, date: null });
+
+  // Most words in a single day
+  const dailyWordTotals = {};
+  completed.forEach(d => {
+    const day = d.createdAt.split('T')[0];
+    dailyWordTotals[day] = (dailyWordTotals[day] || 0) + (d.wordCount || 0);
+  });
+  let mostWordsDay = { words: 0, date: null };
+  for (const [date, words] of Object.entries(dailyWordTotals)) {
+    if (words > mostWordsDay.words) mostWordsDay = { words, date };
+  }
+
+  // Most words in a week (rolling 7-day window)
+  const sortedDays = Object.entries(dailyWordTotals).sort((a, b) => a[0].localeCompare(b[0]));
+  let mostWordsWeek = { words: 0, startDate: null, endDate: null };
+  if (sortedDays.length > 0) {
+    for (let i = 0; i < sortedDays.length; i++) {
+      const windowStart = new Date(sortedDays[i][0]);
+      const windowEnd = new Date(windowStart); windowEnd.setDate(windowEnd.getDate() + 6);
+      const endStr = windowEnd.toISOString().split('T')[0];
+      let weekWords = 0;
+      for (let j = i; j < sortedDays.length && sortedDays[j][0] <= endStr; j++) {
+        weekWords += sortedDays[j][1];
+      }
+      if (weekWords > mostWordsWeek.words) {
+        mostWordsWeek = { words: weekWords, startDate: sortedDays[i][0], endDate: endStr };
+      }
+    }
+  }
+
+  // Best streak (from user record)
+  const bestStreak = { days: user.longestStreak || 0 };
+  const currentStreak = user.streak || 0;
+
+  const personalRecords = { longestSession, mostWordsDay, mostWordsWeek, bestStreak, currentStreak };
+
+  // ── Writing Rhythm (Pro) ──
+  let writingRhythm = null;
+  if (isPro && completed.length > 0) {
+    // Hour distribution
+    const hourDist = new Array(24).fill(0);
+    completed.forEach(d => { hourDist[new Date(d.createdAt).getHours()]++; });
+    const bestHour = hourDist.indexOf(Math.max(...hourDist));
+
+    // Day of week distribution
+    const dayDist = new Array(7).fill(0);
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    completed.forEach(d => { dayDist[new Date(d.createdAt).getDay()]++; });
+    const bestDayIdx = dayDist.indexOf(Math.max(...dayDist));
+    const avgPerDay = totalSessions / 7;
+    const bestDayPct = avgPerDay > 0 ? Math.round(((dayDist[bestDayIdx] / totalSessions) * 7 - 1) * 100) : 0;
+
+    // Time of day classification: morning (5-11), afternoon (12-17), night (18-4)
+    const morning = hourDist.slice(5, 12).reduce((a, b) => a + b, 0);
+    const afternoon = hourDist.slice(12, 18).reduce((a, b) => a + b, 0);
+    const night = hourDist.slice(18).reduce((a, b) => a + b, 0) + hourDist.slice(0, 5).reduce((a, b) => a + b, 0);
+    const writerType = night >= morning && night >= afternoon ? 'Night Writer' :
+      morning >= afternoon ? 'Early Bird' : 'Afternoon Author';
+
+    // Average session length (seconds)
+    const avgSessionLength = Math.round(totalWritingTime / totalSessions);
+
+    // Average words per day (over active days) and per week (over active weeks)
+    const activeDays = Object.keys(dailyWordTotals).length;
+    const avgWordsPerDay = activeDays > 0 ? Math.round(totalWords / activeDays) : 0;
+
+    // Active weeks count
+    const weekSet = new Set();
+    completed.forEach(d => {
+      const dt = new Date(d.createdAt);
+      const weekStart = new Date(dt); weekStart.setDate(dt.getDate() - dt.getDay());
+      weekSet.add(weekStart.toISOString().split('T')[0]);
+    });
+    const avgWordsPerWeek = weekSet.size > 0 ? Math.round(totalWords / weekSet.size) : 0;
+
+    // Normal vs dangerous mode split
+    const normalCount = completed.filter(d => d.mode !== 'dangerous').length;
+    const dangerCount = completed.filter(d => d.mode === 'dangerous').length;
+
+    writingRhythm = {
+      hourDistribution: hourDist, bestHour,
+      dayDistribution: dayDist, bestDay: dayNames[bestDayIdx], bestDayPct,
+      writerType, avgSessionLength, avgWordsPerDay, avgWordsPerWeek,
+      modeSplit: { normal: normalCount, dangerous: dangerCount }
+    };
+  }
+
+  // ── Monthly Comparison (Pro) ──
+  let monthlyComparison = null;
+  if (isPro && completed.length > 0) {
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(thisMonthStart - 1);
+
+    const thisMonth = completed.filter(d => new Date(d.createdAt) >= thisMonthStart);
+    const lastMonth = completed.filter(d => {
+      const dt = new Date(d.createdAt);
+      return dt >= lastMonthStart && dt <= lastMonthEnd;
+    });
+
+    const tmWords = thisMonth.reduce((s, d) => s + (d.wordCount || 0), 0);
+    const lmWords = lastMonth.reduce((s, d) => s + (d.wordCount || 0), 0);
+    const tmSessions = thisMonth.length;
+    const lmSessions = lastMonth.length;
+    const tmTime = thisMonth.reduce((s, d) => s + (d.duration || 0), 0);
+    const lmTime = lastMonth.reduce((s, d) => s + (d.duration || 0), 0);
+
+    const pctChange = (curr, prev) => prev > 0 ? Math.round(((curr - prev) / prev) * 100) : (curr > 0 ? 100 : 0);
+
+    monthlyComparison = {
+      thisMonth: { words: tmWords, sessions: tmSessions, time: tmTime, name: thisMonthStart.toLocaleString('en', { month: 'long' }) },
+      lastMonth: { words: lmWords, sessions: lmSessions, time: lmTime, name: lastMonthStart.toLocaleString('en', { month: 'long' }) },
+      change: { words: pctChange(tmWords, lmWords), sessions: pctChange(tmSessions, lmSessions), time: pctChange(tmTime, lmTime) }
+    };
+  }
+
+  // ── Danger Mode Report Card ──
+  const dangerSessions = docs.filter(d => d.mode === 'dangerous');
+  const dangerCompleted = dangerSessions.filter(d => d.xpEarned > 0);
+  const dangerSurvivalRate = dangerSessions.length > 0 ? Math.round((dangerCompleted.length / dangerSessions.length) * 100) : null;
+
+  // Trend: last 10 vs previous 10 dangerous sessions
+  let dangerTrend = null;
+  if (dangerSessions.length >= 5) {
+    const sorted = [...dangerSessions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const recent = sorted.slice(0, Math.min(10, Math.floor(sorted.length / 2)));
+    const older = sorted.slice(recent.length, recent.length * 2);
+    if (older.length > 0) {
+      const recentRate = Math.round((recent.filter(d => d.xpEarned > 0).length / recent.length) * 100);
+      const olderRate = Math.round((older.filter(d => d.xpEarned > 0).length / older.length) * 100);
+      dangerTrend = recentRate - olderRate; // positive = improving
+    }
+  }
+
+  // Average time before fail (failed dangerous sessions)
+  const dangerFailed = dangerSessions.filter(d => !d.xpEarned || d.xpEarned === 0);
+  const avgTimeBeforeFail = dangerFailed.length > 0
+    ? Math.round(dangerFailed.reduce((s, d) => s + (d.duration || 0), 0) / dangerFailed.length)
+    : null;
+
+  const dangerReport = {
+    survivalRate: dangerSurvivalRate, total: dangerSessions.length,
+    completed: dangerCompleted.length, trend: dangerTrend, avgTimeBeforeFail
+  };
+
+  // ── Word Count Milestones ──
+  const milestoneThresholds = [1000, 5000, 10000, 25000, 50000, 100000];
+  const milestones = milestoneThresholds.map(t => ({
+    target: t, unlocked: totalWords >= t, current: Math.min(totalWords, t)
+  }));
+  const nextMilestone = milestones.find(m => !m.unlocked) || null;
+
+  // ── Daily Words (for chart, last 90 days) ──
+  const dailyWords = {};
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000);
+  completed.filter(d => new Date(d.createdAt) >= ninetyDaysAgo).forEach(d => {
+    const day = d.createdAt.split('T')[0];
+    dailyWords[day] = (dailyWords[day] || 0) + (d.wordCount || 0);
+  });
+
+  // ── Focus score ──
+  const totalAttempts = docs.length;
+  const focusScore = totalAttempts > 0 ? Math.round((completed.length / totalAttempts) * 100) : 0;
+
+  // Sync corrected totalWords back to user profile if it drifted
+  if (user.totalWords && Math.abs((user.totalWords || 0) - totalWords) > 100) {
+    await updateOne('users.json', u => u.id === req.user.id, { totalWords });
+  }
+
+  res.json({
+    isPro, totalSessions, totalWords, totalWritingTime, focusScore,
+    personalRecords, writingRhythm, monthlyComparison,
+    dangerReport, milestones, nextMilestone,
+    dailyWords,
+    // User fields for shareable card
+    streak: currentStreak, longestStreak: user.longestStreak || 0,
+    treeStage: user.treeStage || 0, level: user.level || 1, xp: user.xp || 0,
+    username: user.username || user.name, displayName: user.name
+  });
 });
 
 module.exports = router;

@@ -142,6 +142,13 @@ const API = {
     });
   },
 
+  async sendFriendRequestByUsername(username) {
+    return this.request('/friends/request', {
+      method: 'POST',
+      body: JSON.stringify({ username })
+    });
+  },
+
   async acceptFriendRequest(fromId) {
     return this.request(`/friends/accept/${fromId}`, { method: 'POST' });
   },
@@ -323,6 +330,18 @@ const API = {
 
   async useCopy() {
     return this.request('/documents/copy', { method: 'POST' });
+  },
+
+  async pinDocument(docId) {
+    return this.request(`/documents/${docId}/pin`, { method: 'POST' });
+  },
+
+  async exportDocument(docId) {
+    return this.request(`/documents/${docId}/export`);
+  },
+
+  async getSessionAnalytics() {
+    return this.request('/documents/analytics/sessions');
   },
 
   logout() {

@@ -69,10 +69,12 @@ router.get('/suggestions', async (req, res) => {
 
 router.post('/request', async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email is required' });
-    const target = await findOne('users.json', u => u.email === email);
-    if (!target) return res.status(404).json({ error: 'No user with that email found on iWrite4.me' });
+    const { email, username } = req.body;
+    if (!email && !username) return res.status(400).json({ error: 'Email or username is required' });
+    const target = username
+      ? await findOne('users.json', u => u.username && u.username.toLowerCase() === username.toLowerCase())
+      : await findOne('users.json', u => u.email === email);
+    if (!target) return res.status(404).json({ error: username ? 'No user with that username found on iWrite4.me' : 'No user with that email found on iWrite4.me' });
     if (target.id === req.user.id) return res.status(400).json({ error: 'You cannot add yourself' });
     const me = await findOne('users.json', u => u.id === req.user.id);
     if ((me.friends || []).includes(target.id)) return res.status(400).json({ error: 'Already friends' });

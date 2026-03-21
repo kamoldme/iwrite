@@ -34,7 +34,10 @@ router.get('/stats', async (req, res) => {
 // ===== USERS =====
 router.get('/users', async (req, res) => {
   const users = (await findMany('users.json')).map(({ password, ...u }) => u);
-  res.json(users);
+  const docs = await findMany('documents.json');
+  const docCounts = {};
+  docs.forEach(d => { docCounts[d.userId] = (docCounts[d.userId] || 0) + 1; });
+  res.json(users.map(u => ({ ...u, docCount: docCounts[u.id] || 0 })));
 });
 
 router.get('/users/:id', async (req, res) => {
@@ -61,7 +64,7 @@ router.get('/users/:id', async (req, res) => {
 });
 
 router.patch('/users/:id', async (req, res) => {
-  const allowedFields = ['name', 'username', 'email', 'role', 'plan', 'xp', 'level', 'streak', 'longestStreak', 'treeStage', 'totalWords', 'totalSessions'];
+  const allowedFields = ['name', 'username', 'email', 'role', 'plan', 'xp', 'level', 'streak', 'longestStreak', 'treeStage', 'totalWords', 'totalSessions', 'planDuration', 'planStartedAt', 'planExpiresAt'];
   const updates = {};
   for (const field of allowedFields) {
     if (req.body[field] !== undefined) updates[field] = req.body[field];
@@ -71,13 +74,88 @@ router.patch('/users/:id', async (req, res) => {
     updates.password = bcrypt.hashSync(req.body.password, 12);
   }
 
+  // Auto-sync treeStage when streak is changed
+  if (updates.streak !== undefined && updates.treeStage === undefined) {
+    updates.treeStage = Math.min(Math.max(updates.streak, 0), 10);
+    // Also update lastWritingDate to today so the streak doesn't immediately reset
+    if (updates.streak > 0) {
+      updates.lastWritingDate = new Date().toISOString().split('T')[0];
+    }
+  }
+
   const old = await findOne('users.json', u => u.id === req.params.id);
   if (!old) return res.status(404).json({ error: 'User not found' });
+
+  // Update longestStreak if the new streak exceeds it
+  if (updates.streak !== undefined && updates.streak > (old.longestStreak || 0)) {
+    updates.longestStreak = updates.streak;
+  }
 
   const updated = await updateOne('users.json', u => u.id === req.params.id, updates);
   const { password, ...safeUser } = updated;
 
   logAction('user_updated', { userId: req.params.id, changes: Object.keys(updates) }, req.user.id);
+  res.json(safeUser);
+});
+
+// Recalculate XP from user's completed documents
+router.post('/users/:id/recalc-xp', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const docs = await findMany('documents.json', d => d.userId === req.params.id && !d.deleted);
+  const completed = docs.filter(d => d.xpEarned > 0);
+
+  // Sum XP from each session's xpEarned field
+  const totalXP = completed.reduce((sum, d) => sum + (d.xpEarned || 0), 0);
+  const totalWords = completed.reduce((sum, d) => sum + (d.wordCount || 0), 0);
+
+  res.json({ xp: totalXP, sessions: completed.length, totalWords });
+});
+
+// Set subscription plan with duration
+router.post('/users/:id/subscription', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const { duration } = req.body; // '1m', '3m', '6m', '12m', 'infinite', 'free'
+  const updates = {};
+
+  if (duration === 'free') {
+    // Downgrade to free
+    updates.plan = 'free';
+    updates.planDuration = null;
+    updates.planStartedAt = null;
+    updates.planExpiresAt = null;
+    updates.planExpired = false;
+  } else {
+    updates.plan = 'premium';
+    updates.planDuration = duration;
+    updates.planStartedAt = new Date().toISOString();
+
+    if (duration === 'infinite') {
+      updates.planExpiresAt = 'infinite';
+    } else {
+      const months = { '1m': 1, '3m': 3, '6m': 6, '12m': 12 };
+      const m = months[duration];
+      if (!m) return res.status(400).json({ error: 'Invalid duration. Use: 1m, 3m, 6m, 12m, infinite, or free' });
+      const expiresAt = new Date();
+      expiresAt.setMonth(expiresAt.getMonth() + m);
+      updates.planExpiresAt = expiresAt.toISOString();
+    }
+    updates.planExpired = false;
+  }
+
+  const updated = await updateOne('users.json', u => u.id === req.params.id, updates);
+  const { password, ...safeUser } = updated;
+
+  logAction('subscription_changed', {
+    userId: req.params.id,
+    duration,
+    planExpiresAt: updates.planExpiresAt,
+    changedBy: req.user.id
+  }, req.user.id);
+
   res.json(safeUser);
 });
 

@@ -36,6 +36,12 @@ const App = {
       window.history.replaceState({}, document.title, '/app');
     }
 
+    // Persist invite param across login flow
+    const inviteUser = params.get('invite');
+    if (inviteUser) {
+      localStorage.setItem('iwrite_pending_invite', inviteUser);
+    }
+
     const token = API.getToken();
     if (!token) {
       this.showAuth();
@@ -171,6 +177,70 @@ const App = {
 
     this.bindAppEvents();
     this.startNotifPolling();
+    this._applyProLocks();
+    this._startMaintenancePolling();
+    this._checkInviteParam();
+  },
+
+  _checkInviteParam() {
+    const params = new URLSearchParams(window.location.search);
+    let inviteUser = params.get('invite') || localStorage.getItem('iwrite_pending_invite');
+    if (!inviteUser) return;
+    // Clean URL and stored invite
+    localStorage.removeItem('iwrite_pending_invite');
+    window.history.replaceState({}, '', '/app');
+    // Switch to friends view
+    this.switchView('friends');
+    // Don't send to yourself
+    const myUsername = this.user && (this.user.username || this.user.name);
+    if (myUsername && myUsername.toLowerCase() === inviteUser.toLowerCase()) return;
+    // Show invite popup after a tick so friends view finishes rendering
+    setTimeout(() => this._showInvitePopup(inviteUser), 300);
+  },
+
+  async _showInvitePopup(inviteUser) {
+    // Look up the target user's display name
+    let displayName = inviteUser;
+    try {
+      const res = await fetch(`/api/users/lookup/${encodeURIComponent(inviteUser)}`);
+      if (res.ok) {
+        const data = await res.json();
+        displayName = data.name || inviteUser;
+      }
+    } catch {}
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:380px;text-align:center;padding:32px">
+        <div style="font-size:48px;margin-bottom:12px">\u{1F91D}</div>
+        <h2 style="font-size:18px;margin-bottom:8px;color:var(--text-primary)">Send Friend Request</h2>
+        <p style="font-size:14px;color:var(--text-muted);margin-bottom:20px">Do you want to send a friend request to <strong>${this._esc(displayName)}</strong> (<span style="color:var(--text-secondary)">@${this._esc(inviteUser)}</span>)?</p>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <button id="invite-accept" style="padding:10px 24px;background:var(--accent);color:#000;font-weight:700;border:none;border-radius:var(--radius-pill);cursor:pointer;font-size:14px">Yes</button>
+          <button id="invite-dismiss" style="padding:10px 24px;background:var(--bg-elevated);color:var(--text-primary);font-weight:600;border:1px solid var(--border);border-radius:var(--radius-pill);cursor:pointer;font-size:14px">Maybe Later</button>
+        </div>
+        <div id="invite-status" style="margin-top:12px;font-size:13px;color:var(--text-muted)"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    // Click on dark backdrop dismisses
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('#invite-dismiss').onclick = () => overlay.remove();
+    overlay.querySelector('#invite-accept').onclick = async () => {
+      const status = overlay.querySelector('#invite-status');
+      const btn = overlay.querySelector('#invite-accept');
+      btn.disabled = true; btn.textContent = 'Sending...';
+      try {
+        const result = await API.sendFriendRequestByUsername(inviteUser);
+        status.style.color = '#4ade80';
+        status.textContent = result.autoAccepted ? 'You are now friends!' : 'Friend request sent!';
+        setTimeout(() => { overlay.remove(); this._renderFriends(); }, 2000);
+      } catch (err) {
+        status.style.color = '#f87171';
+        status.textContent = err.message || 'Failed to send request';
+        btn.disabled = false; btn.textContent = 'Try Again';
+      }
+    };
   },
 
   bindAuthEvents() {
@@ -227,10 +297,8 @@ const App = {
     const isLightNow = document.documentElement.classList.contains('light');
     this._applyTheme(isLightNow ? 'light' : 'dark');
     document.getElementById('theme-toggle-btn').addEventListener('click', () => {
-      const isLight = document.documentElement.classList.contains('light');
-      this._applyTheme(isLight ? 'dark' : 'light');
+      this._cycleTheme();
     });
-
     // Support submit
     const supportBtn = document.getElementById('support-submit-btn');
     if (supportBtn) supportBtn.addEventListener('click', () => this.submitSupportTicket());
@@ -261,14 +329,28 @@ const App = {
 
     document.querySelectorAll('#time-presets .time-preset[data-minutes]').forEach(btn => {
       btn.addEventListener('click', () => {
+        const mins = parseInt(btn.dataset.minutes);
+        const isPro = this.user && this.user.plan === 'premium';
+        const freeMinutes = [30, 45, 60];
+        if (!isPro && !freeMinutes.includes(mins)) {
+          this.toast('This timer option is a Pro feature.', 'info');
+          this.openPricing();
+          return;
+        }
         document.querySelectorAll('#time-presets .time-preset').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        this.sessionDuration = parseInt(btn.dataset.minutes);
+        this.sessionDuration = mins;
         document.getElementById('time-custom-row').style.display = 'none';
       });
     });
 
     document.getElementById('time-preset-add-btn').addEventListener('click', () => {
+      const isPro = this.user && this.user.plan === 'premium';
+      if (!isPro) {
+        this.toast('Custom timer is a Pro feature.', 'info');
+        this.openPricing();
+        return;
+      }
       const row = document.getElementById('time-custom-row');
       row.style.display = row.style.display === 'none' ? 'flex' : 'none';
       if (row.style.display === 'flex') document.getElementById('custom-time-input').focus();
@@ -296,27 +378,96 @@ const App = {
         this.sessionMode = opt.dataset.mode;
         // Swap time preset panels based on mode
         const isDanger = this.sessionMode === 'dangerous';
+        const isPro = this.user && this.user.plan === 'premium';
         document.getElementById('time-presets').style.display = isDanger ? 'none' : 'flex';
         document.getElementById('danger-time-presets').style.display = isDanger ? 'flex' : 'none';
         document.getElementById('time-custom-row').style.display = 'none';
+        // Show death timer section in dangerous mode
+        const deathSection = document.getElementById('death-timer-section');
+        if (deathSection) deathSection.style.display = isDanger ? 'block' : 'none';
         if (isDanger) {
           // Default danger duration to the active preset
           const dangerActive = document.querySelector('#danger-time-presets .time-preset.active');
           this.sessionDuration = parseInt(dangerActive?.dataset.minutes || 5);
         } else {
           const normalActive = document.querySelector('#time-presets .time-preset.active');
-          this.sessionDuration = parseInt(normalActive?.dataset.minutes || 15);
+          this.sessionDuration = parseInt(normalActive?.dataset.minutes || 30);
         }
+        this._applyTimerRestrictions();
       });
     });
 
     // Bind danger mode time presets
-    document.querySelectorAll('#danger-time-presets .time-preset').forEach(btn => {
+    document.querySelectorAll('#danger-time-presets .time-preset[data-minutes]').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#danger-time-presets .time-preset').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.sessionDuration = parseInt(btn.dataset.minutes);
+        document.getElementById('time-custom-row').style.display = 'none';
       });
+    });
+    // Danger mode custom time "+" button (Pro only)
+    const dangerCustomBtn = document.getElementById('danger-custom-time-btn');
+    if (dangerCustomBtn) {
+      dangerCustomBtn.addEventListener('click', () => {
+        const isPro = this.user && this.user.plan === 'premium';
+        if (!isPro) {
+          this.toast('Custom danger timer is a Pro feature.', 'info');
+          this.openPricing();
+          return;
+        }
+        const row = document.getElementById('time-custom-row');
+        row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+        if (row.style.display === 'flex') document.getElementById('custom-time-input').focus();
+      });
+    }
+
+    // Death Timer presets (inactivity threshold for dangerous mode)
+    document.querySelectorAll('#death-timer-presets .time-preset[data-seconds]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const secs = parseInt(btn.dataset.seconds);
+        const isPro = this.user && this.user.plan === 'premium';
+        // 5s is free, 7s and 10s are Pro
+        if (!isPro && secs !== 5) {
+          this.toast('This death timer option is a Pro feature.', 'info');
+          this.openPricing();
+          return;
+        }
+        document.querySelectorAll('#death-timer-presets .time-preset').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('danger-threshold-input').value = secs;
+        document.getElementById('death-timer-custom-row').style.display = 'none';
+      });
+    });
+    // Death Timer custom "+" (Pro only)
+    const deathCustomBtn = document.getElementById('death-timer-custom-btn');
+    if (deathCustomBtn) {
+      deathCustomBtn.addEventListener('click', () => {
+        const isPro = this.user && this.user.plan === 'premium';
+        if (!isPro) {
+          this.toast('Custom death timer is a Pro feature.', 'info');
+          this.openPricing();
+          return;
+        }
+        const row = document.getElementById('death-timer-custom-row');
+        row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+        if (row.style.display === 'flex') document.getElementById('death-timer-custom-input').focus();
+      });
+    }
+    const setDeathCustom = () => {
+      const val = parseInt(document.getElementById('death-timer-custom-input').value);
+      if (!val || val < 2) return;
+      document.querySelectorAll('#death-timer-presets .time-preset').forEach(b => b.classList.remove('active'));
+      const customBtn = document.getElementById('death-timer-custom-btn');
+      customBtn.textContent = `${val}s`;
+      customBtn.classList.add('active');
+      document.getElementById('danger-threshold-input').value = val;
+      document.getElementById('death-timer-custom-row').style.display = 'none';
+      document.getElementById('death-timer-custom-input').value = '';
+    };
+    document.getElementById('death-timer-custom-set').addEventListener('click', setDeathCustom);
+    document.getElementById('death-timer-custom-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') setDeathCustom();
     });
 
     document.getElementById('editor-back').addEventListener('click', () => Editor.abort());
@@ -332,8 +483,22 @@ const App = {
 
     // Timer toggle + add time
     document.getElementById('editor-timer-toggle').addEventListener('click', () => Editor.toggleTimerVisibility());
-    document.getElementById('add-time-1').addEventListener('click', () => Editor.addTime(1));
-    document.getElementById('add-time-5').addEventListener('click', () => Editor.addTime(5));
+    document.getElementById('add-time-1').addEventListener('click', () => {
+      if (!this.user || this.user.plan !== 'premium') {
+        this.toast('Adding time is a Pro feature.', 'info');
+        this.openPricing();
+        return;
+      }
+      Editor.addTime(1);
+    });
+    document.getElementById('add-time-5').addEventListener('click', () => {
+      if (!this.user || this.user.plan !== 'premium') {
+        this.toast('Adding time is a Pro feature.', 'info');
+        this.openPricing();
+        return;
+      }
+      Editor.addTime(5);
+    });
 
     // Format bar: font selector
     const fmtFontSelect = document.getElementById('fmt-font-select');
@@ -370,24 +535,19 @@ const App = {
     document.getElementById('editor-copy-btn').addEventListener('click', async () => {
       const textarea = document.getElementById('editor-textarea');
 
-      // During active sessions: enforce monthly copy limit (5/month free, unlimited premium)
+      // During active sessions: enforce monthly copy limit (free: 3/month, pro: 15/month)
       if (Editor.active) {
-        if (this.user && this.user.plan !== 'premium') {
-          try {
-            const result = await API.useCopy();
-            if (!result.allowed) {
-              this.toast('Monthly copy limit reached (5/month on free plan)', 'error');
-              return;
-            }
-            await this._doCopy(textarea);
-            this.toast(`Copied! ${result.remaining} copies left this month`, 'success');
-          } catch {
-            this.toast('Copy failed', 'error');
+        try {
+          const result = await API.useCopy();
+          if (!result.allowed) {
+            const lim = this.user && this.user.plan === 'premium' ? 15 : 3;
+            this.toast(`Monthly copy limit reached (${lim}/month)`, 'error');
+            return;
           }
-        } else {
-          // Premium — copy freely
           await this._doCopy(textarea);
-          this.toast('Copied to clipboard!', 'success');
+          this.toast(`Copied! ${result.remaining} copies left this month`, 'success');
+        } catch {
+          this.toast('Copy failed', 'error');
         }
         return;
       }
@@ -462,7 +622,14 @@ const App = {
     document.getElementById('save-profile-btn').addEventListener('click', () => this.saveProfile());
     document.getElementById('change-password-btn').addEventListener('click', () => this.changePassword());
 
-    document.getElementById('create-folder-btn').addEventListener('click', () => this.createFolder());
+    document.getElementById('create-folder-btn').addEventListener('click', () => {
+      if (this.user && this.user.plan !== 'premium') {
+        this.toast('Folders are a Pro feature. Upgrade to Pro!', 'info');
+        this.openPricing();
+        return;
+      }
+      this.createFolder();
+    });
     document.getElementById('history-btn').addEventListener('click', () => this.openHistoryModal());
     document.getElementById('session-search').addEventListener('input', (e) => {
       this._searchQuery = e.target.value.trim().toLowerCase();
@@ -491,6 +658,7 @@ const App = {
     if (view === 'profile') this.loadProfile();
     if (view === 'friends') this.loadFriends();
     if (view === 'support') this.loadSupport();
+    if (view === 'analytics') this.loadAnalytics();
     if (view === 'duels') {
       this.loadDuelsView();
       // Auto-refresh duels tab every 10 seconds while viewing
@@ -519,7 +687,21 @@ const App = {
     const badge = document.getElementById('plan-badge');
     if (badge) {
       const isPro = this.user.plan === 'premium';
-      badge.textContent = isPro ? 'Pro' : 'Free';
+      if (isPro && this.user.planExpiresAt && this.user.planExpiresAt !== 'infinite') {
+        const expiresAt = new Date(this.user.planExpiresAt);
+        const daysLeft = Math.ceil((expiresAt - new Date()) / (1000 * 60 * 60 * 24));
+        if (daysLeft <= 7 && daysLeft > 0) {
+          badge.textContent = `Pro · ${daysLeft}d left`;
+        } else if (daysLeft <= 0) {
+          badge.textContent = 'Pro · Expired';
+        } else {
+          badge.textContent = 'Pro';
+        }
+      } else if (isPro && this.user.planExpiresAt === 'infinite') {
+        badge.textContent = 'Pro ∞';
+      } else {
+        badge.textContent = isPro ? 'Pro' : 'Free';
+      }
       badge.className = 'plan-badge' + (isPro ? ' pro' : '');
     }
 
@@ -542,7 +724,21 @@ const App = {
     try {
       this.user = await API.getMe();
       this.updateUserUI();
+      // Show toast if subscription just expired
+      if (this.user.subscriptionJustExpired) {
+        this.toast('Your Pro subscription has expired. You\'ve been moved to the Free plan.', 'warning');
+      }
     } catch {}
+
+    // Username reminder
+    const usernameReminder = document.getElementById('username-reminder');
+    if (usernameReminder) {
+      if (!this.user.username) {
+        usernameReminder.style.display = 'flex';
+      } else {
+        usernameReminder.style.display = 'none';
+      }
+    }
 
     document.getElementById('total-words').textContent = (this.user.totalWords || 0).toLocaleString();
     document.getElementById('total-sessions').textContent = this.user.totalSessions || 0;
@@ -770,6 +966,14 @@ const App = {
   },
 
   _renderDocumentsView() {
+    // Update folder button UI based on plan
+    const folderBtn = document.getElementById('create-folder-btn');
+    if (folderBtn) {
+      const isPro = this.user && this.user.plan === 'premium';
+      folderBtn.title = isPro ? 'Create Folder' : 'Folders — Pro Feature';
+      folderBtn.style.opacity = isPro ? '' : '0.5';
+    }
+
     // Only show non-failed, non-admin-deactivated docs in main list
     const visibleDocs = this.documents.filter(d => !d.deletedBySystem && !d.deactivatedByAdmin);
 
@@ -819,8 +1023,9 @@ const App = {
       }
     }
 
-    // Render folders for current level
+    // Render folders for current level (Pro only for free users)
     const folderContainer = document.getElementById('folder-list');
+    const isPro = this.user && this.user.plan === 'premium';
     const childFolders = this.folders.filter(f => (f.parentFolder || null) === this.currentFolder);
     if (childFolders.length > 0) {
       folderContainer.innerHTML = childFolders.map(f => {
@@ -856,27 +1061,9 @@ const App = {
       ? visibleDocs.filter(d => d.folder === this.currentFolder)
       : visibleDocs.filter(d => !d.folder);
 
-    // Apply search filter — supports column=value format (e.g. status=active, mode=dangerous)
+    // Apply search filter (title only)
     if (this._searchQuery) {
-      const filterMatch = this._searchQuery.match(/^(\w+)\s*=\s*(.*)$/);
-      if (filterMatch) {
-        const col = filterMatch[1].toLowerCase();
-        const val = filterMatch[2].trim().toLowerCase();
-        folderDocs = folderDocs.filter(d => {
-          if (col === 'title') return (d.title || '').toLowerCase().includes(val);
-          if (col === 'mode') return (d.mode || 'normal').toLowerCase() === val || (d.mode || 'normal').toLowerCase().includes(val);
-          if (col === 'words' || col === 'wordcount') return String(d.wordCount || 0).includes(val);
-          if (col === 'status') {
-            const status = d.deletedBySystem ? 'lost' : d.deleted ? 'deleted' : 'active';
-            return status === val || status.includes(val);
-          }
-          if (col === 'date') return (d.updatedAt || '').toLowerCase().includes(val);
-          if (col === 'xp') return String(d.xpEarned || 0).includes(val);
-          return false;
-        });
-      } else {
-        folderDocs = folderDocs.filter(d => (d.title || '').toLowerCase().includes(this._searchQuery));
-      }
+      folderDocs = folderDocs.filter(d => (d.title || '').toLowerCase().includes(this._searchQuery));
     }
 
     this.renderDocumentList('all-docs', folderDocs);
@@ -947,6 +1134,9 @@ const App = {
       return;
     }
 
+    // Sort pinned documents to top
+    docs.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+
     // Pagination for main docs list
     const isPaginated = containerId === 'all-docs';
     const totalPages = isPaginated ? Math.ceil(docs.length / this._docsPerPage) : 1;
@@ -970,7 +1160,7 @@ const App = {
         <div class="doc-card-info">
           <div class="doc-icon ${iconClass}">${iconSvg}</div>
           <div class="doc-card-text">
-            <h4>${this.escapeHtml(doc.title)} ${isFailed ? '<span class="badge badge-failed">FAILED</span>' : ''}</h4>
+            <h4>${doc.pinned ? '<span class="pin-icon" title="Pinned">&#x1F4CC;</span> ' : ''}${this.escapeHtml(doc.title)} ${isFailed ? '<span class="badge badge-failed">FAILED</span>' : ''}</h4>
             <div class="doc-card-meta">
               <span>${doc.wordCount || 0} words</span>
               <span>${isDangerous ? '&#x26A1; Dangerous' : 'Normal'}</span>
@@ -1089,14 +1279,168 @@ const App = {
     document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('active'));
     document.querySelector('.mode-option[data-mode="normal"]').classList.add('active');
     this.sessionMode = 'normal';
-    this.sessionDuration = 15;
+    this.sessionDuration = 30;
     document.getElementById('time-presets').style.display = 'flex';
     document.getElementById('danger-time-presets').style.display = 'none';
     document.querySelectorAll('#time-presets .time-preset').forEach(b => b.classList.remove('active'));
-    document.querySelector('#time-presets .time-preset[data-minutes="15"]').classList.add('active');
+    document.querySelector('#time-presets .time-preset[data-minutes="30"]').classList.add('active');
+    // Reset death timer section
+    const deathSection = document.getElementById('death-timer-section');
+    if (deathSection) deathSection.style.display = 'none';
+    document.getElementById('danger-threshold-input').value = '5';
+    document.querySelectorAll('#death-timer-presets .time-preset').forEach(b => b.classList.remove('active'));
+    const defaultDeath = document.querySelector('#death-timer-presets .time-preset[data-seconds="5"]');
+    if (defaultDeath) defaultDeath.classList.add('active');
+    document.getElementById('death-timer-custom-row').style.display = 'none';
+    const deathCustBtn = document.getElementById('death-timer-custom-btn');
+    if (deathCustBtn) { deathCustBtn.textContent = '+'; deathCustBtn.classList.remove('active'); }
     // Reset new fields
     document.getElementById('session-topic-input').value = '';
     document.getElementById('session-target-words').value = '';
+    // Apply plan-based timer restrictions
+    this._applyTimerRestrictions();
+    // Show weekly session count for free users
+    this._showWeeklySessionInfo();
+  },
+
+  _applyTimerRestrictions() {
+    const isPro = this.user && this.user.plan === 'premium';
+    // Normal mode presets: show all, but Pro-locked ones get badge for free users
+    document.querySelectorAll('#time-presets .time-preset[data-minutes]').forEach(btn => {
+      const mins = parseInt(btn.dataset.minutes);
+      btn.style.display = '';
+      btn.classList.remove('pro-locked');
+      // Remove old PRO indicators
+      const oldBadge = btn.querySelector('.timer-pro-badge');
+      if (oldBadge) oldBadge.remove();
+      const freeMinutes = [30, 45, 60];
+      if (!isPro && !freeMinutes.includes(mins)) {
+        btn.classList.add('pro-locked');
+        btn.style.position = 'relative';
+        btn.style.opacity = '0.7';
+        const badge = document.createElement('span');
+        badge.className = 'timer-pro-badge';
+        badge.style.cssText = 'position:absolute;top:-5px;right:-5px;font-size:7px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:1px 3px;border-radius:4px;line-height:1.2';
+        badge.textContent = 'PRO';
+        btn.appendChild(badge);
+      } else {
+        btn.style.opacity = '';
+      }
+    });
+    // Custom "+" button: show for all, badge for free
+    const addBtn = document.getElementById('time-preset-add-btn');
+    if (addBtn) {
+      addBtn.style.display = '';
+      const oldBadge = addBtn.querySelector('.timer-pro-badge');
+      if (oldBadge) oldBadge.remove();
+      if (!isPro) {
+        addBtn.style.position = 'relative';
+        addBtn.style.opacity = '0.7';
+        const badge = document.createElement('span');
+        badge.className = 'timer-pro-badge';
+        badge.style.cssText = 'position:absolute;top:-5px;right:-5px;font-size:7px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:1px 3px;border-radius:4px;line-height:1.2';
+        badge.textContent = 'PRO';
+        addBtn.appendChild(badge);
+      } else {
+        addBtn.style.opacity = '';
+      }
+    }
+    // Danger mode presets: all visible
+    document.querySelectorAll('#danger-time-presets .time-preset[data-minutes]').forEach(btn => {
+      btn.style.display = '';
+    });
+    // Danger custom time: show for all, badge for free
+    const dangerCustomBtn = document.getElementById('danger-custom-time-btn');
+    if (dangerCustomBtn) {
+      dangerCustomBtn.style.display = '';
+      const oldBadge = dangerCustomBtn.querySelector('.timer-pro-badge');
+      if (oldBadge) oldBadge.remove();
+      if (!isPro) {
+        dangerCustomBtn.style.position = 'relative';
+        dangerCustomBtn.style.opacity = '0.7';
+        const badge = document.createElement('span');
+        badge.className = 'timer-pro-badge';
+        badge.style.cssText = 'position:absolute;top:-5px;right:-5px;font-size:7px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:1px 3px;border-radius:4px;line-height:1.2';
+        badge.textContent = 'PRO';
+        dangerCustomBtn.appendChild(badge);
+      } else {
+        dangerCustomBtn.style.opacity = '';
+      }
+    }
+    // Death timer presets: 5s free, 7s/10s/+ Pro
+    document.querySelectorAll('#death-timer-presets .time-preset[data-seconds]').forEach(btn => {
+      const secs = parseInt(btn.dataset.seconds);
+      const oldBadge = btn.querySelector('.timer-pro-badge');
+      if (oldBadge) oldBadge.remove();
+      btn.style.opacity = '';
+      if (!isPro && secs !== 5) {
+        btn.style.position = 'relative';
+        btn.style.opacity = '0.7';
+        const badge = document.createElement('span');
+        badge.className = 'timer-pro-badge';
+        badge.style.cssText = 'position:absolute;top:-5px;right:-5px;font-size:7px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:1px 3px;border-radius:4px;line-height:1.2';
+        badge.textContent = 'PRO';
+        btn.appendChild(badge);
+      }
+    });
+    const deathCustomBtn = document.getElementById('death-timer-custom-btn');
+    if (deathCustomBtn) {
+      const oldBadge = deathCustomBtn.querySelector('.timer-pro-badge');
+      if (oldBadge) oldBadge.remove();
+      deathCustomBtn.style.opacity = '';
+      if (!isPro) {
+        deathCustomBtn.style.position = 'relative';
+        deathCustomBtn.style.opacity = '0.7';
+        const badge = document.createElement('span');
+        badge.className = 'timer-pro-badge';
+        badge.style.cssText = 'position:absolute;top:-5px;right:-5px;font-size:7px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:1px 3px;border-radius:4px;line-height:1.2';
+        badge.textContent = 'PRO';
+        deathCustomBtn.appendChild(badge);
+      }
+    }
+    // +1m / +5m add-time buttons: Pro only
+    document.querySelectorAll('.editor-add-time-btn').forEach(btn => {
+      if (btn.id === 'duel-add-time-btn') return;
+      const oldBadge = btn.querySelector('.timer-pro-badge');
+      if (oldBadge) oldBadge.remove();
+      btn.style.opacity = '';
+      if (!isPro) {
+        btn.style.position = 'relative';
+        btn.style.opacity = '0.7';
+        const badge = document.createElement('span');
+        badge.className = 'timer-pro-badge';
+        badge.style.cssText = 'position:absolute;top:-5px;right:-5px;font-size:7px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:1px 3px;border-radius:4px;line-height:1.2';
+        badge.textContent = 'PRO';
+        btn.appendChild(badge);
+      }
+    });
+  },
+
+  _showWeeklySessionInfo() {
+    const isPro = this.user && this.user.plan === 'premium';
+    let infoEl = document.getElementById('weekly-session-info');
+    if (!infoEl) {
+      infoEl = document.createElement('div');
+      infoEl.id = 'weekly-session-info';
+      infoEl.style.cssText = 'font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center';
+      const modalBody = document.querySelector('#session-modal .modal-body');
+      if (modalBody) modalBody.appendChild(infoEl);
+    }
+    if (isPro) {
+      infoEl.style.display = 'none';
+    } else {
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+      const weekISO = weekStart.toISOString().split('T')[0];
+      const used = (this.user.weeklySessionsWeek === weekISO) ? (this.user.weeklySessions || 0) : 0;
+      infoEl.textContent = `Sessions this week: ${used}/10`;
+      infoEl.style.display = 'block';
+      if (used >= 10) {
+        infoEl.innerHTML = `<span style="color:var(--danger)">Weekly session limit reached (10/week). <a href="#" onclick="event.preventDefault();App.openPricing()" style="color:var(--accent)">Upgrade to Pro</a></span>`;
+      }
+    }
   },
 
   closeSessionModal() {
@@ -1104,6 +1448,19 @@ const App = {
   },
 
   startSession() {
+    // Check weekly session limit for free users
+    if (this.user && this.user.plan !== 'premium') {
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+      const weekISO = weekStart.toISOString().split('T')[0];
+      const used = (this.user.weeklySessionsWeek === weekISO) ? (this.user.weeklySessions || 0) : 0;
+      if (used >= 10) {
+        this.toast('Weekly session limit reached (10/week). Upgrade to Pro for unlimited sessions.', 'warning');
+        return;
+      }
+    }
     this.closeSessionModal();
     // Show document name modal before starting
     this._pendingTopic = document.getElementById('session-topic-input').value.trim();
@@ -1115,9 +1472,16 @@ const App = {
   _confirmDocName(name) {
     document.getElementById('doc-name-modal').classList.remove('active');
     document.getElementById('editor-title').value = name || 'Untitled';
+    // Danger threshold from death timer (free users get 5s, Pro gating handled in UI)
+    let dangerThreshold = 6000;
+    if (this.sessionMode === 'dangerous') {
+      const threshInput = document.getElementById('danger-threshold-input');
+      if (threshInput) dangerThreshold = Math.max(2, Math.min(30, parseInt(threshInput.value) || 5)) * 1000;
+    }
     Editor.start(this.sessionDuration, this.sessionMode, {
       topic: this._pendingTopic || '',
-      targetWords: this._pendingTargetWords || 0
+      targetWords: this._pendingTargetWords || 0,
+      dangerThreshold
     });
   },
 
@@ -1167,9 +1531,9 @@ const App = {
           <div class="podium-slot">
             ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
             <div class="podium-avatar">${avatarContent}</div>
-            <div class="podium-name">${this.escapeHtml(entry.name)}</div>
+            <div class="podium-name">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span> ' : ''}${this.escapeHtml(entry.name)}</div>
             ${entry.username ? `<div class="podium-username">@${this.escapeHtml(entry.username)}</div>` : ''}
-            <div class="podium-words">${(entry.totalWords || 0).toLocaleString()} words</div>
+            <div class="podium-words">${entry.streak ? '&#x1F525; ' + entry.streak + ' day streak' : 'No streak'}</div>
             <div class="podium-pedestal" style="height:${heights[i]}">
               <span class="podium-medal">${medals[i]}</span>
               <span class="podium-rank">${podiumLabels[i]}</span>
@@ -1184,21 +1548,22 @@ const App = {
         return `
           <tr class="${isMe ? 'leaderboard-me' : ''}">
             <td class="lb-rank">${rankEmoji}</td>
+            <td class="lb-pro-col">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span>' : ''}</td>
             <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <span class="lb-username">@${this.escapeHtml(entry.username)}</span>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
-            <td><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
+            <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
+            <td class="lb-col-words"><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
             <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
             <td class="lb-col-time">${entry.minutesWritten || 0}m</td>
             <td class="lb-col-level"><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
-            <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
           </tr>`;
       }).join('');
 
       if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">No writers yet. Be the first!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">No writers yet. Be the first!</td></tr>';
         podium.innerHTML = '';
       }
     } catch {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">Failed to load leaderboard</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Failed to load leaderboard</td></tr>';
     }
   },
 
@@ -1720,6 +2085,26 @@ const App = {
     });
   },
 
+  async exportDocPDF(id) {
+    try {
+      const data = await API.exportDocument(id);
+      // Create a printable HTML document and trigger browser print (Save as PDF)
+      const printWin = window.open('', '_blank');
+      printWin.document.write(`<!DOCTYPE html><html><head><title>${data.title || 'Document'}</title>
+        <style>body{font-family:Georgia,serif;max-width:700px;margin:40px auto;padding:20px;color:#222;line-height:1.7}
+        h1{font-size:28px;margin-bottom:8px}
+        .meta{font-size:13px;color:#888;margin-bottom:24px;border-bottom:1px solid #eee;padding-bottom:12px}
+        .content{font-size:16px}</style></head><body>
+        <h1>${this.escapeHtml(data.title || 'Untitled')}</h1>
+        <div class="meta">${data.wordCount || 0} words &middot; ${new Date(data.createdAt).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })} &middot; iWrite4.me</div>
+        <div class="content">${data.content || ''}</div></body></html>`);
+      printWin.document.close();
+      setTimeout(() => printWin.print(), 500);
+    } catch {
+      this.toast('Failed to export document', 'error');
+    }
+  },
+
   async deleteDoc(id) {
     const ok = await this.showConfirm('Delete this document?');
     if (!ok) return;
@@ -1738,18 +2123,33 @@ const App = {
     document.getElementById('profile-email').value = this.user.email;
     const usernameEl = document.getElementById('profile-username');
     if (usernameEl) usernameEl.value = this.user.username || '';
-    // Show username change info
+    // Show username change info (Free: 1/30 days, Pro: 3/month)
     const usernameInfo = document.getElementById('profile-username-info');
-    if (usernameInfo && this.user.lastUsernameChange) {
-      const lastChange = new Date(this.user.lastUsernameChange);
-      const diffDays = Math.floor((Date.now() - lastChange.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays < 30) {
-        usernameInfo.textContent = `Can change again in ${30 - diffDays} day${30 - diffDays !== 1 ? 's' : ''}`;
-        usernameInfo.style.display = 'block';
-        usernameEl.disabled = true;
-      } else {
-        usernameInfo.style.display = 'none';
-        usernameEl.disabled = false;
+    const isPro = this.user && this.user.plan === 'premium';
+    if (usernameInfo) {
+      if (isPro) {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const changesUsed = (this.user.usernameChangesMonth === currentMonth) ? (this.user.usernameChangesCount || 0) : 0;
+        if (changesUsed >= 3) {
+          usernameInfo.textContent = 'Username change limit reached (3/month)';
+          usernameInfo.style.display = 'block';
+          usernameEl.disabled = true;
+        } else {
+          usernameInfo.textContent = `${3 - changesUsed} username changes left this month`;
+          usernameInfo.style.display = 'block';
+          usernameEl.disabled = false;
+        }
+      } else if (this.user.lastUsernameChange) {
+        const lastChange = new Date(this.user.lastUsernameChange);
+        const diffDays = Math.floor((Date.now() - lastChange.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays < 30) {
+          usernameInfo.textContent = `Can change again in ${30 - diffDays} day${30 - diffDays !== 1 ? 's' : ''}`;
+          usernameInfo.style.display = 'block';
+          usernameEl.disabled = true;
+        } else {
+          usernameInfo.style.display = 'none';
+          usernameEl.disabled = false;
+        }
       }
     }
     const pwSection = document.getElementById('change-password-section');
@@ -2180,10 +2580,13 @@ const App = {
     document.querySelectorAll('.folder-context-menu').forEach(m => m.remove());
 
     const isFailed = doc.deletedBySystem;
+    const isPro = this.user && this.user.plan === 'premium';
     const menu = document.createElement('div');
     menu.className = 'folder-context-menu';
     menu.innerHTML = `
       ${isFailed ? '' : `<button data-action="move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Move to folder</button>`}
+      ${isFailed ? '' : `<button data-action="pin">${doc.pinned ? '&#x1F4CC; Unpin' : '&#x1F4CC; Pin to top'}${!isPro ? ' <span style="color:#f59e0b;font-size:10px">PRO</span>' : ''}</button>`}
+      ${isFailed ? '' : `<button data-action="export">&#x1F4C4; Export PDF${!isPro ? ' <span style="color:#f59e0b;font-size:10px">PRO</span>' : ''}</button>`}
       ${isFailed ? '' : `<button data-action="share"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Share</button>`}
       <button data-action="delete" style="color:var(--danger)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg> Delete</button>
     `;
@@ -2201,6 +2604,21 @@ const App = {
     if (!isFailed) {
       menu.querySelector('[data-action="move"]').onclick = (e) => { e.stopPropagation(); close(); this.moveDocToFolder(doc.id); };
       menu.querySelector('[data-action="share"]').onclick = (e) => { e.stopPropagation(); close(); this.shareDoc(doc.id); };
+      menu.querySelector('[data-action="pin"]').onclick = async (e) => {
+        e.stopPropagation(); close();
+        if (!isPro) { this.toast('Pin is a Pro feature. Upgrade to Pro!', 'warning'); this.openPricing(); return; }
+        try {
+          const result = await API.pinDocument(doc.id);
+          doc.pinned = result.pinned;
+          this.toast(result.pinned ? 'Document pinned' : 'Document unpinned', 'success');
+          this._renderDocumentsView();
+        } catch { this.toast('Failed to pin document', 'error'); }
+      };
+      menu.querySelector('[data-action="export"]').onclick = async (e) => {
+        e.stopPropagation(); close();
+        if (!isPro) { this.toast('Export is a Pro feature. Upgrade to Pro!', 'warning'); this.openPricing(); return; }
+        this.exportDocPDF(doc.id);
+      };
     }
     menu.querySelector('[data-action="delete"]').onclick = (e) => { e.stopPropagation(); close(); this.deleteDoc(doc.id); };
   },
@@ -2550,40 +2968,76 @@ const App = {
   },
 
   _planFeaturesHTML() {
-    const features = [
-      { label: 'Streak tracking',       free: true },
-      { label: 'XP / Level system',     free: true },
-      { label: 'Friends / Duels',       free: true },
-      { label: 'Unlimited sessions',    free: false },
-      { label: 'Full session history',  free: false },
-      { label: 'Analytics & insights',  free: false },
+    const isPro = this.user && this.user.plan === 'premium';
+    const freeFeatures = [
+      { label: 'Timed sessions (30, 45 & 60 min)', yes: true },
+      { label: 'Dangerous mode (fixed timer)', yes: true },
+      { label: 'Streak tracking & tree', yes: true },
+      { label: 'XP / Level system', yes: true },
+      { label: 'Friends & duels', yes: true },
+      { label: 'Document sharing', yes: true },
+      { label: '10 sessions per week', yes: true },
+      { label: 'All timer options + custom', yes: false },
+      { label: 'Custom danger inactivity timer', yes: false },
+      { label: 'Unlimited sessions per week', yes: false },
+      { label: 'Larger word & editing limits', yes: false },
+      { label: 'Folders & pinned documents', yes: false },
+      { label: 'Export to PDF', yes: false },
+      { label: 'Session analytics', yes: false },
+      { label: 'Username change 3x/month', yes: false },
+      { label: 'Pro badge on leaderboard', yes: false },
     ];
-    const freeList = features.map(f =>
-      `<li class="${f.free ? 'yes' : 'no'}">${f.label}</li>`
+    const proFeatures = [
+      { label: 'Everything in Free', yes: true },
+      { label: 'All timer options + custom "+"', yes: true },
+      { label: 'Custom danger inactivity timer', yes: true },
+      { label: 'Unlimited sessions per week', yes: true },
+      { label: 'Larger word & editing limits', yes: true },
+      { label: 'Larger early complete & copy limits', yes: true },
+      { label: 'Folders & pinned documents', yes: true },
+      { label: 'Export to PDF', yes: true },
+      { label: 'Session analytics', yes: true },
+      { label: 'Username change 3x/month', yes: true },
+      { label: 'Pro badge on leaderboard', yes: true },
+      { label: 'Priority support', yes: true },
+    ];
+    const freeList = freeFeatures.map(f =>
+      `<li class="${f.yes ? 'yes' : 'no'}">${f.label}</li>`
     ).join('');
-    const proList = features.map(f =>
-      `<li class="yes">${f.label}</li>`
+    const proList = proFeatures.map(f =>
+      `<li class="${f.yes ? 'yes' : 'no'}">${f.label}</li>`
     ).join('');
     return `
-      <div class="pricing-card current" id="pricing-free">
+      <div class="pricing-card${!isPro ? ' current' : ''}" id="pricing-free">
         <div class="pricing-card-header">
           <h3>Free</h3>
-          <div class="pricing-price">$0<span>/mo</span></div>
+          <div class="pricing-price"><span class="pricing-currency">$</span>0<span class="pricing-period">/mo</span></div>
         </div>
         <ul class="pricing-features">${freeList}</ul>
-        <div class="pricing-current-badge">Current Plan</div>
+        ${!isPro ? '<div class="pricing-current-badge">Current Plan</div>' : ''}
       </div>
-      <div class="pricing-card pro pricing-card-soon-wrap" id="pricing-pro">
-        <div class="pricing-soon-overlay"><span class="pricing-soon-label">Coming Soon</span></div>
+      <div class="pricing-card pro${isPro ? ' current' : ''}" id="pricing-pro">
+        <div class="pricing-popular">Most Popular</div>
         <div class="pricing-card-header">
           <h3>Pro</h3>
-          <div class="pricing-price">$?<span>/mo</span></div>
+          <div class="pricing-price"><span class="pricing-currency">$</span>1.99<span class="pricing-period">/mo</span><span class="pricing-original"><span class="pricing-original-dollar">$</span><span class="pricing-original-num">4</span></span></div>
+          <div class="pricing-uzs">~25,000 UZS</div>
         </div>
         <ul class="pricing-features">${proList}</ul>
+        ${isPro ? `<div class="pricing-current-badge">Current Plan${this.user.planExpiresAt && this.user.planExpiresAt !== 'infinite' ? ' · expires ' + new Date(this.user.planExpiresAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : this.user.planExpiresAt === 'infinite' ? ' · ∞' : ''}</div>` : ''}
       </div>`;
   },
 
   openPricing() {
+    // On mobile, go directly to profile subscription section
+    if (window.innerWidth <= 768) {
+      this.switchView('profile');
+      setTimeout(() => {
+        const el = document.getElementById('profile-plan-cards');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 200);
+      return;
+    }
     const overlay = document.getElementById('pricing-overlay');
     overlay.classList.add('active');
     document.getElementById('pricing-cards-inner').innerHTML = this._planFeaturesHTML();
@@ -2591,6 +3045,79 @@ const App = {
 
   closePricing() {
     document.getElementById('pricing-overlay').classList.remove('active');
+  },
+
+  // Unified Pro feature gating — applies blur/badge/peek to all lockable elements
+  _applyProLocks() {
+    const isPro = this.user && this.user.plan === 'premium';
+    // Remove any existing pro-lock overlays from previous calls
+    document.querySelectorAll('.pro-lock-dynamic').forEach(el => el.remove());
+
+    if (isPro) {
+      // Pro user: remove all locks, show pro-only sections
+      document.querySelectorAll('.pro-lock-wrap.locked').forEach(w => w.classList.remove('locked'));
+      return;
+    }
+
+    // --- Small element locks: badge overlay + click → pricing ---
+    const smallLocks = [
+      { id: 'create-folder-btn', label: 'Folders' },
+      { id: 'time-preset-add-btn', label: 'Custom Timer' },
+      { id: 'danger-custom-time-btn', label: 'Custom Timer' },
+    ];
+    smallLocks.forEach(({ id, label }) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.position = 'relative';
+      el.style.overflow = 'visible';
+      // Add small PRO badge
+      if (!el.querySelector('.pro-lock-dynamic')) {
+        const badge = document.createElement('span');
+        badge.className = 'pro-lock-dynamic';
+        badge.style.cssText = 'position:absolute;top:-6px;right:-6px;font-size:8px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:1px 4px;border-radius:6px;pointer-events:none;z-index:2';
+        badge.textContent = 'PRO';
+        el.appendChild(badge);
+      }
+    });
+
+    // --- Analytics Pro gate: update button to open pricing modal ---
+    const analyticsUpgradeBtn = document.querySelector('.btn-upgrade-analytics');
+    if (analyticsUpgradeBtn) {
+      analyticsUpgradeBtn.onclick = (e) => { e.preventDefault(); this.openPricing(); };
+    }
+
+  },
+
+  // Peek animation: briefly unblurs a Pro-locked element to tease content
+  _proPeek(wrapEl) {
+    if (wrapEl.classList.contains('pro-peeking')) return; // debounce
+    wrapEl.classList.add('pro-peeking');
+    setTimeout(() => {
+      wrapEl.classList.remove('pro-peeking');
+      // Show upgrade card near the element
+      this._showProUpgradeCard(wrapEl);
+    }, 1800);
+  },
+
+  _showProUpgradeCard(anchorEl) {
+    // Remove any existing card
+    document.querySelectorAll('.pro-upgrade-card').forEach(c => c.remove());
+    const feature = anchorEl.dataset.proFeature || 'this feature';
+    const card = document.createElement('div');
+    card.className = 'pro-upgrade-card';
+    card.innerHTML = `
+      <h4>Unlock ${feature}</h4>
+      <p>Upgrade to Pro to access ${feature} and more premium features.</p>
+      <button>Unlock Pro</button>
+    `;
+    document.body.appendChild(card);
+    const rect = anchorEl.getBoundingClientRect();
+    card.style.top = `${Math.min(rect.bottom + 8, window.innerHeight - card.offsetHeight - 16)}px`;
+    card.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - card.offsetWidth - 16))}px`;
+    card.querySelector('button').onclick = () => { card.remove(); this.openPricing(); };
+    // Auto-dismiss on outside click
+    const dismiss = (e) => { if (!card.contains(e.target)) { card.remove(); document.removeEventListener('click', dismiss); } };
+    setTimeout(() => document.addEventListener('click', dismiss), 0);
   },
 
   openStreakPopup() {
@@ -2699,15 +3226,83 @@ const App = {
     return div.innerHTML;
   },
 
+  // ===== MAINTENANCE MODE POLLING =====
+  _maintInterval: null,
+  _maintShutdownShown: false,
+
+  _startMaintenancePolling() {
+    this._pollMaintenance();
+    this._maintInterval = setInterval(() => this._pollMaintenance(), 10000);
+  },
+
+  async _pollMaintenance() {
+    try {
+      const res = await fetch('/api/maintenance-status');
+      const data = await res.json();
+      this._updateMaintenanceBanner(data);
+    } catch {}
+  },
+
+  _updateMaintenanceBanner(data) {
+    let banner = document.getElementById('maintenance-banner');
+    if (!data.active) {
+      if (banner) banner.remove();
+      this._maintShutdownShown = false;
+      return;
+    }
+
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'maintenance-banner';
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:20000;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:10px 16px;text-align:center;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,0.2)';
+      document.body.appendChild(banner);
+    }
+
+    if (data.shutdownReady) {
+      banner.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+      banner.style.color = '#fff';
+      banner.innerHTML = '<span>Shutting down for maintenance. Please save your work now.</span>';
+      // Auto-save if editor is active
+      if (!this._maintShutdownShown && typeof Editor !== 'undefined' && Editor.documentId) {
+        Editor.autoSave && Editor.autoSave();
+        this._maintShutdownShown = true;
+      }
+    } else {
+      const mins = Math.floor(data.remaining / 60);
+      const secs = data.remaining % 60;
+      banner.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+      banner.style.color = '#000';
+      banner.innerHTML = `<span>Maintenance in <strong>${mins}:${secs.toString().padStart(2, '0')}</strong> — save your work. Unlimited saves/copies enabled.</span>`;
+    }
+  },
+
   _applyTheme(theme) {
-    const isLight = theme === 'light';
-    document.documentElement.classList.toggle('light', isLight);
+    const root = document.documentElement;
+    // Remove all theme classes
+    root.classList.remove('light', 'sepia');
+    if (theme === 'light') root.classList.add('light');
+    else if (theme === 'sepia') root.classList.add('sepia');
     localStorage.setItem('iwrite_theme', theme);
     const btn = document.getElementById('theme-toggle-btn');
     if (!btn) return;
-    btn.querySelector('.theme-icon-dark').style.display = isLight ? 'none' : '';
-    btn.querySelector('.theme-icon-light').style.display = isLight ? '' : 'none';
-    btn.querySelector('.theme-toggle-label').textContent = isLight ? 'Dark Mode' : 'Light Mode';
+    const labels = { dark: 'Light Mode', light: 'Sepia Mode', sepia: 'Dark Mode' };
+    btn.querySelector('.theme-icon-dark').style.display = theme === 'dark' ? '' : 'none';
+    btn.querySelector('.theme-icon-light').style.display = theme !== 'dark' ? '' : 'none';
+    btn.querySelector('.theme-toggle-label').textContent = labels[theme] || 'Light Mode';
+  },
+
+  _cycleTheme() {
+    const isPro = this.user && this.user.plan === 'premium';
+    const current = localStorage.getItem('iwrite_theme') || 'dark';
+    let next;
+    if (isPro) {
+      // Pro: dark → light → sepia → dark
+      next = current === 'dark' ? 'light' : current === 'light' ? 'sepia' : 'dark';
+    } else {
+      // Free: dark → light → dark
+      next = current === 'dark' ? 'light' : 'dark';
+    }
+    this._applyTheme(next);
   },
 
   async openCommentHistory() {
@@ -2767,12 +3362,741 @@ const App = {
   toast(message, type = '') {
     if (this.toastTimer) clearTimeout(this.toastTimer);
     const el = document.getElementById('toast');
-    el.textContent = message;
+    if (message.includes('<')) el.innerHTML = message; else el.textContent = message;
     el.className = `toast visible ${type}`;
     this.toastTimer = setTimeout(() => {
       el.className = 'toast';
       this.toastTimer = null;
     }, 3000);
+  },
+
+  // ===== ANALYTICS =====
+  _analyticsData: null,
+  _analyticsRange: 30,
+
+  async loadAnalytics() {
+    const container = document.getElementById('analytics-content');
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)">Loading analytics...</div>';
+
+    try {
+      this._analyticsData = await API.getSessionAnalytics();
+      this._renderAnalytics();
+    } catch (err) {
+      container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted)">Failed to load analytics.</div>`;
+    }
+  },
+
+  _fmtDuration(secs) {
+    const mins = Math.round(secs / 60);
+    if (mins < 60) return `${mins}m`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  },
+
+  _fmtDate(dateStr) {
+    if (!dateStr) return '\u2014';
+    return new Date(dateStr).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
+  },
+
+  _pctArrow(pct) {
+    if (pct > 0) return `<span style="color:#4ade80">\u25B2 ${pct}%</span>`;
+    if (pct < 0) return `<span style="color:#f87171">\u25BC ${Math.abs(pct)}%</span>`;
+    return `<span style="color:var(--text-muted)">\u2014 0%</span>`;
+  },
+
+  _renderAnalytics() {
+    const container = document.getElementById('analytics-content');
+    const data = this._analyticsData;
+    if (!data) return;
+    const range = this._analyticsRange;
+    const isPro = data.isPro;
+
+    let html = '';
+
+    // ── PERSONAL RECORDS ──
+    const pr = data.personalRecords;
+    const longestMins = pr.longestSession ? Math.round((pr.longestSession.duration || 0) / 60) : 0;
+    html += `<div class="analytics-chart-section">
+      <div class="analytics-chart-title">Personal Records</div>
+      <div class="analytics-records-grid">
+        <div class="analytics-record">
+          <div class="analytics-record-value">${this._fmtDuration(data.totalWritingTime || 0)}</div>
+          <div class="analytics-record-label">Total Writing Time</div>
+        </div>
+        <div class="analytics-record">
+          <div class="analytics-record-value">${longestMins}m</div>
+          <div class="analytics-record-label">Longest Session</div>
+          <div class="analytics-record-detail">${pr.longestSession.words} words \u2022 ${this._fmtDate(pr.longestSession.date)}</div>
+        </div>
+        <div class="analytics-record">
+          <div class="analytics-record-value">${(pr.mostWordsDay.words || 0).toLocaleString()}</div>
+          <div class="analytics-record-label">Most Words in a Day</div>
+          <div class="analytics-record-detail">${this._fmtDate(pr.mostWordsDay.date)}</div>
+        </div>
+        <div class="analytics-record">
+          <div class="analytics-record-value">${(pr.mostWordsWeek.words || 0).toLocaleString()}</div>
+          <div class="analytics-record-label">Most Words in a Week</div>
+          <div class="analytics-record-detail">${pr.mostWordsWeek.startDate ? this._fmtDate(pr.mostWordsWeek.startDate) + ' \u2013 ' + this._fmtDate(pr.mostWordsWeek.endDate) : '\u2014'}</div>
+        </div>
+        <div class="analytics-record">
+          <div class="analytics-record-value">${pr.currentStreak} <span style="font-size:14px;color:var(--text-muted)">/ ${pr.bestStreak.days} best</span></div>
+          <div class="analytics-record-label">Current Streak (days)</div>
+        </div>
+        <div class="analytics-record">
+          <div class="analytics-record-value">${data.totalWords.toLocaleString()}</div>
+          <div class="analytics-record-label">Total Words Written</div>
+        </div>
+      </div>
+    </div>`;
+
+    // ── 2. WRITING RHYTHM ──
+    if (isPro && data.writingRhythm) {
+      const wr = data.writingRhythm;
+      const typeEmoji = wr.writerType === 'Night Writer' ? '\u{1F319}' : wr.writerType === 'Early Bird' ? '\u{1F305}' : '\u2600\uFE0F';
+      const article = wr.writerType.match(/^[aeiou]/i) ? 'an' : 'a';
+      html += `<div class="analytics-chart-section">
+        <div class="analytics-chart-title">Writing Rhythm</div>
+        <div class="analytics-rhythm-hero">
+          <div class="analytics-rhythm-award">
+            <span class="analytics-rhythm-emoji">${typeEmoji}</span>
+            <span class="analytics-rhythm-type">You're ${article} <strong>${wr.writerType}</strong></span>
+          </div>
+        </div>
+        <div class="analytics-records-grid">
+          <div class="analytics-record">
+            <div class="analytics-record-value">${wr.bestDay}</div>
+            <div class="analytics-record-label">Best Day of Week</div>
+            <div class="analytics-record-detail">${wr.bestDayPct > 0 ? wr.bestDayPct + '% above average' : 'Most sessions'}</div>
+          </div>
+          <div class="analytics-record">
+            <div class="analytics-record-value">${this._fmtDuration(wr.avgSessionLength || 0)}</div>
+            <div class="analytics-record-label">Avg Session Length</div>
+          </div>
+          <div class="analytics-record">
+            <div class="analytics-record-value">${(wr.avgWordsPerDay || 0).toLocaleString()}</div>
+            <div class="analytics-record-label">Avg Words / Day</div>
+          </div>
+          <div class="analytics-record">
+            <div class="analytics-record-value">${(wr.avgWordsPerWeek || 0).toLocaleString()}</div>
+            <div class="analytics-record-label">Avg Words / Week</div>
+          </div>
+        </div>`;
+      const ms = wr.modeSplit;
+      const totalMs = ms.normal + ms.dangerous;
+      if (totalMs > 0) {
+        const normalPct = Math.round((ms.normal / totalMs) * 100);
+        const dangerPct = 100 - normalPct;
+        html += `<div style="margin-top:16px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:6px">
+            <span>Normal ${normalPct}%</span><span>Dangerous ${dangerPct}%</span>
+          </div>
+          <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--bg-elevated)">
+            <div style="width:${normalPct}%;background:var(--accent)"></div>
+            <div style="width:${dangerPct}%;background:#ef4444"></div>
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+    } else if (!isPro) {
+      html += `<div class="analytics-chart-section analytics-pro-locked" style="position:relative;overflow:hidden">
+        <div class="analytics-pro-blur-content">
+          <div class="analytics-chart-title">Writing Rhythm</div>
+          <div class="analytics-rhythm-hero">
+            <div class="analytics-rhythm-award">
+              <span class="analytics-rhythm-emoji">\u{1F305}</span>
+              <span class="analytics-rhythm-type">You're an <strong>Early Bird</strong></span>
+            </div>
+          </div>
+          <div class="analytics-records-grid">
+            <div class="analytics-record"><div class="analytics-record-value">Mon</div><div class="analytics-record-label">Best Day of Week</div></div>
+            <div class="analytics-record"><div class="analytics-record-value">24m</div><div class="analytics-record-label">Avg Session Length</div></div>
+            <div class="analytics-record"><div class="analytics-record-value">482</div><div class="analytics-record-label">Avg Words / Day</div></div>
+            <div class="analytics-record"><div class="analytics-record-value">3,214</div><div class="analytics-record-label">Avg Words / Week</div></div>
+          </div>
+          <div style="margin-top:16px">
+            <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--bg-elevated)">
+              <div style="width:65%;background:var(--accent)"></div>
+              <div style="width:35%;background:#ef4444"></div>
+            </div>
+          </div>
+        </div>
+        <div class="analytics-pro-gate-overlay" onclick="App.openPricing()">
+          <span class="upgrade-label">Upgrade to</span><span class="analytics-pro-badge">PRO</span>
+        </div>
+      </div>`;
+    }
+
+    // ── 3. DAILY WORDS CHART ──
+    if (data.dailyWords && Object.keys(data.dailyWords).length > 0) {
+      const today = new Date();
+      const days = [];
+      for (let i = range - 1; i >= 0; i--) {
+        const d = new Date(today); d.setDate(today.getDate() - i);
+        const key = d.toISOString().split('T')[0];
+        days.push({ date: key, words: data.dailyWords[key] || 0, day: d.getDate(), weekday: d.toLocaleDateString('en', { weekday: 'short' }) });
+      }
+      const maxWords = Math.max(...days.map(d => d.words), 1);
+      const totalW = days.reduce((s, d) => s + d.words, 0);
+      const activeDays = days.filter(d => d.words > 0).length;
+      const bars = days.map(d => {
+        const h = Math.max(Math.round((d.words / maxWords) * 72), d.words > 0 ? 4 : 0);
+        return `<div class="analytics-bar-wrap" data-tooltip="${d.weekday} ${d.date}: ${d.words.toLocaleString()} words">
+          <div class="analytics-bar" style="height:${h}px;background:${d.words > 0 ? 'var(--accent)' : 'var(--bg-elevated)'}"></div>
+          <div class="analytics-bar-label">${d.day}</div>
+        </div>`;
+      }).join('');
+      html += `<div class="analytics-chart-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <div class="analytics-chart-title" style="margin-bottom:0">Daily Words</div>
+          <div class="analytics-range-btns">
+            <button class="analytics-range-btn${range === 7 ? ' active' : ''}" data-range="7">7d</button>
+            <button class="analytics-range-btn${range === 14 ? ' active' : ''}" data-range="14">14d</button>
+            <button class="analytics-range-btn${range === 30 ? ' active' : ''}" data-range="30">30d</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;font-size:12px;color:var(--text-muted);margin-bottom:8px">
+          <span>${totalW.toLocaleString()} words</span>
+          <span>${activeDays} active days</span>
+          <span>Avg ${activeDays > 0 ? Math.round(totalW / activeDays).toLocaleString() : 0}/day</span>
+        </div>
+        <div class="analytics-bar-chart">${bars}</div>
+      </div>`;
+    }
+
+    // ── 4. WRITING TIME DISTRIBUTION ──
+    if (isPro && data.writingRhythm && data.writingRhythm.hourDistribution) {
+      const hd = data.writingRhythm.hourDistribution;
+      const maxH = Math.max(...hd, 1);
+      const cells = hd.map((v, i) => {
+        const pct = v > 0 ? 0.15 + (v / maxH) * 0.75 : 0;
+        const bg = v > 0 ? `rgba(74,222,128,${pct.toFixed(2)})` : 'var(--bg-elevated)';
+        return `<div class="analytics-hour-cell" style="background:${bg}" data-tooltip="${i}:00 \u2014 ${v} session(s)"></div>`;
+      }).join('');
+      html += `<div class="analytics-chart-section">
+        <div class="analytics-chart-title">Writing Time Distribution</div>
+        <div class="analytics-hour-grid">${cells}</div>
+        <div class="analytics-hour-labels"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span></div>
+      </div>`;
+    } else if (!isPro) {
+      const fakeCells = Array.from({length: 24}, (_, i) => {
+        const fakeVal = [0,0,0,0,0,1,3,5,4,2,1,1,2,3,2,1,1,2,4,6,8,5,3,1][i];
+        const pct = fakeVal > 0 ? 0.15 + (fakeVal / 8) * 0.75 : 0;
+        const bg = fakeVal > 0 ? `rgba(74,222,128,${pct.toFixed(2)})` : 'var(--bg-elevated)';
+        return `<div class="analytics-hour-cell" style="background:${bg}"></div>`;
+      }).join('');
+      html += `<div class="analytics-chart-section analytics-pro-locked" style="position:relative;overflow:hidden">
+        <div class="analytics-pro-blur-content">
+          <div class="analytics-chart-title">Writing Time Distribution</div>
+          <div class="analytics-hour-grid">${fakeCells}</div>
+          <div class="analytics-hour-labels"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span></div>
+        </div>
+        <div class="analytics-pro-gate-overlay" onclick="App.openPricing()">
+          <span class="upgrade-label">Upgrade to</span><span class="analytics-pro-badge">PRO</span>
+        </div>
+      </div>`;
+    }
+
+    // ── 5. WORD COUNT MILESTONES ──
+    if (data.milestones) {
+      html += `<div class="analytics-chart-section">
+        <div class="analytics-chart-title">Word Count Milestones</div>
+        <div class="analytics-milestones">`;
+      data.milestones.forEach(m => {
+        const label = m.target >= 1000 ? (m.target / 1000) + 'k' : m.target;
+        const pct = Math.min(100, Math.round((m.current / m.target) * 100));
+        html += `<div class="analytics-milestone ${m.unlocked ? 'unlocked' : ''}">
+          <div class="analytics-milestone-icon">${m.unlocked ? '\u2705' : '\u{1F512}'}</div>
+          <div class="analytics-milestone-info">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600;font-size:13px">${label} words</span>
+              ${!m.unlocked ? `<span style="font-size:11px;color:var(--text-muted)">${pct}%</span>` : '<span style="font-size:11px;color:#4ade80">Unlocked!</span>'}
+            </div>
+            ${!m.unlocked ? `<div class="analytics-milestone-bar"><div class="analytics-milestone-fill" style="width:${pct}%"></div></div>` : ''}
+          </div>
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    container.innerHTML = html;
+
+    // Bind date range buttons
+    container.querySelectorAll('.analytics-range-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._analyticsRange = parseInt(btn.dataset.range);
+        this._renderAnalytics();
+      });
+    });
+
+    // Bind share button (in header)
+    const shareBtn = document.getElementById('btn-share-analytics-top');
+    if (shareBtn) {
+      shareBtn.onclick = () => this._shareAnalyticsCard();
+    }
+
+    // Bind interactive hover tooltips
+    this._bindAnalyticsTooltips(container);
+  },
+
+  _bindAnalyticsTooltips(container) {
+    let tooltip = document.getElementById('analytics-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = 'analytics-tooltip';
+      tooltip.style.cssText = 'position:fixed;z-index:10000;background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border-hover);border-radius:6px;padding:6px 10px;font-size:12px;pointer-events:none;opacity:0;transition:opacity 0.15s;white-space:nowrap;box-shadow:var(--shadow)';
+      document.body.appendChild(tooltip);
+    }
+    container.querySelectorAll('[data-tooltip]').forEach(el => {
+      el.addEventListener('mouseenter', (e) => {
+        tooltip.textContent = el.dataset.tooltip;
+        tooltip.style.opacity = '1';
+        const rect = el.getBoundingClientRect();
+        tooltip.style.left = `${Math.max(8, rect.left + rect.width / 2 - tooltip.offsetWidth / 2)}px`;
+        tooltip.style.top = `${rect.top - tooltip.offsetHeight - 6}px`;
+      });
+      el.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
+    });
+  },
+
+  _shareAnalyticsCard() {
+    const data = this._analyticsData;
+    if (!data) return;
+    const isPro = data.isPro;
+    const username = data.username || 'writer';
+    const displayName = data.displayName || username;
+
+    const W = 600, H = isPro ? 820 : 580;
+    const canvas = document.createElement('canvas');
+    canvas.width = W * 2; canvas.height = H * 2; // 2x for retina
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+
+    const pad = 24;
+    const gap = 10;
+    const r = 14; // border radius
+
+    // Background
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, W, H);
+
+    // Helper: rounded rect
+    const rrect = (x, y, w, h, radius) => {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, y + h - radius);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+      ctx.lineTo(x + radius, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    };
+
+    const drawCard = (x, y, w, h, color) => {
+      rrect(x, y, w, h, r);
+      ctx.fillStyle = color || '#1a1a1a';
+      ctx.fill();
+    };
+
+    const drawText = (text, x, y, opts = {}) => {
+      ctx.fillStyle = opts.color || '#fff';
+      ctx.font = `${opts.weight || '600'} ${opts.size || 13}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      ctx.textAlign = opts.align || 'left';
+      ctx.fillText(text, x, y);
+    };
+
+    // ── Dark-theme tree drawing (inline, adapted from TreeRenderer) ──
+    const drawTreeDark = (ctx, centerX, groundY, stage, streak, areaW, areaH) => {
+      // Ground - dark mossy ellipse
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.08)';
+      ctx.beginPath();
+      ctx.ellipse(centerX, groundY + 6, Math.min(areaW * 0.35, 80), 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (stage === 0) {
+        // Seed
+        ctx.fillStyle = '#8B6914';
+        ctx.beginPath();
+        ctx.ellipse(centerX, groundY - 6, 6, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#654B0F';
+        ctx.beginPath();
+        ctx.moveTo(centerX - 2, groundY - 14);
+        ctx.quadraticCurveTo(centerX + 2, groundY - 18, centerX + 1, groundY - 11);
+        ctx.fill();
+        return;
+      }
+
+      const trunkHeight = Math.min(20 + stage * 14, 140);
+      const trunkWidth = Math.min(3 + stage * 1.5, 18);
+
+      // Streak glow (behind tree)
+      if (streak > 0) {
+        const intensity = Math.min(streak * 0.04, 0.25);
+        const glowR = 40 + streak * 3;
+        const glow = ctx.createRadialGradient(centerX, groundY - trunkHeight / 2, 0, centerX, groundY - trunkHeight / 2, glowR);
+        glow.addColorStop(0, `rgba(255, 183, 77, ${intensity})`);
+        glow.addColorStop(1, 'rgba(255, 183, 77, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(centerX, groundY - trunkHeight / 2, glowR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Trunk
+      const trunkGrad = ctx.createLinearGradient(centerX - trunkWidth / 2, groundY, centerX + trunkWidth / 2, groundY);
+      trunkGrad.addColorStop(0, '#4E342E');
+      trunkGrad.addColorStop(0.5, '#6D4C41');
+      trunkGrad.addColorStop(1, '#4E342E');
+      ctx.fillStyle = trunkGrad;
+      ctx.beginPath();
+      ctx.moveTo(centerX - trunkWidth / 2, groundY);
+      ctx.lineTo(centerX - trunkWidth / 3, groundY - trunkHeight);
+      ctx.lineTo(centerX + trunkWidth / 3, groundY - trunkHeight);
+      ctx.lineTo(centerX + trunkWidth / 2, groundY);
+      ctx.fill();
+
+      // Bark texture lines
+      if (stage >= 4) {
+        ctx.strokeStyle = 'rgba(62, 39, 35, 0.5)';
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < 3; i++) {
+          const ly = groundY - trunkHeight * 0.3 - i * 14;
+          ctx.beginPath();
+          ctx.moveTo(centerX - trunkWidth / 3, ly);
+          ctx.quadraticCurveTo(centerX, ly - 2, centerX + trunkWidth / 3, ly);
+          ctx.stroke();
+        }
+      }
+
+      // Roots
+      ctx.fillStyle = '#4E342E';
+      ctx.beginPath();
+      ctx.moveTo(centerX - trunkWidth * 0.8, groundY);
+      ctx.quadraticCurveTo(centerX - trunkWidth * 1.2, groundY + 5, centerX - trunkWidth * 0.4, groundY + 4);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(centerX + trunkWidth * 0.8, groundY);
+      ctx.quadraticCurveTo(centerX + trunkWidth * 1.2, groundY + 5, centerX + trunkWidth * 0.4, groundY + 4);
+      ctx.fill();
+
+      // Branches
+      if (stage >= 2) {
+        const branchCount = Math.min(2 + stage, 7);
+        ctx.strokeStyle = '#5D4037';
+        ctx.lineCap = 'round';
+        for (let i = 0; i < branchCount; i++) {
+          const side = i % 2 === 0 ? -1 : 1;
+          const yOff = 8 + i * 11;
+          const len = 15 + stage * 4;
+          ctx.lineWidth = Math.max(0.8, 3 - i * 0.3);
+          ctx.beginPath();
+          ctx.moveTo(centerX, groundY - trunkHeight + yOff);
+          ctx.quadraticCurveTo(
+            centerX + side * len * 0.6, groundY - trunkHeight + yOff - 10,
+            centerX + side * len, groundY - trunkHeight + yOff - 14
+          );
+          ctx.stroke();
+        }
+      }
+
+      // Leaves
+      const topY = groundY - trunkHeight;
+      const leafCount = stage * 10;
+      const spread = 15 + stage * 10;
+      const opacity = streak > 0 ? 1 : 0.7;
+      // Use seeded pseudo-random for consistent rendering
+      let seed = stage * 137 + 42;
+      const seededRandom = () => { seed = (seed * 16807 + 0) % 2147483647; return seed / 2147483647; };
+      for (let i = 0; i < leafCount; i++) {
+        const angle = (i / leafCount) * Math.PI * 2;
+        const rr = seededRandom() * spread;
+        const lx = centerX + Math.cos(angle) * rr;
+        const ly = topY - 8 + Math.sin(angle) * rr * 0.6 - seededRandom() * 16;
+        const hue = 100 + seededRandom() * 40;
+        const sat = 40 + stage * 5;
+        const light = 30 + seededRandom() * 18;
+        ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${opacity})`;
+        const sz = 3 + seededRandom() * (stage * 0.7);
+        ctx.beginPath();
+        ctx.ellipse(lx, ly, sz, sz * 0.7, seededRandom() * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Flowers (stage 5+)
+      if (stage >= 5) {
+        for (let i = 0; i < 4; i++) {
+          const angle = (i / 4) * Math.PI * 2;
+          const rr = spread * 0.5;
+          const fx = centerX + Math.cos(angle) * rr;
+          const fy = topY - 14 + Math.sin(angle) * rr * 0.4;
+          ctx.fillStyle = `hsla(330, 60%, 80%, ${opacity})`;
+          for (let p = 0; p < 5; p++) {
+            const pa = (p / 5) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.ellipse(fx + Math.cos(pa) * 2.5, fy + Math.sin(pa) * 2.5, 2.5, 1.8, pa, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      // Fruits (stage 7+)
+      if (stage >= 7) {
+        const fruitCount = stage - 6;
+        for (let i = 0; i < fruitCount; i++) {
+          const angle = (i / fruitCount) * Math.PI * 2 + 0.5;
+          const rr = 20 + seededRandom() * 16;
+          const fx = centerX + Math.cos(angle) * rr;
+          const fy = topY + Math.sin(angle) * rr * 0.4 + 8;
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.arc(fx, fy, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.beginPath();
+          ctx.arc(fx - 1, fy - 1, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    };
+
+    // ── Header ──
+    drawText('iWrite4.me', pad, pad + 18, { size: 20, weight: '800', color: '#10b981' });
+    drawText(`@${username}`, pad, pad + 38, { size: 13, weight: '400', color: '#888' });
+
+    const gridTop = pad + 56;
+    const colW = (W - pad * 2 - gap) / 2; // 2 columns
+    const cardH = 90;
+    const pr = data.personalRecords;
+    const treeStage = data.treeStage || 0;
+    const treeNames = ['', 'Seed', 'Sprout', 'Seedling', 'Sapling', 'Young Tree', 'Growing Tree', 'Mature Tree', 'Strong Tree', 'Grand Tree', 'Ancient Tree', 'World Tree'];
+
+    // ── Row 1: Total Writing Time + Sessions ──
+    drawCard(pad, gridTop, colW, cardH, '#1a1a1a');
+    const totalMins = Math.round((data.totalWritingTime || 0) / 60);
+    const totalHrs = Math.floor(totalMins / 60);
+    const remMins = totalMins % 60;
+    drawText('\u23F1\uFE0F', pad + 14, gridTop + 50, { size: 28, weight: '400' });
+    drawText(totalHrs > 0 ? `${totalHrs}h ${remMins}m` : `${totalMins}m`, pad + 48, gridTop + 48, { size: 32, weight: '800', color: '#10b981' });
+    drawText('Total Writing Time', pad + 16, gridTop + 72, { size: 12, weight: '400', color: '#888' });
+
+    drawCard(pad + colW + gap, gridTop, colW, cardH, '#1a1a1a');
+    drawText('\u{1F4DD}', pad + colW + gap + 14, gridTop + 50, { size: 26, weight: '400' });
+    drawText(`${data.totalSessions}`, pad + colW + gap + 48, gridTop + 48, { size: 28, weight: '800', color: '#fff' });
+    drawText('Sessions', pad + colW + gap + 16, gridTop + 72, { size: 12, weight: '400', color: '#888' });
+
+    // ── Rows 2-4 layout: Left stat cards + Right tall tree card ──
+    const r2y = gridTop + cardH + gap;
+    const treeSpanRows = 3; // tree spans rows 2, 3, 4
+    const treeCardH = cardH * treeSpanRows + gap * (treeSpanRows - 1);
+    const rightX = pad + colW + gap;
+
+    // Draw tree card (tall, right side, rows 2-4)
+    if (treeStage > 0) {
+      drawCard(rightX, r2y, colW, treeCardH, '#111');
+      // Draw tree centered in the card
+      const treeCX = rightX + colW / 2;
+      const treeGroundY = r2y + treeCardH - 20;
+      const treeAreaH = treeCardH - 40;
+      ctx.save();
+      ctx.beginPath();
+      rrect(rightX, r2y, colW, treeCardH, r);
+      ctx.clip();
+      drawTreeDark(ctx, treeCX, treeGroundY, treeStage, pr.currentStreak || 0, colW, treeAreaH);
+      ctx.restore();
+    }
+
+    // Row 2 left: Words Written (with relatable comparison)
+    drawCard(pad, r2y, colW, cardH, '#1a1a1a');
+    drawText('\u270D\uFE0F', pad + 14, r2y + 44, { size: 24, weight: '400' });
+    drawText(data.totalWords.toLocaleString(), pad + 46, r2y + 42, { size: 28, weight: '800', color: '#fff' });
+    const tw = data.totalWords || 0;
+    let comparison = '';
+    if (tw >= 100000) comparison = `\u2248 ${Math.round(tw / 250)} pages \u2022 a full novel`;
+    else if (tw >= 50000) comparison = `\u2248 ${Math.round(tw / 250)} pages \u2022 a novel`;
+    else if (tw >= 25000) comparison = `\u2248 ${Math.round(tw / 250)} pages \u2022 half a novel`;
+    else if (tw >= 10000) comparison = `\u2248 ${Math.round(tw / 250)} pages \u2022 a novella`;
+    else if (tw >= 5000) comparison = `\u2248 ${Math.round(tw / 250)} pages \u2022 a short story`;
+    else if (tw >= 1000) comparison = `\u2248 ${Math.round(tw / 250)} pages`;
+    else comparison = 'Words Written';
+    if (tw >= 1000) {
+      drawText('Words Written', pad + 16, r2y + 60, { size: 11, weight: '400', color: '#888' });
+      drawText(comparison, pad + 16, r2y + 76, { size: 10, weight: '400', color: '#666' });
+    } else {
+      drawText(comparison, pad + 16, r2y + 72, { size: 12, weight: '400', color: '#888' });
+    }
+
+    // Row 3 left: Longest Session
+    const r3y = r2y + cardH + gap;
+    drawCard(pad, r3y, colW, cardH, '#1a1a1a');
+    const longestMins = pr.longestSession ? Math.round((pr.longestSession.duration || 0) / 60) : 0;
+    drawText('\u{1F3C6}', pad + 14, r3y + 50, { size: 26, weight: '400' });
+    drawText(`${longestMins}m`, pad + 48, r3y + 48, { size: 28, weight: '800', color: '#8b5cf6' });
+    drawText('Longest Session', pad + 16, r3y + 72, { size: 12, weight: '400', color: '#888' });
+
+    // Row 4 left: Streak
+    const r4y = r3y + cardH + gap;
+    drawCard(pad, r4y, colW, cardH, '#1a1a1a');
+    drawText('\u{1F525}', pad + 14, r4y + 50, { size: 30, weight: '400' });
+    drawText(`${pr.currentStreak}`, pad + 50, r4y + 48, { size: 32, weight: '800', color: '#f59e0b' });
+    drawText('day streak', pad + 16, r4y + 72, { size: 12, weight: '400', color: '#888' });
+    drawText(`best: ${pr.bestStreak.days}`, pad + colW - 16, r4y + 72, { size: 11, weight: '400', color: '#666', align: 'right' });
+
+    // ── Row 5: Focus Score + Tree name ──
+    const r5y = r4y + cardH + gap;
+    drawCard(pad, r5y, colW, cardH, '#1a1a1a');
+    drawText('\u{1F3AF}', pad + 14, r5y + 50, { size: 26, weight: '400' });
+    drawText(`${data.focusScore}%`, pad + 48, r5y + 48, { size: 28, weight: '800', color: '#06b6d4' });
+    drawText('Focus Score', pad + 16, r5y + 72, { size: 12, weight: '400', color: '#888' });
+
+    if (treeStage > 0) {
+      drawCard(rightX, r5y, colW, cardH, '#1a1a1a');
+      drawText(`${treeNames[treeStage] || 'Tree'}`, rightX + 16, r5y + 42, { size: 22, weight: '800', color: '#4ade80' });
+      drawText(`Stage ${treeStage}`, rightX + 16, r5y + 66, { size: 13, weight: '400', color: '#888' });
+    } else {
+      drawCard(rightX, r5y, colW, cardH, '#1a1a1a');
+      drawText('Plant your seed!', rightX + 16, r5y + 42, { size: 16, weight: '600', color: '#4ade80' });
+      drawText('Start writing daily', rightX + 16, r5y + 66, { size: 13, weight: '400', color: '#888' });
+    }
+
+    let nextY = r5y + cardH + gap;
+
+    // ── Pro-only rows ──
+    if (isPro && data.writingRhythm) {
+      const wr = data.writingRhythm;
+
+      // Writer Type (full width)
+      drawCard(pad, nextY, W - pad * 2, 70, '#1a2a1a');
+      const typeEmoji = wr.writerType === 'Night Writer' ? '\u{1F319}' : wr.writerType === 'Early Bird' ? '\u{1F305}' : '\u2600\uFE0F';
+      drawText(`${typeEmoji}  ${wr.writerType}`, pad + 16, nextY + 38, { size: 22, weight: '800', color: '#4ade80' });
+      drawText(`${(wr.avgWordsPerDay || 0).toLocaleString()} words/day \u2022 ${(wr.avgWordsPerWeek || 0).toLocaleString()} words/week`, pad + 16, nextY + 58, { size: 12, weight: '400', color: '#888' });
+      nextY += 77 + gap;
+
+      // Danger survival / Best day + Writing Journey milestones
+      if (data.dangerReport && data.dangerReport.total > 0) {
+        drawCard(pad, nextY, colW, cardH, '#2a1a1a');
+        drawText('\u{1F480}', pad + 14, nextY + 50, { size: 26, weight: '400' });
+        drawText(`${data.dangerReport.survivalRate}%`, pad + 48, nextY + 48, { size: 28, weight: '800', color: data.dangerReport.survivalRate >= 50 ? '#4ade80' : '#f87171' });
+        drawText('Danger Survival', pad + 16, nextY + 72, { size: 12, weight: '400', color: '#888' });
+      } else {
+        drawCard(pad, nextY, colW, cardH, '#1a1a1a');
+        drawText('\u2728', pad + 14, nextY + 50, { size: 24, weight: '400' });
+        drawText(wr.bestDay, pad + 46, nextY + 48, { size: 22, weight: '800', color: '#fff' });
+        drawText('Most Inspired Day', pad + 16, nextY + 72, { size: 12, weight: '400', color: '#888' });
+      }
+
+      // Writing Journey milestones progress bar
+      drawCard(rightX, nextY, colW, cardH, '#1a1a2a');
+      const milestones = data.milestones || [];
+      const unlocked = milestones.filter(m => m.unlocked).length;
+      const milestoneLabels = ['1K', '5K', '10K', '25K', '50K', '100K'];
+      const barX = rightX + 16;
+      const barY = nextY + 44;
+      const labeledW = colW - 52; // space for labeled milestones
+      const tailW = 16; // extra tail after 100K to show "no limit"
+      const barW = labeledW + tailW;
+      const barH = 8;
+      drawText('\u{1F4DA}  Writing Journey', barX, nextY + 24, { size: 11, weight: '600', color: '#818cf8' });
+      // Background bar (full width including tail)
+      rrect(barX, barY, barW, barH, 4);
+      ctx.fillStyle = '#2a2a3a';
+      ctx.fill();
+      // Filled portion — extends past 100K if all unlocked
+      if (unlocked > 0) {
+        let fillW;
+        if (unlocked >= milestones.length) {
+          // All milestones complete — fill extends into the tail with fade
+          fillW = labeledW + tailW * 0.7;
+        } else {
+          fillW = Math.max(barH, (unlocked / milestones.length) * labeledW);
+        }
+        rrect(barX, barY, fillW, barH, 4);
+        const grad = ctx.createLinearGradient(barX, barY, barX + fillW, barY);
+        grad.addColorStop(0, '#818cf8');
+        grad.addColorStop(0.85, '#a78bfa');
+        grad.addColorStop(1, unlocked >= milestones.length ? 'rgba(167,139,250,0.3)' : '#a78bfa');
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+      // Tail fade dots (after 100K, showing infinity)
+      for (let d = 0; d < 3; d++) {
+        const dx = barX + labeledW + 4 + d * 5;
+        ctx.beginPath();
+        ctx.arc(dx, barY + barH / 2, 1.2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(129, 140, 248, ${0.4 - d * 0.12})`;
+        ctx.fill();
+      }
+      // Milestone dots (on the labeled portion)
+      for (let i = 0; i < milestones.length; i++) {
+        const dotX = barX + ((i + 1) / milestones.length) * labeledW;
+        ctx.beginPath();
+        ctx.arc(dotX, barY + barH / 2, 3, 0, Math.PI * 2);
+        ctx.fillStyle = milestones[i].unlocked ? '#86efac' : '#3a3a4a';
+        ctx.fill();
+      }
+      // Milestone labels (only for the 6 labeled milestones)
+      ctx.textAlign = 'center';
+      for (let i = 0; i < milestoneLabels.length; i++) {
+        const lx = barX + ((i + 1) / milestones.length) * labeledW;
+        ctx.fillStyle = milestones[i] && milestones[i].unlocked ? '#a78bfa' : '#555';
+        ctx.font = '400 8px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillText(milestoneLabels[i], lx, barY + barH + 14);
+      }
+      ctx.textAlign = 'left';
+      // Next milestone text
+      const nextMilestone = data.nextMilestone;
+      if (nextMilestone) {
+        const pct = Math.round((tw / nextMilestone.target) * 100);
+        drawText(`${pct}% to ${nextMilestone.target >= 1000 ? (nextMilestone.target / 1000) + 'K' : nextMilestone.target} words`, barX, nextY + 78, { size: 10, weight: '400', color: '#666' });
+      } else {
+        drawText('All milestones complete! Keep going \u2192', barX, nextY + 78, { size: 10, weight: '400', color: '#a78bfa' });
+      }
+
+      nextY += cardH + gap;
+    }
+
+    // ── Footer: invite link ──
+    const footerY = Math.max(nextY + 4, H - 40);
+    drawText(`Add me on iWrite \u2192 iwrite4.me/invite/${username}`, W / 2, footerY + 8, { size: 12, weight: '500', color: '#666', align: 'center' });
+
+    // Resize canvas to actual content
+    const actualH = footerY + 30;
+    if (actualH !== H) {
+      const tempData = ctx.getImageData(0, 0, W * 2, actualH * 2);
+      canvas.height = actualH * 2;
+      ctx.putImageData(tempData, 0, 0);
+    }
+
+    // Copy invite link to clipboard
+    const inviteLink = `https://iwrite4.me/invite/${username}`;
+    navigator.clipboard.writeText(inviteLink).catch(() => {});
+
+    // Convert to blob and download/share
+    canvas.toBlob(blob => {
+      if (navigator.share && navigator.canShare) {
+        const file = new File([blob], 'iwrite-stats.png', { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          navigator.share({
+            title: 'My iWrite Progress',
+            text: `Check out my writing progress on iWrite! Add me: iwrite4.me/invite/${username}`,
+            files: [file]
+          }).catch(() => this._downloadBlob(blob, 'iwrite-stats.png'));
+          return;
+        }
+      }
+      this._downloadBlob(blob, 'iwrite-stats.png');
+    }, 'image/png');
+  },
+
+  _downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    this.toast('Stats card downloaded! Your invite link was copied to clipboard.', 'success');
   },
 
   // ===== SUPPORT =====
@@ -2832,6 +4156,64 @@ const App = {
 
   // ===== HELP POPUP =====
   _helpTopics: {
+    'v2.0': {
+      title: 'v2.0 — Usernames & Streaks',
+      html: `
+        <p style="color:var(--text-muted);margin-bottom:16px">March 2026</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Usernames</h4>
+        <p>Pick a unique username (3-30 characters) in your Profile. It appears on the leaderboard next to your name. You can change it once per month.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Streak Leaderboard</h4>
+        <p>The leaderboard now ranks by <strong>writing streak</strong> first. The podium highlights each writer's current streak.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Smart Document Search</h4>
+        <p>Filter your documents with <code>status=active</code>, <code>mode=dangerous</code>, <code>words=500</code>, or just type to search by title.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Session Word Limits</h4>
+        <p>Free accounts have a <strong>1,500 word</strong> limit per session. Pro users get up to <strong>10,000 words</strong> per session and <strong>20,000 words</strong> when editing. A counter appears near the limit.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Dangerous Mode</h4>
+        <p>Cleaner visuals — text stays normal color, only screen edges glow red. Auto-enters fullscreen to keep you focused.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Version Indicator</h4>
+        <p>Current app version now shown below the logo in the sidebar.</p>`
+    },
+    'v1.2': {
+      title: 'v1.2 — Polish & Limits',
+      html: `
+        <p style="color:var(--text-muted);margin-bottom:16px">March 2026</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Early Complete Limit</h4>
+        <p>Free accounts can end sessions early up to 5 times per month. Pro users get a larger limit.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Online Writers</h4>
+        <p>See how many writers are online right now on your dashboard.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Mobile Improvements</h4>
+        <p>Better toolbar layout, timer visibility, and modal alignment on small screens.</p>`
+    },
+    'v1.1': {
+      title: 'v1.1 — Friends & Duels',
+      html: `
+        <p style="color:var(--text-muted);margin-bottom:16px">February 2026</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Writing Duels</h4>
+        <p>Challenge your friends to timed head-to-head writing battles. Most words wins.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Friends System</h4>
+        <p>Add friends by email, see friend suggestions, and track their activity.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Document Sharing</h4>
+        <p>Share completed documents with view, comment, or edit permissions via unique links.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Session History</h4>
+        <p>View your past sessions with stats — total words, time spent, dangerous completions.</p>`
+    },
+    'v1.0': {
+      title: 'v1.0 — Launch',
+      html: `
+        <p style="color:var(--text-muted);margin-bottom:16px">February 2026</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Write It or Lose It</h4>
+        <p>Timed writing sessions with tab-lock. Leave the tab and your work gets a 10-second countdown before it's gone.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Dangerous Mode</h4>
+        <p>Stop typing for 5 seconds and your session fails. No exceptions.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">XP & Levels</h4>
+        <p>Earn XP for every session based on words written and time spent. Level up with increasing thresholds.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Streaks & Writing Tree</h4>
+        <p>Write every day to grow your streak and watch your tree evolve through 12 stages — from seed to forest.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Leaderboard</h4>
+        <p>Top 10 writers displayed with a podium for the top 3. See where you rank.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Google Sign-In</h4>
+        <p>One-click sign-in with your Google account.</p>`
+    },
     'how-it-works': {
       title: 'How It Works',
       html: `<p>iWrite4.me is a distraction-free writing tool built on one rule: <strong>write it or lose it</strong>.</p>
@@ -2861,8 +4243,8 @@ const App = {
     },
     'leaderboard': {
       title: 'Leaderboard',
-      html: `<p>The public leaderboard ranks all writers by total words written, showing the top 50.</p>
-        <ul><li>Total words are cumulative across all sessions — they never reset.</li><li>The podium shows the top 3 writers.</li><li>Your row is highlighted so you can see where you stand.</li></ul>`
+      html: `<p>The leaderboard ranks writers by <strong>writing streak</strong> first, then total words.</p>
+        <ul><li>The podium shows the top 3 writers with their current streak.</li><li>Usernames are displayed below names.</li><li>Your row is highlighted so you can see where you stand.</li><li>Keep your streak alive to climb the ranks!</li></ul>`
     },
     'friends-duels': {
       title: 'Friends & Duels',

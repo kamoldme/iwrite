@@ -45,7 +45,7 @@ const Editor = {
   _saveSessionState() {
     if (!this.active || !this.documentId) return;
     try {
-      sessionStorage.setItem('editor_session', JSON.stringify({
+      localStorage.setItem('editor_session', JSON.stringify({
         active: true,
         documentId: this.documentId,
         startTime: this.startTime,
@@ -60,13 +60,13 @@ const Editor = {
 
   _clearSessionState() {
     try {
-      sessionStorage.removeItem('editor_session');
+      localStorage.removeItem('editor_session');
     } catch {}
   },
 
   _getSessionState() {
     try {
-      const data = sessionStorage.getItem('editor_session');
+      const data = localStorage.getItem('editor_session');
       return data ? JSON.parse(data) : null;
     } catch {
       return null;
@@ -83,6 +83,8 @@ const Editor = {
     this.isDirty = false;
     this.targetWords = opts.targetWords || 0;
     this.sessionTopic = opts.topic || '';
+    // Custom danger threshold (Pro feature)
+    if (opts.dangerThreshold) this.dangerThreshold = opts.dangerThreshold;
     if (typeof CommentSystem !== 'undefined') CommentSystem.destroy();
 
     try {
@@ -93,7 +95,16 @@ const Editor = {
       return;
     }
 
+    // Enter fullscreen before countdown for dangerous mode
+    this._fullscreenActive = false;
     if (mode === 'dangerous') {
+      try {
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (req) {
+          await req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
+        }
+      } catch(e) {}
       await this.runCountdown();
     }
 
@@ -115,7 +126,8 @@ const Editor = {
     // Gray out Complete button if early complete limit reached
     const currentMonth = new Date().toISOString().slice(0, 7);
     const earlyUsed = (App.user.earlyCompletesMonth === currentMonth) ? (App.user.earlyCompletes || 0) : 0;
-    if (earlyUsed >= 5) {
+    const earlyLimit = App.user.plan === 'premium' ? 15 : 3;
+    if (earlyUsed >= earlyLimit) {
       saveBtn.classList.add('btn-disabled');
       saveBtn.style.opacity = '0.4';
     } else {
@@ -153,6 +165,7 @@ const Editor = {
 
     this.textarea.addEventListener('input', this.onInput);
     this.textarea.addEventListener('keydown', this.onKeydown);
+    this.textarea.addEventListener('paste', this.onPaste);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
     window.addEventListener('blur', this.onWindowBlur);
@@ -189,18 +202,8 @@ const Editor = {
       }
     } catch {}
 
-    // Request fullscreen automatically for dangerous mode only
-    this._fullscreenActive = false;
+    // Fullscreen already requested before countdown; just init blur cooldown
     this._blurCooldown = false;
-    if (this.mode === 'dangerous') {
-      try {
-        const el = document.documentElement;
-        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-        if (req) {
-          req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
-        }
-      } catch(e) {}
-    }
   },
 
   bindFormatting() {
@@ -282,6 +285,27 @@ const Editor = {
     });
   },
 
+  onPaste: (e) => {
+    // Block paste if it would exceed word limit
+    if ((Editor.active || Editor.isEditing) && App.user) {
+      const limit = Editor.getWordLimit();
+      const currentWords = Editor.getWordCount();
+      if (currentWords >= limit) {
+        e.preventDefault();
+        return;
+      }
+      const pasteText = (e.clipboardData || window.clipboardData).getData('text');
+      const pasteWords = pasteText.trim().split(/\s+/).filter(Boolean).length;
+      if (currentWords + pasteWords > limit) {
+        e.preventDefault();
+        const remaining = limit - currentWords;
+        const trimmed = pasteText.trim().split(/\s+/).slice(0, remaining).join(' ');
+        document.execCommand('insertText', false, trimmed);
+        Editor.updateWordCount();
+      }
+    }
+  },
+
   onInput: () => {
     Editor.lastKeystroke = Date.now();
     Editor.updateWordCount();
@@ -295,6 +319,20 @@ const Editor = {
   },
 
   onKeydown: (e) => {
+    // Block new words at word limit (allow delete, backspace, arrows, shortcuts)
+    if ((Editor.active || Editor.isEditing) && App.user) {
+      const limit = Editor.getWordLimit();
+      const words = Editor.getWordCount();
+      if (words >= limit) {
+        const allowed = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+          'Home', 'End', 'PageUp', 'PageDown', 'Escape', 'Tab', 'Shift', 'Control', 'Alt', 'Meta',
+          'CapsLock', 'F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12'];
+        if (!allowed.includes(e.key) && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          return;
+        }
+      }
+    }
     if (e.key === 'Tab') {
       e.preventDefault();
       document.execCommand('insertText', false, '  ');
@@ -389,7 +427,29 @@ const Editor = {
     }, 200);
   },
 
+  _tabReturnMessages: [
+    "\u{1F62D} Please don't do that again... I almost died",
+    "\u{1F631} I was this close to erasing everything!",
+    "\u{1F62B} You nearly killed your words. They're still shaking.",
+    "\u{1F494} My heart can't take this. Don't leave me again.",
+    "\u{1F300} Your writing almost vanished into the void.",
+    "\u{1F9F5} I held on by a thread. Please stay.",
+    "\u{1F62E}\u200D\u{1F4A8} That was way too close. Your words need you here.",
+    "\u{1F630} Don't leave me please... I'm scared of the dark.",
+    "\u{1F622} I thought you abandoned me forever.",
+    "\u{1F47B} Your words were about to become ghosts.",
+  ],
+
   onTabReturn() {
+    if (this.tabCountdown && this.tabLeftTime) {
+      const awaySeconds = Math.floor((Date.now() - this.tabLeftTime) / 1000);
+      const remaining = this.tabGracePeriod - awaySeconds;
+      if (remaining > 0 && remaining <= this.tabGracePeriod) {
+        const msg = this._tabReturnMessages[Math.floor(Math.random() * this._tabReturnMessages.length)];
+        const color = remaining > 7 ? '#4ade80' : remaining >= 4 ? '#facc15' : '#f87171';
+        App.toast(`<span style="font-weight:800;color:${color}">${remaining}s</span> left before deletion. ${msg}`, remaining <= 3 ? 'error' : 'warning');
+      }
+    }
     if (this.tabCountdown) {
       clearInterval(this.tabCountdown);
       this.tabCountdown = null;
@@ -484,20 +544,41 @@ const Editor = {
     this.dangerInterval = setInterval(() => {
       if (!this.active) return;
       const elapsed = Date.now() - this.lastKeystroke;
-      const ratio = Math.min(elapsed / this.dangerThreshold, 1);
+      const total = this.dangerThreshold;
+      const remaining = total - elapsed;
 
-      // Progressive red vignette — starts subtle, intensifies
-      if (ratio > 0.15) {
+      // 3-phase red vignette based on time remaining:
+      // Phase 1: nothing (remaining > 5000ms, or first chunk of short timers)
+      // Phase 2: gentle glow (remaining 3000-5000ms)
+      // Phase 3: intense red (remaining < 3000ms, last ~3 seconds)
+      let opacity = 0;
+      if (total <= 5000) {
+        // Short timer (5s or less): start red immediately after 30% passes
+        const ratio = Math.min(elapsed / total, 1);
+        if (ratio > 0.3) opacity = (ratio - 0.3) / 0.7;
+      } else {
+        // Longer timer: phase based on remaining time
+        const safeZone = Math.max(total - 5000, total * 0.4); // nothing happens in safe zone
+        if (elapsed <= safeZone) {
+          opacity = 0;
+        } else if (remaining > 3000) {
+          // Gentle phase: 5s to 3s remaining
+          opacity = 0.15 + ((elapsed - safeZone) / (total - safeZone - 3000)) * 0.2;
+        } else {
+          // Intense phase: last 3 seconds
+          opacity = 0.35 + ((3000 - remaining) / 3000) * 0.65;
+        }
+      }
+
+      if (opacity > 0.01) {
         this.vignette.classList.add('active');
-        this.vignette.style.opacity = Math.min((ratio - 0.15) / 0.85, 1);
+        this.vignette.style.opacity = Math.min(opacity, 1);
       } else {
         this.vignette.classList.remove('active');
         this.vignette.style.opacity = 0;
       }
 
-      // Vignette already handles the red surrounding — keep text color normal
-
-      if (elapsed >= this.dangerThreshold) {
+      if (elapsed >= total) {
         this.failDangerMode();
       }
     }, 50);
@@ -608,35 +689,39 @@ const Editor = {
   },
 
   FREE_WORD_LIMIT: 1500,
+  PRO_WORD_LIMIT: 10000,
+  FREE_EDIT_LIMIT: 3000,
+  PRO_EDIT_LIMIT: 20000,
+
+  getWordLimit() {
+    const isPro = App.user && App.user.plan === 'premium';
+    if (this.isEditing) return isPro ? this.PRO_EDIT_LIMIT : this.FREE_EDIT_LIMIT;
+    return isPro ? this.PRO_WORD_LIMIT : this.FREE_WORD_LIMIT;
+  },
 
   updateWordCount() {
     const words = this.getWordCount();
     const el = document.getElementById('editor-word-count');
     if (el) el.textContent = `${words} word${words !== 1 ? 's' : ''}`;
 
-    // Word limit for free tier
-    if (this.active && App.user && App.user.plan !== 'premium') {
-      const limit = this.FREE_WORD_LIMIT;
+    // Word limit for all users
+    if ((this.active || this.isEditing) && App.user) {
+      const limit = this.getWordLimit();
+      const isPro = App.user.plan === 'premium';
       const limitIndicator = document.getElementById('word-limit-indicator');
       if (words >= limit) {
-        // At limit - prevent further input
         if (limitIndicator) {
-          limitIndicator.textContent = `Word limit reached (${limit}/${limit})`;
+          if (isPro) {
+            limitIndicator.textContent = `bro, chill. take a rest for a while (${words.toLocaleString()}/${limit.toLocaleString()})`;
+          } else {
+            limitIndicator.textContent = `Word limit reached (${words}/${limit}) — upgrade to Pro for a larger limit`;
+          }
           limitIndicator.className = 'word-limit-indicator limit-reached';
           limitIndicator.style.display = 'block';
         }
-        // Trim content to limit
-        const text = this.textarea.innerText || '';
-        const wordsArr = text.trim().split(/\s+/);
-        if (wordsArr.length > limit) {
-          // Use execCommand to maintain undo history
-          const trimmed = wordsArr.slice(0, limit).join(' ');
-          this.textarea.innerText = trimmed;
-        }
       } else if (words >= limit - 100) {
-        // Near limit warning (within 100 words)
         if (limitIndicator) {
-          limitIndicator.textContent = `${words}/${limit} words`;
+          limitIndicator.textContent = `${words.toLocaleString()}/${limit.toLocaleString()} words`;
           limitIndicator.className = 'word-limit-indicator limit-warning';
           limitIndicator.style.display = 'block';
         }
@@ -947,8 +1032,9 @@ const Editor = {
       const user = App.user;
       const currentMonth = new Date().toISOString().slice(0, 7); // "2026-03"
       const usedThisMonth = (user.earlyCompletesMonth === currentMonth) ? (user.earlyCompletes || 0) : 0;
-      if (usedThisMonth >= 5) {
-        App.toast('Early complete limit reached (5/month). Wait for the timer to finish.', 'warning');
+      const earlyLim = user.plan === 'premium' ? 15 : 3;
+      if (usedThisMonth >= earlyLim) {
+        App.toast(`Early complete limit reached (${earlyLim}/month). Wait for the timer to finish.`, 'warning');
         return;
       }
     }
@@ -1017,7 +1103,8 @@ const Editor = {
     if (this._earlyComplete && result.user) {
       const currentMonth = new Date().toISOString().slice(0, 7);
       const used = (result.user.earlyCompletesMonth === currentMonth) ? (result.user.earlyCompletes || 0) : 0;
-      App.toast(`Early finish used (${used}/5 this month)`, 'info');
+      const elim = (result.user.plan === 'premium') ? 15 : 3;
+      App.toast(`Early finish used (${used}/${elim} this month)`, 'info');
     }
 
     App._docsCacheDirty = true;
@@ -1552,6 +1639,7 @@ const Editor = {
     this.textarea.style.opacity = '1';
     this.textarea.removeEventListener('input', this.onInput);
     this.textarea.removeEventListener('keydown', this.onKeydown);
+    this.textarea.removeEventListener('paste', this.onPaste);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     window.removeEventListener('blur', this.onWindowBlur);
@@ -1562,6 +1650,8 @@ const Editor = {
     document.getElementById('formatting-toolbar').style.display = 'none';
     document.getElementById('editor-topic-bar').style.display = 'none';
     document.getElementById('selection-popup').style.display = 'none';
+    const limitEl = document.getElementById('word-limit-indicator');
+    if (limitEl) limitEl.style.display = 'none';
     this.stopAudio();
     // Unblock copying when session ends
     this._unblockCopy();
@@ -1578,8 +1668,33 @@ const Editor = {
   async abort() {
     // Active writing session
     if (this.active) {
-      const ok = await App.showConfirm('Are you sure? Leaving will save your current progress but end the session early.');
-      if (ok) this.completeSession();
+      // Check if early complete is available
+      const user = App.user;
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const usedThisMonth = (user.earlyCompletesMonth === currentMonth) ? (user.earlyCompletes || 0) : 0;
+      const earlyMax = user.plan === 'premium' ? 15 : 3;
+      const canEarlyComplete = usedThisMonth < earlyMax;
+
+      if (canEarlyComplete) {
+        const ok = await App.showConfirm('Are you sure? Leaving will save your current progress but end the session early.');
+        if (ok) this.completeSession();
+      } else {
+        const ok = await App.showConfirm('Your early complete limit is reached. Leaving now will DELETE your writing and it won\'t be saved. Are you sure?');
+        if (ok) {
+          // Abandon without saving
+          this.active = false;
+          this.cleanup();
+          if (this.documentId) {
+            try { await API.abandonDocument(this.documentId, 'user_left_no_saves'); } catch {}
+          }
+          document.getElementById('status-bar').style.display = 'none';
+          document.getElementById('word-limit-indicator').style.display = 'none';
+          this.container.classList.remove('active');
+          document.body.classList.remove('editor-active');
+          App.switchView('documents');
+          App.toast('Session abandoned — writing was not saved', 'warning');
+        }
+      }
       return;
     }
 
