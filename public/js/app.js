@@ -1313,7 +1313,7 @@ const App = {
       // Remove old PRO indicators
       const oldBadge = btn.querySelector('.timer-pro-badge');
       if (oldBadge) oldBadge.remove();
-      const freeMinutes = [15, 30];
+      const freeMinutes = [30, 45, 60];
       if (!isPro && !freeMinutes.includes(mins)) {
         btn.classList.add('pro-locked');
         btn.style.position = 'relative';
