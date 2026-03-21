@@ -118,7 +118,7 @@ router.post('/users/:id/subscription', async (req, res) => {
   const user = await findOne('users.json', u => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
-  const { duration } = req.body; // '1m', '3m', '6m', '12m', 'infinite', 'free'
+  const { duration, customExpiresAt } = req.body; // '1m', '3m', '6m', '12m', 'infinite', 'custom', 'free'
   const updates = {};
 
   if (duration === 'free') {
@@ -135,10 +135,17 @@ router.post('/users/:id/subscription', async (req, res) => {
 
     if (duration === 'infinite') {
       updates.planExpiresAt = 'infinite';
+    } else if (duration === 'custom') {
+      if (!customExpiresAt) return res.status(400).json({ error: 'Custom expiry date is required' });
+      const expDate = new Date(customExpiresAt);
+      if (isNaN(expDate.getTime()) || expDate <= new Date()) {
+        return res.status(400).json({ error: 'Expiry date must be a valid future date' });
+      }
+      updates.planExpiresAt = expDate.toISOString();
     } else {
       const months = { '1m': 1, '3m': 3, '6m': 6, '12m': 12 };
       const m = months[duration];
-      if (!m) return res.status(400).json({ error: 'Invalid duration. Use: 1m, 3m, 6m, 12m, infinite, or free' });
+      if (!m) return res.status(400).json({ error: 'Invalid duration. Use: 1m, 3m, 6m, 12m, infinite, custom, or free' });
       const expiresAt = new Date();
       expiresAt.setMonth(expiresAt.getMonth() + m);
       updates.planExpiresAt = expiresAt.toISOString();

@@ -1139,6 +1139,11 @@
                 <button type="button" class="admin-btn ${u.plan==='premium'&&u.planDuration==='6m'?'admin-btn-primary':'admin-btn-ghost'}" onclick="setSubDuration('6m')" data-sub="6m">6 Months</button>
                 <button type="button" class="admin-btn ${u.plan==='premium'&&u.planDuration==='12m'?'admin-btn-primary':'admin-btn-ghost'}" onclick="setSubDuration('12m')" data-sub="12m">12 Months</button>
                 <button type="button" class="admin-btn ${u.plan==='premium'&&u.planDuration==='infinite'?'admin-btn-primary':'admin-btn-ghost'}" onclick="setSubDuration('infinite')" data-sub="infinite">∞ Infinite</button>
+                <button type="button" class="admin-btn ${u.plan==='premium'&&u.planDuration==='custom'?'admin-btn-primary':'admin-btn-ghost'}" onclick="setSubDuration('custom')" data-sub="custom">📅 Custom</button>
+              </div>
+              <div id="custom-expiry-row" style="display:${u.planDuration==='custom'?'flex':'none'};align-items:center;gap:8px;margin-top:8px">
+                <label style="font-size:12px;color:var(--text-secondary);white-space:nowrap">Expires on:</label>
+                <input type="date" id="edit-custom-expiry" style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:13px" value="${u.planDuration==='custom' && u.planExpiresAt && u.planExpiresAt !== 'infinite' ? u.planExpiresAt.split('T')[0] : ''}" min="${new Date().toISOString().split('T')[0]}">
               </div>
               <input type="hidden" id="edit-plan-duration" value="${u.plan==='premium' ? (u.planDuration||'infinite') : 'free'}">
               ${u.plan === 'premium' && u.planExpiresAt ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Expires: ${u.planExpiresAt === 'infinite' ? '∞ Never' : new Date(u.planExpiresAt).toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'})}</div>` : ''}
@@ -1169,7 +1174,13 @@
             await adminRequest(`/admin/users/${u.id}`, { method: 'PATCH', body: JSON.stringify(updates) });
             // Update subscription via dedicated endpoint
             const duration = document.getElementById('edit-plan-duration').value;
-            await adminRequest(`/admin/users/${u.id}/subscription`, { method: 'POST', body: JSON.stringify({ duration }) });
+            const subBody = { duration };
+            if (duration === 'custom') {
+              const customDate = document.getElementById('edit-custom-expiry').value;
+              if (!customDate) { toast('Please pick an expiry date', 'error'); return; }
+              subBody.customExpiresAt = new Date(customDate + 'T23:59:59').toISOString();
+            }
+            await adminRequest(`/admin/users/${u.id}/subscription`, { method: 'POST', body: JSON.stringify(subBody) });
             toast('User updated', 'success');
             closeEditUser();
             loadUsers();
@@ -1193,6 +1204,8 @@
       document.querySelectorAll('[data-sub]').forEach(btn => {
         btn.className = 'admin-btn ' + (btn.dataset.sub === dur ? 'admin-btn-primary' : 'admin-btn-ghost');
       });
+      const customRow = document.getElementById('custom-expiry-row');
+      if (customRow) customRow.style.display = dur === 'custom' ? 'flex' : 'none';
     }
 
     async function togglePlan(id, current) {
