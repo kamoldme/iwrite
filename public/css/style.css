@@ -655,9 +655,11 @@
   opacity: 1;
 }
 .analytics-pro-blur-content {
-  filter: blur(6px);
-  pointer-events: none;
-  user-select: none;
+  filter: blur(6px) !important;
+  -webkit-filter: blur(6px) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  opacity: 0.7;
 }
 .analytics-pro-gate-overlay {
   position: absolute;

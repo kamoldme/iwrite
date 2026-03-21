@@ -673,7 +673,7 @@ const App = {
 
   updateUserUI() {
     if (!this.user) return;
-    document.getElementById('user-name').textContent = this.user.name;
+    document.getElementById('user-name').textContent = (this.user.name || '').split(' ')[0];
     const { level } = this.calcXPLevel(this.user.xp || 0);
     document.getElementById('user-level').textContent = `Level ${level}`;
     const avatarEl = document.getElementById('user-avatar');
@@ -3079,6 +3079,28 @@ const App = {
     const analyticsUpgradeBtn = document.querySelector('.btn-upgrade-analytics');
     if (analyticsUpgradeBtn) {
       analyticsUpgradeBtn.onclick = (e) => { e.preventDefault(); this.openPricing(); };
+    }
+
+    // Anti-tamper: re-enforce blur on pro-locked analytics sections
+    // Even if user removes blur via DevTools, MutationObserver re-applies it
+    if (!isPro && !this._proBlurObserver) {
+      this._proBlurObserver = new MutationObserver(() => {
+        if (this.user && this.user.plan === 'premium') return;
+        document.querySelectorAll('.analytics-pro-blur-content').forEach(el => {
+          if (!el.style.filter || !el.style.filter.includes('blur')) {
+            el.style.filter = 'blur(6px)';
+            el.style.pointerEvents = 'none';
+            el.style.userSelect = 'none';
+          }
+        });
+      });
+      document.querySelectorAll('.analytics-pro-blur-content').forEach(el => {
+        this._proBlurObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+      });
+    }
+    if (isPro && this._proBlurObserver) {
+      this._proBlurObserver.disconnect();
+      this._proBlurObserver = null;
     }
 
   },
