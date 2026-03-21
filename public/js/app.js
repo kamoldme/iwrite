@@ -1299,7 +1299,7 @@ const App = {
     document.getElementById('session-target-words').value = '';
     // Apply plan-based timer restrictions
     this._applyTimerRestrictions();
-    // Show weekly session count for free users
+    // Session limits are invisible — enforced server-side only
     this._showWeeklySessionInfo();
   },
 
@@ -1417,30 +1417,10 @@ const App = {
   },
 
   _showWeeklySessionInfo() {
-    const isPro = this.user && this.user.plan === 'premium';
-    let infoEl = document.getElementById('weekly-session-info');
-    if (!infoEl) {
-      infoEl = document.createElement('div');
-      infoEl.id = 'weekly-session-info';
-      infoEl.style.cssText = 'font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center';
-      const modalBody = document.querySelector('#session-modal .modal-body');
-      if (modalBody) modalBody.appendChild(infoEl);
-    }
-    if (isPro) {
-      infoEl.style.display = 'none';
-    } else {
-      const now = new Date();
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - now.getDay());
-      weekStart.setHours(0, 0, 0, 0);
-      const weekISO = weekStart.toISOString().split('T')[0];
-      const used = (this.user.weeklySessionsWeek === weekISO) ? (this.user.weeklySessions || 0) : 0;
-      infoEl.textContent = `Sessions this week: ${used}/10`;
-      infoEl.style.display = 'block';
-      if (used >= 10) {
-        infoEl.innerHTML = `<span style="color:var(--danger)">Weekly session limit reached (10/week). <a href="#" onclick="event.preventDefault();App.openPricing()" style="color:var(--accent)">Upgrade to Pro</a></span>`;
-      }
-    }
+    // Session limits are now invisible (200/month free, 300/month pro)
+    // Remove any old weekly-session-info element
+    const oldEl = document.getElementById('weekly-session-info');
+    if (oldEl) oldEl.style.display = 'none';
   },
 
   closeSessionModal() {
@@ -1448,19 +1428,7 @@ const App = {
   },
 
   startSession() {
-    // Check weekly session limit for free users
-    if (this.user && this.user.plan !== 'premium') {
-      const now = new Date();
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - now.getDay());
-      weekStart.setHours(0, 0, 0, 0);
-      const weekISO = weekStart.toISOString().split('T')[0];
-      const used = (this.user.weeklySessionsWeek === weekISO) ? (this.user.weeklySessions || 0) : 0;
-      if (used >= 10) {
-        this.toast('Weekly session limit reached (10/week). Upgrade to Pro for unlimited sessions.', 'warning');
-        return;
-      }
-    }
+    // Monthly session limit is enforced server-side (invisible to user)
     this.closeSessionModal();
     // Show document name modal before starting
     this._pendingTopic = document.getElementById('session-topic-input').value.trim();
@@ -2976,10 +2944,9 @@ const App = {
       { label: 'XP / Level system', yes: true },
       { label: 'Friends & duels', yes: true },
       { label: 'Document sharing', yes: true },
-      { label: '10 sessions per week', yes: true },
       { label: 'All timer options + custom', yes: false },
       { label: 'Custom danger inactivity timer', yes: false },
-      { label: 'Unlimited sessions per week', yes: false },
+      { label: 'YouTube background music', yes: false },
       { label: 'Larger word & editing limits', yes: false },
       { label: 'Folders & pinned documents', yes: false },
       { label: 'Export to PDF', yes: false },
@@ -2991,7 +2958,7 @@ const App = {
       { label: 'Everything in Free', yes: true },
       { label: 'All timer options + custom "+"', yes: true },
       { label: 'Custom danger inactivity timer', yes: true },
-      { label: 'Unlimited sessions per week', yes: true },
+      { label: 'YouTube background music', yes: true },
       { label: 'Larger word & editing limits', yes: true },
       { label: 'Larger early complete & copy limits', yes: true },
       { label: 'Folders & pinned documents', yes: true },

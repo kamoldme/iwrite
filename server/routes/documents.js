@@ -74,21 +74,19 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const { title, content, mode } = req.body;
 
-  // Weekly session limit: 10/week for free users, unlimited for pro
+  // Monthly session limit (invisible): free 200/month, pro 300/month
   const user = await findOne('users.json', u => u.id === req.user.id);
-  if (user && user.plan !== 'premium') {
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay()); // Sunday
-    weekStart.setHours(0, 0, 0, 0);
-    const weekISO = weekStart.toISOString().split('T')[0];
-    const sessionsThisWeek = (user.weeklySessionsWeek === weekISO) ? (user.weeklySessions || 0) : 0;
-    if (sessionsThisWeek >= 10) {
-      return res.status(429).json({ error: 'Weekly session limit reached (10/week on free plan). Upgrade to Pro for unlimited sessions.' });
+  if (user) {
+    const isPro = user.plan === 'premium';
+    const monthLimit = isPro ? 300 : 200;
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const sessionsThisMonth = (user.monthlySessionsMonth === currentMonth) ? (user.monthlySessions || 0) : 0;
+    if (sessionsThisMonth >= monthLimit) {
+      return res.status(429).json({ error: 'Monthly session limit reached. Please try again next month.' });
     }
     await updateOne('users.json', u => u.id === req.user.id, {
-      weeklySessions: sessionsThisWeek + 1,
-      weeklySessionsWeek: weekISO
+      monthlySessions: sessionsThisMonth + 1,
+      monthlySessionsMonth: currentMonth
     });
   }
 
