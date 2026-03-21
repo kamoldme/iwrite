@@ -4208,21 +4208,15 @@ const App = {
   // ===== HELP POPUP =====
   _helpTopics: {
     'v2.2': {
-      title: 'v2.2 — Share, Analytics & Fairness',
+      title: 'v2.2 — Share & Analytics',
       html: `
         <p style="color:var(--text-muted);margin-bottom:16px">March 2026</p>
         <h4 style="margin-top:16px;margin-bottom:8px">Share My Progress</h4>
-        <p>Generate a beautiful shareable card showing your writing tree, stats, streak, and achievements. Your tree is always displayed — from tiny seed to mighty forest — so you can share your journey at any stage.</p>
-        <h4 style="margin-top:16px;margin-bottom:8px">PRO Badge</h4>
-        <p>Pro members get a sleek gold badge on their share cards, making your commitment to writing stand out.</p>
+        <p>Generate a beautiful shareable card showing your writing tree, stats, streak, and achievements. Share your writing journey on social media or with friends — your tree is always displayed, from tiny seed to mighty forest.</p>
         <h4 style="margin-top:16px;margin-bottom:8px">Writing Analytics</h4>
-        <p>New analytics insights including <strong>Writing Rhythm</strong> — discover your best writing times — and <strong>Time Distribution</strong> — see which hours of the day you're most productive.</p>
-        <h4 style="margin-top:16px;margin-bottom:8px">Death Timer Buffer</h4>
-        <p>Dangerous Mode now includes a hidden +1 second grace period for fairness. Your displayed timer stays the same, but behind the scenes you get a tiny safety net to keep things fair.</p>
-        <h4 style="margin-top:16px;margin-bottom:8px">Anti-Tamper Protection</h4>
-        <p>Stronger security across the app with improved paywall protection that can't be bypassed through browser developer tools.</p>
-        <h4 style="margin-top:16px;margin-bottom:8px">Personal Sidebar</h4>
-        <p>The sidebar now shows your first name for a more personal feel every time you open the app.</p>`
+        <p>Deep insights into your writing habits — <strong>Writing Rhythm</strong> reveals your best writing patterns, and <strong>Time Distribution</strong> shows which hours of the day you're most productive. Understand yourself as a writer.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Security & Stability</h4>
+        <p>Major under-the-hood improvements to app security, session handling, and overall stability.</p>`
     },
     'v2.0': {
       title: 'v2.0 — Usernames & Streaks',
