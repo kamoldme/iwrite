@@ -3653,6 +3653,30 @@ const App = {
 
     // Bind interactive hover tooltips
     this._bindAnalyticsTooltips(container);
+
+    // Reconnect anti-tamper MutationObserver on new DOM elements
+    // _applyProLocks() only runs at init, but _renderAnalytics() replaces innerHTML,
+    // creating new .analytics-pro-blur-content elements the old observer can't see.
+    const isPro = this.user && this.user.plan === 'premium';
+    if (this._proBlurObserver) {
+      this._proBlurObserver.disconnect();
+      this._proBlurObserver = null;
+    }
+    if (!isPro) {
+      this._proBlurObserver = new MutationObserver(() => {
+        if (this.user && this.user.plan === 'premium') return;
+        document.querySelectorAll('.analytics-pro-blur-content').forEach(el => {
+          if (!el.style.filter || !el.style.filter.includes('blur')) {
+            el.style.filter = 'blur(6px)';
+            el.style.pointerEvents = 'none';
+            el.style.userSelect = 'none';
+          }
+        });
+      });
+      document.querySelectorAll('.analytics-pro-blur-content').forEach(el => {
+        this._proBlurObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+      });
+    }
   },
 
   _bindAnalyticsTooltips(container) {
