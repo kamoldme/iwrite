@@ -331,7 +331,7 @@ const App = {
       btn.addEventListener('click', () => {
         const mins = parseInt(btn.dataset.minutes);
         const isPro = this.user && this.user.plan === 'premium';
-        const freeMinutes = [15, 30];
+        const freeMinutes = [30, 45, 60];
         if (!isPro && !freeMinutes.includes(mins)) {
           this.toast('This timer option is a Pro feature.', 'info');
           this.openPricing();
@@ -427,8 +427,8 @@ const App = {
       btn.addEventListener('click', () => {
         const secs = parseInt(btn.dataset.seconds);
         const isPro = this.user && this.user.plan === 'premium';
-        // 6s is free, 7s and 10s are Pro
-        if (!isPro && secs !== 6) {
+        // 5s is free (displayed), 7s and 10s are Pro
+        if (!isPro && secs !== 5) {
           this.toast('This death timer option is a Pro feature.', 'info');
           this.openPricing();
           return;
@@ -1367,13 +1367,13 @@ const App = {
         dangerCustomBtn.style.opacity = '';
       }
     }
-    // Death timer presets: 6s free, 7s/10s/+ Pro
+    // Death timer presets: 5s free (displayed), 7s/10s/+ Pro
     document.querySelectorAll('#death-timer-presets .time-preset[data-seconds]').forEach(btn => {
       const secs = parseInt(btn.dataset.seconds);
       const oldBadge = btn.querySelector('.timer-pro-badge');
       if (oldBadge) oldBadge.remove();
       btn.style.opacity = '';
-      if (!isPro && secs !== 6) {
+      if (!isPro && secs !== 5) {
         btn.style.position = 'relative';
         btn.style.opacity = '0.7';
         const badge = document.createElement('span');
@@ -1440,11 +1440,12 @@ const App = {
   _confirmDocName(name) {
     document.getElementById('doc-name-modal').classList.remove('active');
     document.getElementById('editor-title').value = name || 'Untitled';
-    // Danger threshold from death timer (free users get 5s, Pro gating handled in UI)
+    // Danger threshold from death timer — always add +1s hidden buffer
+    // User sees "5s" but internally gets 6s, "10s" becomes 11s, etc.
     let dangerThreshold = 6000;
     if (this.sessionMode === 'dangerous') {
       const threshInput = document.getElementById('danger-threshold-input');
-      if (threshInput) dangerThreshold = Math.max(2, Math.min(30, parseInt(threshInput.value) || 5)) * 1000;
+      if (threshInput) dangerThreshold = (Math.max(2, Math.min(30, parseInt(threshInput.value) || 5)) + 1) * 1000;
     }
     Editor.start(this.sessionDuration, this.sessionMode, {
       topic: this._pendingTopic || '',
@@ -3515,25 +3516,26 @@ const App = {
       }
       html += `</div>`;
     } else if (!isPro) {
+      // Decoy data — obviously fake/scrambled so removing blur reveals nothing useful
       html += `<div class="analytics-chart-section analytics-pro-locked" style="position:relative;overflow:hidden">
         <div class="analytics-pro-blur-content">
           <div class="analytics-chart-title">Writing Rhythm</div>
           <div class="analytics-rhythm-hero">
             <div class="analytics-rhythm-award">
-              <span class="analytics-rhythm-emoji">\u{1F305}</span>
-              <span class="analytics-rhythm-type">You're an <strong>Early Bird</strong></span>
+              <span class="analytics-rhythm-emoji">\u{1F512}</span>
+              <span class="analytics-rhythm-type">Upgrade to <strong>PRO</strong> to unlock</span>
             </div>
           </div>
           <div class="analytics-records-grid">
-            <div class="analytics-record"><div class="analytics-record-value">Mon</div><div class="analytics-record-label">Best Day of Week</div></div>
-            <div class="analytics-record"><div class="analytics-record-value">24m</div><div class="analytics-record-label">Avg Session Length</div></div>
-            <div class="analytics-record"><div class="analytics-record-value">482</div><div class="analytics-record-label">Avg Words / Day</div></div>
-            <div class="analytics-record"><div class="analytics-record-value">3,214</div><div class="analytics-record-label">Avg Words / Week</div></div>
+            <div class="analytics-record"><div class="analytics-record-value">\u2014</div><div class="analytics-record-label">Best Day of Week</div></div>
+            <div class="analytics-record"><div class="analytics-record-value">\u2014</div><div class="analytics-record-label">Avg Session Length</div></div>
+            <div class="analytics-record"><div class="analytics-record-value">\u2014</div><div class="analytics-record-label">Avg Words / Day</div></div>
+            <div class="analytics-record"><div class="analytics-record-value">\u2014</div><div class="analytics-record-label">Avg Words / Week</div></div>
           </div>
           <div style="margin-top:16px">
             <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--bg-elevated)">
-              <div style="width:65%;background:var(--accent)"></div>
-              <div style="width:35%;background:#ef4444"></div>
+              <div style="width:50%;background:var(--bg-elevated)"></div>
+              <div style="width:50%;background:var(--bg-elevated)"></div>
             </div>
           </div>
         </div>
@@ -3595,16 +3597,14 @@ const App = {
         <div class="analytics-hour-labels"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span></div>
       </div>`;
     } else if (!isPro) {
-      const fakeCells = Array.from({length: 24}, (_, i) => {
-        const fakeVal = [0,0,0,0,0,1,3,5,4,2,1,1,2,3,2,1,1,2,4,6,8,5,3,1][i];
-        const pct = fakeVal > 0 ? 0.15 + (fakeVal / 8) * 0.75 : 0;
-        const bg = fakeVal > 0 ? `rgba(74,222,128,${pct.toFixed(2)})` : 'var(--bg-elevated)';
-        return `<div class="analytics-hour-cell" style="background:${bg}"></div>`;
+      // Decoy data — all cells empty, no real data exposed
+      const emptyCells = Array.from({length: 24}, () => {
+        return `<div class="analytics-hour-cell" style="background:var(--bg-elevated)"></div>`;
       }).join('');
       html += `<div class="analytics-chart-section analytics-pro-locked" style="position:relative;overflow:hidden">
         <div class="analytics-pro-blur-content">
           <div class="analytics-chart-title">Writing Time Distribution</div>
-          <div class="analytics-hour-grid">${fakeCells}</div>
+          <div class="analytics-hour-grid">${emptyCells}</div>
           <div class="analytics-hour-labels"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span></div>
         </div>
         <div class="analytics-pro-gate-overlay" onclick="App.openPricing()">
@@ -3883,6 +3883,19 @@ const App = {
     drawText('iWrite4.me', pad, pad + 18, { size: 20, weight: '800', color: '#10b981' });
     drawText(`@${username}`, pad, pad + 38, { size: 13, weight: '400', color: '#888' });
 
+    // PRO badge in header for Pro users
+    if (isPro) {
+      const badgeX = W - pad - 50;
+      const badgeY = pad + 6;
+      const grad = ctx.createLinearGradient(badgeX, badgeY, badgeX + 44, badgeY + 22);
+      grad.addColorStop(0, '#f59e0b');
+      grad.addColorStop(1, '#d97706');
+      rrect(badgeX, badgeY, 44, 22, 6);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      drawText('PRO', badgeX + 22, badgeY + 16, { size: 12, weight: '800', color: '#000', align: 'center' });
+    }
+
     const gridTop = pad + 56;
     const colW = (W - pad * 2 - gap) / 2; // 2 columns
     const cardH = 90;
@@ -3910,20 +3923,17 @@ const App = {
     const treeCardH = cardH * treeSpanRows + gap * (treeSpanRows - 1);
     const rightX = pad + colW + gap;
 
-    // Draw tree card (tall, right side, rows 2-4)
-    if (treeStage > 0) {
-      drawCard(rightX, r2y, colW, treeCardH, '#111');
-      // Draw tree centered in the card
-      const treeCX = rightX + colW / 2;
-      const treeGroundY = r2y + treeCardH - 20;
-      const treeAreaH = treeCardH - 40;
-      ctx.save();
-      ctx.beginPath();
-      rrect(rightX, r2y, colW, treeCardH, r);
-      ctx.clip();
-      drawTreeDark(ctx, treeCX, treeGroundY, treeStage, pr.currentStreak || 0, colW, treeAreaH);
-      ctx.restore();
-    }
+    // Draw tree card (tall, right side, rows 2-4) — always shown, even at stage 0 (seed)
+    drawCard(rightX, r2y, colW, treeCardH, '#111');
+    const treeCX = rightX + colW / 2;
+    const treeGroundY = r2y + treeCardH - 20;
+    const treeAreaH = treeCardH - 40;
+    ctx.save();
+    ctx.beginPath();
+    rrect(rightX, r2y, colW, treeCardH, r);
+    ctx.clip();
+    drawTreeDark(ctx, treeCX, treeGroundY, treeStage, pr.currentStreak || 0, colW, treeAreaH);
+    ctx.restore();
 
     // Row 2 left: Words Written (with relatable comparison)
     drawCard(pad, r2y, colW, cardH, '#1a1a1a');
