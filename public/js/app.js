@@ -331,7 +331,7 @@ const App = {
       btn.addEventListener('click', () => {
         const mins = parseInt(btn.dataset.minutes);
         const isPro = this.user && this.user.plan === 'premium';
-        const freeMinutes = [30, 45, 60];
+        const freeMinutes = [15, 30];
         if (!isPro && !freeMinutes.includes(mins)) {
           this.toast('This timer option is a Pro feature.', 'info');
           this.openPricing();
@@ -427,8 +427,8 @@ const App = {
       btn.addEventListener('click', () => {
         const secs = parseInt(btn.dataset.seconds);
         const isPro = this.user && this.user.plan === 'premium';
-        // 5s is free, 7s and 10s are Pro
-        if (!isPro && secs !== 5) {
+        // 6s is free, 7s and 10s are Pro
+        if (!isPro && secs !== 6) {
           this.toast('This death timer option is a Pro feature.', 'info');
           this.openPricing();
           return;
@@ -1313,7 +1313,7 @@ const App = {
       // Remove old PRO indicators
       const oldBadge = btn.querySelector('.timer-pro-badge');
       if (oldBadge) oldBadge.remove();
-      const freeMinutes = [30, 45, 60];
+      const freeMinutes = [15, 30];
       if (!isPro && !freeMinutes.includes(mins)) {
         btn.classList.add('pro-locked');
         btn.style.position = 'relative';
@@ -1367,13 +1367,13 @@ const App = {
         dangerCustomBtn.style.opacity = '';
       }
     }
-    // Death timer presets: 5s free, 7s/10s/+ Pro
+    // Death timer presets: 6s free, 7s/10s/+ Pro
     document.querySelectorAll('#death-timer-presets .time-preset[data-seconds]').forEach(btn => {
       const secs = parseInt(btn.dataset.seconds);
       const oldBadge = btn.querySelector('.timer-pro-badge');
       if (oldBadge) oldBadge.remove();
       btn.style.opacity = '';
-      if (!isPro && secs !== 5) {
+      if (!isPro && secs !== 6) {
         btn.style.position = 'relative';
         btn.style.opacity = '0.7';
         const badge = document.createElement('span');
@@ -3083,7 +3083,12 @@ const App = {
 
     // Anti-tamper: re-enforce blur on pro-locked analytics sections
     // Even if user removes blur via DevTools, MutationObserver re-applies it
-    if (!isPro && !this._proBlurObserver) {
+    // Disconnect and reconnect each time to handle SPA re-renders
+    if (this._proBlurObserver) {
+      this._proBlurObserver.disconnect();
+      this._proBlurObserver = null;
+    }
+    if (!isPro) {
       this._proBlurObserver = new MutationObserver(() => {
         if (this.user && this.user.plan === 'premium') return;
         document.querySelectorAll('.analytics-pro-blur-content').forEach(el => {
@@ -3097,10 +3102,6 @@ const App = {
       document.querySelectorAll('.analytics-pro-blur-content').forEach(el => {
         this._proBlurObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
       });
-    }
-    if (isPro && this._proBlurObserver) {
-      this._proBlurObserver.disconnect();
-      this._proBlurObserver = null;
     }
 
   },
