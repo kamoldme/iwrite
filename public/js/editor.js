@@ -1597,6 +1597,12 @@ const Editor = {
     });
     const ytPlayBtn = document.getElementById('audio-yt-play');
     if (ytPlayBtn) ytPlayBtn.addEventListener('click', () => {
+      const isPro = App.user && App.user.plan === 'premium';
+      if (!isPro) {
+        App.toast('YouTube music is a Pro feature.', 'info');
+        App.openPricing();
+        return;
+      }
       const url = document.getElementById('audio-yt-input').value.trim();
       if (url) Editor.playYouTube(url);
     });

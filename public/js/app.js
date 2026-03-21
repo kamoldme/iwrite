@@ -3080,6 +3080,34 @@ const App = {
       }
     });
 
+    // --- YouTube Link Pro gate ---
+    const ytBadge = document.getElementById('yt-pro-badge');
+    const ytInput = document.getElementById('audio-yt-input');
+    const ytSection = document.getElementById('audio-yt-section');
+    if (ytBadge) ytBadge.style.display = isPro ? 'none' : 'inline';
+    if (ytInput) {
+      if (!isPro) {
+        ytInput.disabled = true;
+        ytInput.placeholder = 'Pro feature — Upgrade to use YouTube music';
+        ytInput.style.opacity = '0.5';
+      } else {
+        ytInput.disabled = false;
+        ytInput.placeholder = 'Paste YouTube URL...';
+        ytInput.style.opacity = '';
+      }
+    }
+    if (ytSection && !isPro) {
+      ytSection.style.cursor = 'pointer';
+      ytSection.onclick = (e) => {
+        if (e.target.closest('.audio-play-btn')) return; // handled by editor.js
+        this.toast('YouTube music is a Pro feature.', 'info');
+        this.openPricing();
+      };
+    } else if (ytSection) {
+      ytSection.style.cursor = '';
+      ytSection.onclick = null;
+    }
+
     // --- Analytics Pro gate: update button to open pricing modal ---
     const analyticsUpgradeBtn = document.querySelector('.btn-upgrade-analytics');
     if (analyticsUpgradeBtn) {
