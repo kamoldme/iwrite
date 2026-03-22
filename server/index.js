@@ -396,10 +396,40 @@ app.get('/api/users/lookup/:username', async (req, res) => {
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
 
-// Invite route: /invite/:username → redirect to /app with invite param + friends view
-app.get('/invite/:username', (req, res) => {
-  const username = encodeURIComponent(req.params.username);
-  res.redirect(`/app?invite=${username}&view=friends`);
+// Invite route: /invite/:username → OG tags for bots, redirect for browsers
+app.get('/invite/:username', async (req, res) => {
+  const ua = (req.headers['user-agent'] || '').toLowerCase();
+  const isBot = /bot|crawler|spider|preview|telegram|whatsapp|slack|discord|facebook|twitter|linkedin|embedly|quora|pinterest/i.test(ua);
+  const username = req.params.username;
+
+  if (!isBot) {
+    return res.redirect(302, `/app?invite=${encodeURIComponent(username)}&view=friends`);
+  }
+
+  // For bots/crawlers: serve HTML with OG meta for link preview
+  const { findOne } = require('./utils/storage');
+  const user = await findOne('users.json', u => u.username && u.username.toLowerCase() === username.toLowerCase());
+  const name = user ? (user.name || username) : username;
+  const streak = user ? liveStreak(user) : 0;
+  const words = user ? (user.totalWords || 0) : 0;
+  const level = user ? (user.level || 1) : 1;
+  const sessions = user ? (user.totalSessions || 0) : 0;
+  const desc = `${name} wants to be your writing buddy on iWrite4.me! ${words > 0 ? `${words.toLocaleString()} words written · Level ${level}${streak > 0 ? ` · ${streak}-day streak` : ''} · ${sessions} sessions.` : 'A distraction-free writing tool — if you stop typing, it deletes your work.'}`;
+
+  res.send(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Write with ${name} on iWrite4.me</title>
+    <meta property="og:title" content="Write with ${name} on iWrite4.me">
+    <meta property="og:description" content="${desc}">
+    <meta property="og:image" content="https://iwrite4.me/og-image.png">
+    <meta property="og:url" content="https://iwrite4.me/invite/${encodeURIComponent(username)}">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Write with ${name} on iWrite4.me">
+    <meta name="twitter:description" content="${desc}">
+    <meta name="twitter:image" content="https://iwrite4.me/og-image.png">
+    <meta http-equiv="refresh" content="0;url=/app?invite=${encodeURIComponent(username)}&view=friends">
+  </head><body></body></html>`);
 });
 
 // 404 catch-all — must be after all other routes

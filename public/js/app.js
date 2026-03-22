@@ -3761,21 +3761,17 @@ const App = {
         e.stopPropagation();
         shareDropdown.style.display = shareDropdown.style.display === 'none' ? 'block' : 'none';
       };
+      // Friend invite link (not referral code)
+      const friendLink = () => `${window.location.origin}/invite/${this.user.username || ''}`;
+      const shareText = () => `iWrite4.me — a distraction-free writing tool that keeps you focused. If you stop typing, it deletes your work.\n\nTry it: ${friendLink()}`;
+
       document.getElementById('share-copy-link').onclick = () => {
-        const code = this.user.referralCode || '';
-        const link = code ? `${window.location.origin}/join/${code}` : window.location.origin;
-        navigator.clipboard.writeText(link).then(() => this.toast('Invite link copied!', 'success'));
+        navigator.clipboard.writeText(friendLink()).then(() => this.toast('Friend link copied!', 'success'));
         shareDropdown.style.display = 'none';
       };
       document.getElementById('share-download-card').onclick = () => {
         this._shareAnalyticsCard();
         shareDropdown.style.display = 'none';
-      };
-      // Social share helpers
-      const shareText = () => {
-        const code = this.user.referralCode || '';
-        const link = code ? `${window.location.origin}/join/${code}` : 'https://iwrite4.me';
-        return `iWrite4.me — a distraction-free writing tool that keeps you focused. If you stop typing, it deletes your work.\n\nTry it: ${link}`;
       };
       document.getElementById('share-to-x').onclick = () => {
         window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(shareText())}`, '_blank');
@@ -3786,7 +3782,6 @@ const App = {
         shareDropdown.style.display = 'none';
       };
       document.getElementById('share-to-instagram').onclick = () => {
-        // Instagram doesn't support URL sharing — download the card and copy text
         this._shareAnalyticsCard();
         navigator.clipboard.writeText(shareText()).then(() => {
           this.toast('Card downloaded & caption copied — paste in Instagram!', 'success');
