@@ -3771,6 +3771,32 @@ const App = {
         this._shareAnalyticsCard();
         shareDropdown.style.display = 'none';
       };
+      // Social share helpers
+      const shareText = () => {
+        const u = this.user;
+        const streak = u.streak || 0;
+        const words = u.totalWords || 0;
+        const sessions = u.totalSessions || 0;
+        const code = u.referralCode || '';
+        const link = code ? `${window.location.origin}/join/${code}` : 'https://iwrite4.me';
+        return `I've written ${words.toLocaleString()} words across ${sessions} sessions${streak > 0 ? ` with a ${streak}-day streak` : ''} on iWrite4.me — a writing tool that deletes your work if you stop typing.\n\nTry it: ${link}`;
+      };
+      document.getElementById('share-to-x').onclick = () => {
+        window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(shareText())}`, '_blank');
+        shareDropdown.style.display = 'none';
+      };
+      document.getElementById('share-to-telegram').onclick = () => {
+        window.open(`https://t.me/share/url?url=${encodeURIComponent('https://iwrite4.me')}&text=${encodeURIComponent(shareText())}`, '_blank');
+        shareDropdown.style.display = 'none';
+      };
+      document.getElementById('share-to-instagram').onclick = () => {
+        // Instagram doesn't support URL sharing — download the card and copy text
+        this._shareAnalyticsCard();
+        navigator.clipboard.writeText(shareText()).then(() => {
+          this.toast('Card downloaded & caption copied — paste in Instagram!', 'success');
+        });
+        shareDropdown.style.display = 'none';
+      };
       // Close dropdown on outside click
       document.addEventListener('click', () => { shareDropdown.style.display = 'none'; });
     }

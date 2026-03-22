@@ -4695,6 +4695,11 @@ body.editor-active .mobile-sidebar-toggle {
 .share-dropdown-item:hover {
   background: var(--bg-elevated);
 }
+.share-dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
+}
 @keyframes dropIn {
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
