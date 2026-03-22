@@ -4251,24 +4251,26 @@ const App = {
 
     // ── Footer: invite link ──
     const footerY = Math.max(nextY + 4, H - 40);
-    // Ensure black background extends to footer area
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, footerY - 10, W, 50);
-    drawText(`Add me on iWrite \u2192 iwrite4.me/invite/${username}`, W / 2, footerY + 8, { size: 12, weight: '500', color: '#fff', align: 'center' });
-
-    // Resize canvas to actual content
     const actualH = footerY + 30;
+
+    // Resize canvas FIRST if content exceeds initial height, so footer draws inside bounds
     if (actualH !== H) {
-      // Re-fill background for the full height before cropping
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = W * 2; tempCanvas.height = actualH * 2;
       const tempCtx = tempCanvas.getContext('2d');
       tempCtx.fillStyle = '#0a0a0a';
       tempCtx.fillRect(0, 0, W * 2, actualH * 2);
       tempCtx.drawImage(canvas, 0, 0);
+      canvas.width = W * 2;
       canvas.height = actualH * 2;
       ctx.drawImage(tempCanvas, 0, 0);
+      ctx.scale(2, 2);
     }
+
+    // Draw footer background + invite link text
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, footerY - 10, W, 50);
+    drawText(`Add me on iWrite \u2192 iwrite4.me/invite/${username}`, W / 2, footerY + 8, { size: 12, weight: '500', color: '#fff', align: 'center' });
 
     // Copy invite link to clipboard
     const inviteLink = `https://iwrite4.me/invite/${username}`;
