@@ -1698,6 +1698,7 @@ const App = {
         let html = history.map(d => {
           const isChallenger = d.challengerId === this.user.id;
           const oppName = isChallenger ? d.opponentName : d.challengerName;
+          const oppUsername = isChallenger ? d.opponentUsername : d.challengerUsername;
           const oppPlan = isChallenger ? d.opponentPlan : d.challengerPlan;
           const oppPro = oppPlan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
           const won = d.winnerId === this.user.id;
@@ -1724,7 +1725,7 @@ const App = {
           return `
           <div class="duel-history-card ${resultClass}">
             <span class="dhc-badge ${resultClass}">${resultLabel}</span>
-            <span class="dhc-vs">vs <strong>${this.escapeHtml(oppName)}</strong>${oppPro}</span>
+            <span class="dhc-vs">vs <strong>${this.escapeHtml(oppName)}</strong>${oppUsername ? ` <span class="dhc-handle">@${this.escapeHtml(oppUsername)}</span>` : ''}${oppPro}</span>
             <span class="dhc-score">${myWords} — ${oppWords}</span>
             <span class="dhc-date">${dateStr}</span>
             <button class="dhc-info-btn" onclick="(function(el){var d=document.getElementById('${detailId}');d.style.display=d.style.display==='none'?'flex':'none';el.classList.toggle('active')})(this)" title="Details">

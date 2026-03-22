@@ -163,9 +163,11 @@ router.post('/challenge', async (req, res) => {
       id: uuid(),
       challengerId: me.id,
       challengerName: me.name,
+      challengerUsername: me.username || null,
       challengerPlan: me.plan || 'free',
       opponentId: friendId,
       opponentName: friend.name,
+      opponentUsername: friend.username || null,
       opponentPlan: friend.plan || 'free',
       duration: Math.min(Math.max(parseInt(duration), 1), 60), // 1-60 minutes
       status: 'pending',

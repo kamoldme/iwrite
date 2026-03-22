@@ -739,17 +739,18 @@
   letter-spacing: -0.3px;
 }
 .analytics-pro-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   color: #000;
   background: linear-gradient(135deg, #f59e0b, #d97706);
-  padding: 0 12px;
-  border-radius: 6px;
+  padding: 2px 12px;
+  border-radius: 8px;
   letter-spacing: 1px;
   margin-left: 8px;
   vertical-align: middle;
-  line-height: 28px;
+  line-height: 1;
 }
 /* Share button */
 .btn-share-analytics {
@@ -2833,6 +2834,7 @@ html.light .logo-img-light { display: inline; }
   min-width: 0;
 }
 .dhc-vs strong { color: var(--text-primary); font-weight: 600; margin-left: 6px; }
+.dhc-handle { font-size: 11px; color: var(--text-muted); font-weight: 400; }
 
 .dhc-score {
   font-size: 11px;
@@ -3253,7 +3255,12 @@ html.light .logo-img-light { display: inline; }
 .activity-text {
   font-size: 13px;
   color: var(--text-primary);
-  line-height: 1.4;
+  line-height: 1.6;
+}
+.activity-text .pro-inline-badge {
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
 }
 
 .activity-time {
@@ -5777,16 +5784,14 @@ body.editor-active .mobile-sidebar-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 7px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  padding: 2px 4px;
-  border-radius: 3px;
-  background: linear-gradient(135deg, #f59e0b, #f97316);
-  color: #0a0a0a;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #000;
   vertical-align: middle;
   line-height: 1;
-  margin-bottom: 3px;
 }
 
 .podium-words {
@@ -7649,6 +7654,7 @@ body.editor-active .mobile-sidebar-toggle {
   padding: 1px 5px;
   border-radius: 8px;
   margin-left: 4px;
+  margin-right: 3px;
   vertical-align: middle;
   line-height: 1;
 }
