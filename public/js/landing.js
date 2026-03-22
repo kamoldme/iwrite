@@ -223,10 +223,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function xPos(i) { return padLeft + (i / (days - 1)) * chartW; }
     function yPos(v) { return padTop + chartH - (v / maxVal) * chartH; }
 
-    const isDark = !document.documentElement.classList.contains('light');
-    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-    const labelColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.4)';
-    const accentColor = '#4ade80';
+    const isSepia = document.documentElement.classList.contains('sepia');
+    const isDark = !document.documentElement.classList.contains('light') && !isSepia;
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : isSepia ? 'rgba(100,65,20,0.08)' : 'rgba(0,0,0,0.06)';
+    const labelColor = isDark ? 'rgba(255,255,255,0.35)' : isSepia ? 'rgba(100,65,20,0.5)' : 'rgba(0,0,0,0.4)';
+    const accentColor = isSepia ? '#C37E3F' : '#4ade80';
 
     const gridLines = 4;
 

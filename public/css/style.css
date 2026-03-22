@@ -483,24 +483,25 @@
     repeating-linear-gradient(
       0deg,
       transparent, transparent 2px,
-      rgba(120, 80, 30, 0.03) 2px,
-      rgba(120, 80, 30, 0.03) 3px,
-      transparent 3px, transparent 6px
+      rgba(100, 65, 20, 0.06) 2px,
+      rgba(100, 65, 20, 0.06) 3px,
+      transparent 3px, transparent 5px
     ),
     repeating-linear-gradient(
       90deg,
-      transparent, transparent 4px,
-      rgba(120, 80, 30, 0.02) 4px,
-      rgba(120, 80, 30, 0.02) 5px,
-      transparent 5px, transparent 10px
+      transparent, transparent 3px,
+      rgba(100, 65, 20, 0.04) 3px,
+      rgba(100, 65, 20, 0.04) 4px,
+      transparent 4px, transparent 7px
     ),
     repeating-linear-gradient(
-      135deg,
-      transparent, transparent 3px,
-      rgba(120, 80, 30, 0.018) 3px,
-      rgba(120, 80, 30, 0.018) 4px,
-      transparent 4px, transparent 8px
+      45deg,
+      transparent, transparent 4px,
+      rgba(100, 65, 20, 0.035) 4px,
+      rgba(100, 65, 20, 0.035) 5px,
+      transparent 5px, transparent 9px
     );
+  background-size: auto;
   opacity: 1;
 }
 /* Vignette — aged paper edge darkening */
@@ -707,6 +708,42 @@
 .sepia .levelup-glow { background: radial-gradient(circle, rgba(195, 126, 63, 0.3) 0%, transparent 70%); }
 .sepia .levelup-badge { box-shadow: 0 0 40px rgba(195, 126, 63, 0.4), 0 0 80px rgba(195, 126, 63, 0.15); }
 .sepia .levelup-title { text-shadow: 0 0 30px rgba(195, 126, 63, 0.4); }
+
+/* ── Sepia: notification badge ── */
+.sepia .notification-badge { background: linear-gradient(135deg, rgba(195, 126, 63, 0.15), rgba(195, 126, 63, 0.05)); }
+
+/* ── Sepia: mode selector ── */
+.sepia .mode-selector button.active { box-shadow: 0 4px 16px rgba(195, 126, 63, 0.3); }
+.sepia .mode-option.active.dangerous-opt { box-shadow: 0 4px 20px rgba(195, 126, 63, 0.3); }
+.sepia .danger-mode-radial-bg { background: radial-gradient(circle, rgba(195,126,63,0.12) 0%, transparent 60%); }
+
+/* ── Sepia: status/online dot ── */
+.sepia .status-dot { background: #C37E3F; box-shadow: 0 0 6px rgba(195, 126, 63, 0.5); }
+
+/* ── Sepia: podium ── */
+.sepia .podium-ranking { box-shadow: 0 4px 16px rgba(195,126,63,0.3); }
+
+/* ── Sepia: auth ── */
+.sepia .auth-beta-badge { background: rgba(195,126,63,0.12); }
+
+/* ── Sepia: dashboard hero before (landing) ── */
+.sepia .dashboard-hero::before { background: linear-gradient(90deg, transparent, rgba(195,126,63,0.12), transparent); }
+
+/* ── Sepia: release card ── */
+.sepia .release-card.active { box-shadow: 0 0 0 1px rgba(195, 126, 63, 0.15), 0 8px 40px rgba(44, 31, 14, 0.15); }
+
+/* ── Sepia: keyframe overrides — replace green pulse/glow animations ── */
+@keyframes sepia-duel-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(195, 126, 63, 0.4), var(--shadow); }
+  50% { box-shadow: 0 0 20px 8px rgba(195, 126, 63, 0.2), var(--shadow-lg); }
+}
+@keyframes sepia-online-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(195, 126, 63, 0.4); }
+  50% { box-shadow: 0 0 6px 2px rgba(195, 126, 63, 0.2); }
+}
+.sepia .duel-big-btn { animation-name: sepia-duel-pulse; }
+.sepia .duel-big-btn:hover { animation-name: sepia-duel-pulse; }
+.sepia .online-dot, .sepia .status-dot { animation-name: sepia-online-pulse; }
 
 /* ── Sepia: scrollbar ── */
 .sepia ::-webkit-scrollbar-thumb { background: rgba(195, 126, 63, 0.25); }
