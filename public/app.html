@@ -446,10 +446,22 @@
               <h1>&#x1F4CA; Analytics <span class="pro-badge-inline">PRO</span></h1>
               <p>Personal insights into your writing habits.</p>
             </div>
-            <button class="btn-share-analytics" id="btn-share-analytics-top" style="flex-shrink:0">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-              Share My Progress
-            </button>
+            <div class="share-dropdown-wrap" style="position:relative;flex-shrink:0">
+              <button class="btn-share-analytics" id="btn-share-analytics-top">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                Share My Progress
+              </button>
+              <div class="share-dropdown" id="share-dropdown" style="display:none">
+                <button class="share-dropdown-item" id="share-copy-link">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                  Copy invite link
+                </button>
+                <button class="share-dropdown-item" id="share-download-card">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download stat card
+                </button>
+              </div>
+            </div>
           </div>
           <div id="analytics-content"></div>
         </div>

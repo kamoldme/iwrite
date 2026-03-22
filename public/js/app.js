@@ -3753,10 +3753,26 @@ const App = {
       });
     });
 
-    // Bind share button (in header)
+    // Bind share dropdown
     const shareBtn = document.getElementById('btn-share-analytics-top');
-    if (shareBtn) {
-      shareBtn.onclick = () => this._shareAnalyticsCard();
+    const shareDropdown = document.getElementById('share-dropdown');
+    if (shareBtn && shareDropdown) {
+      shareBtn.onclick = (e) => {
+        e.stopPropagation();
+        shareDropdown.style.display = shareDropdown.style.display === 'none' ? 'block' : 'none';
+      };
+      document.getElementById('share-copy-link').onclick = () => {
+        const code = this.user.referralCode || '';
+        const link = code ? `${window.location.origin}/join/${code}` : window.location.origin;
+        navigator.clipboard.writeText(link).then(() => this.toast('Invite link copied!', 'success'));
+        shareDropdown.style.display = 'none';
+      };
+      document.getElementById('share-download-card').onclick = () => {
+        this._shareAnalyticsCard();
+        shareDropdown.style.display = 'none';
+      };
+      // Close dropdown on outside click
+      document.addEventListener('click', () => { shareDropdown.style.display = 'none'; });
     }
 
     // Bind interactive hover tooltips
