@@ -5047,6 +5047,17 @@ body.editor-active .mobile-sidebar-toggle {
   border-color: rgba(74, 222, 128, 0.3);
   box-shadow: var(--shadow-lg), 0 0 20px rgba(74, 222, 128, 0.1);
 }
+.toast-pro-badge {
+  display: inline-block;
+  padding: 0px 12px;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: #000;
+  font-weight: 800;
+  font-size: 12px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  vertical-align: baseline;
+}
 
 /* ===== STREAK INDICATOR ===== */
 .streak-indicator {
