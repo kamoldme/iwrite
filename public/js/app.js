@@ -2279,13 +2279,12 @@ const App = {
           <h3 class="upgrade-card-name">Free</h3>
           <p class="upgrade-card-desc">Perfect for getting started with focused writing.</p>
           <div class="upgrade-card-price">
-            <span class="upgrade-price-dollar">$</span>
-            <span class="upgrade-price-amount">0</span>
-            <span class="upgrade-price-period">/month</span>
+            <span class="upgrade-price-dollar">$</span><span class="upgrade-price-amount">0</span><span class="upgrade-price-period">/mo</span>
           </div>
+          <div class="upgrade-price-spacer">Free forever</div>
         </div>
         <div class="upgrade-card-btn-wrap">
-          ${!isPro ? '<button class="upgrade-card-btn upgrade-card-btn-muted" disabled>Current plan</button>' : '<button class="upgrade-card-btn upgrade-card-btn-muted" disabled>Free plan</button>'}
+          ${!isPro ? '<button class="upgrade-card-btn" disabled>Current plan</button>' : '<button class="upgrade-card-btn" disabled>Free plan</button>'}
         </div>
         <div class="upgrade-card-divider"></div>
         <div class="upgrade-card-features">
@@ -2299,10 +2298,7 @@ const App = {
           <h3 class="upgrade-card-name">Pro</h3>
           <p class="upgrade-card-desc">Enhanced features for serious, dedicated writers.</p>
           <div class="upgrade-card-price">
-            <span class="upgrade-price-dollar">$</span>
-            <span class="upgrade-price-amount">1.99</span>
-            <span class="upgrade-price-period">/month</span>
-            <span class="upgrade-price-original">$4</span>
+            <span class="upgrade-price-dollar">$</span><span class="upgrade-price-amount">1.99</span><span class="upgrade-price-period">/mo</span><span class="upgrade-price-original">$4</span>
           </div>
           <div class="upgrade-price-uzs">~25,000 UZS</div>
         </div>
