@@ -3773,13 +3773,9 @@ const App = {
       };
       // Social share helpers
       const shareText = () => {
-        const u = this.user;
-        const streak = u.streak || 0;
-        const words = u.totalWords || 0;
-        const sessions = u.totalSessions || 0;
-        const code = u.referralCode || '';
+        const code = this.user.referralCode || '';
         const link = code ? `${window.location.origin}/join/${code}` : 'https://iwrite4.me';
-        return `I've written ${words.toLocaleString()} words across ${sessions} sessions${streak > 0 ? ` with a ${streak}-day streak` : ''} on iWrite4.me — a writing tool that deletes your work if you stop typing.\n\nTry it: ${link}`;
+        return `iWrite4.me — a distraction-free writing tool that keeps you focused. If you stop typing, it deletes your work.\n\nTry it: ${link}`;
       };
       document.getElementById('share-to-x').onclick = () => {
         window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(shareText())}`, '_blank');
