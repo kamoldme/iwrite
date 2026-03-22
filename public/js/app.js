@@ -730,7 +730,8 @@ const App = {
     let emoji = '&#x1F319;';
     if (hour < 12) { greeting = 'Good morning'; emoji = '&#x2600;&#xFE0F;'; }
     else if (hour < 18) { greeting = 'Good afternoon'; emoji = '&#x1F324;&#xFE0F;'; }
-    document.getElementById('greeting-text').innerHTML = `${emoji} ${greeting}, <em>${this.user.name}</em>`;
+    const firstName = (this.user.name || '').split(' ')[0];
+    document.getElementById('greeting-text').innerHTML = `${emoji} ${greeting}, <em>${firstName}</em>`;
   },
 
   async loadDashboard() {
@@ -4250,14 +4251,23 @@ const App = {
 
     // ── Footer: invite link ──
     const footerY = Math.max(nextY + 4, H - 40);
-    drawText(`Add me on iWrite \u2192 iwrite4.me/invite/${username}`, W / 2, footerY + 8, { size: 12, weight: '500', color: '#666', align: 'center' });
+    // Ensure black background extends to footer area
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, footerY - 10, W, 50);
+    drawText(`Add me on iWrite \u2192 iwrite4.me/invite/${username}`, W / 2, footerY + 8, { size: 12, weight: '500', color: '#fff', align: 'center' });
 
     // Resize canvas to actual content
     const actualH = footerY + 30;
     if (actualH !== H) {
-      const tempData = ctx.getImageData(0, 0, W * 2, actualH * 2);
+      // Re-fill background for the full height before cropping
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = W * 2; tempCanvas.height = actualH * 2;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.fillStyle = '#0a0a0a';
+      tempCtx.fillRect(0, 0, W * 2, actualH * 2);
+      tempCtx.drawImage(canvas, 0, 0);
       canvas.height = actualH * 2;
-      ctx.putImageData(tempData, 0, 0);
+      ctx.drawImage(tempCanvas, 0, 0);
     }
 
     // Copy invite link to clipboard
