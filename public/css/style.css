@@ -1782,6 +1782,8 @@ html.light .logo-img-light { display: inline; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+  max-width: 75%;
+  margin: 0 auto;
 }
 .landing-plan-card {
   border: 1px solid var(--border);
@@ -8337,22 +8339,16 @@ html {
 
   .growth-section {
     padding: 60px 16px 40px;
-  }
-
-  .growth-chart-wrap {
-    padding: 20px 16px 16px;
-  }
-
-  .growth-total-num {
-    font-size: 28px;
-  }
-
-  .growth-section {
-    padding: 60px 16px 40px;
+    overflow: hidden;
   }
 
   .growth-chart-wrap {
     padding: 20px 12px 16px;
+    overflow: hidden;
+  }
+
+  .growth-total-num {
+    font-size: 28px;
   }
 
   .growth-total-num {
@@ -8412,6 +8408,7 @@ html {
   .landing-pricing-cards {
     grid-template-columns: 1fr;
     gap: 20px;
+    max-width: 100%;
   }
 
   .landing-plan-card {
