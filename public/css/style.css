@@ -2664,6 +2664,12 @@ html.light .logo-img-light { display: inline; }
   flex-direction: column;
 }
 
+.friend-handle {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 .friend-stats {
   display: flex;
   gap: 12px;
@@ -5792,6 +5798,7 @@ body.editor-active .mobile-sidebar-toggle {
   color: #000;
   vertical-align: middle;
   line-height: 1;
+  margin-bottom: 3px;
 }
 
 .podium-words {

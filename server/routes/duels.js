@@ -578,7 +578,18 @@ router.get('/history', async (req, res) => {
     const sorted = duels.sort((a, b) => new Date(b.endAt || b.createdAt) - new Date(a.endAt || a.createdAt));
     const total = sorted.length;
     const items = sorted.slice((page - 1) * limit, page * limit);
-    res.json({ items, total, page, limit, totalPages: Math.ceil(total / limit) });
+    // Enrich with usernames if not already stored
+    const users = await findMany('users.json');
+    const userMap = {};
+    users.forEach(u => { userMap[u.id] = u; });
+    const enriched = items.map(d => ({
+      ...d,
+      challengerUsername: d.challengerUsername || (userMap[d.challengerId] ? userMap[d.challengerId].username : null),
+      opponentUsername: d.opponentUsername || (userMap[d.opponentId] ? userMap[d.opponentId].username : null),
+      challengerPlan: d.challengerPlan || (userMap[d.challengerId] ? userMap[d.challengerId].plan : 'free'),
+      opponentPlan: d.opponentPlan || (userMap[d.opponentId] ? userMap[d.opponentId].plan : 'free'),
+    }));
+    res.json({ items: enriched, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch {
     res.status(500).json({ error: 'Server error' });
   }
@@ -591,7 +602,17 @@ router.get('/active', async (req, res) => {
       ['pending', 'accepted', 'countdown', 'active'].includes(d.status) &&
       (d.challengerId === req.user.id || d.opponentId === req.user.id)
     );
-    res.json(duels);
+    const users = await findMany('users.json');
+    const userMap = {};
+    users.forEach(u => { userMap[u.id] = u; });
+    const enriched = duels.map(d => ({
+      ...d,
+      challengerUsername: d.challengerUsername || (userMap[d.challengerId] ? userMap[d.challengerId].username : null),
+      opponentUsername: d.opponentUsername || (userMap[d.opponentId] ? userMap[d.opponentId].username : null),
+      challengerPlan: d.challengerPlan || (userMap[d.challengerId] ? userMap[d.challengerId].plan : 'free'),
+      opponentPlan: d.opponentPlan || (userMap[d.opponentId] ? userMap[d.opponentId].plan : 'free'),
+    }));
+    res.json(enriched);
   } catch {
     res.status(500).json({ error: 'Server error' });
   }

@@ -2452,10 +2452,11 @@ const App = {
         container.innerHTML = friends.map(f => {
           const fl = this.calcXPLevel(f.xp || 0);
           const fPro = f.plan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
+          const fHandle = f.username ? ` <span class="friend-handle">@${this.escapeHtml(f.username)}</span>` : '';
           return `
           <div class="doc-card friend-card">
             <div class="doc-card-info">
-              <h4>${this.escapeHtml(f.name)}${fPro}</h4>
+              <h4>${this.escapeHtml(f.name)}${fHandle}${fPro}</h4>
               <div class="friend-stats">
                 <span class="friend-stat" title="Total words"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>${(f.totalWords || 0).toLocaleString()}</span>
                 <span class="friend-stat" title="Streak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>${f.streak || 0}</span>
