@@ -446,7 +446,7 @@ const Editor = {
       const remaining = this.tabGracePeriod - awaySeconds;
       if (remaining > 0 && remaining <= this.tabGracePeriod) {
         const msg = this._tabReturnMessages[Math.floor(Math.random() * this._tabReturnMessages.length)];
-        const color = remaining > 7 ? '#4ade80' : remaining >= 4 ? '#facc15' : '#f87171';
+        const color = remaining > 7 ? cssVar('--success') : remaining >= 4 ? '#facc15' : '#f87171';
         App.toast(`<span style="font-weight:800;color:${color}">${remaining}s</span> left before deletion. ${msg}`, remaining <= 3 ? 'error' : 'warning');
       }
     }

@@ -1,3 +1,8 @@
+// Get CSS variable value from current theme
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 const App = {
   user: null,
   documents: [],
@@ -240,7 +245,7 @@ const App = {
       btn.disabled = true; btn.textContent = 'Sending...';
       try {
         const result = await API.sendFriendRequestByUsername(inviteUser);
-        status.style.color = '#4ade80';
+        status.style.color = 'var(--success)';
         status.textContent = result.autoAccepted ? 'You are now friends!' : 'Friend request sent!';
         setTimeout(() => { overlay.remove(); this._renderFriends(); }, 2000);
       } catch (err) {
@@ -3588,7 +3593,7 @@ const App = {
   },
 
   _pctArrow(pct) {
-    if (pct > 0) return `<span style="color:#4ade80">\u25B2 ${pct}%</span>`;
+    if (pct > 0) return `<span style="color:var(--success)">\u25B2 ${pct}%</span>`;
     if (pct < 0) return `<span style="color:#f87171">\u25BC ${Math.abs(pct)}%</span>`;
     return `<span style="color:var(--text-muted)">\u2014 0%</span>`;
   },
@@ -3797,7 +3802,7 @@ const App = {
           <div class="analytics-milestone-info">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <span style="font-weight:600;font-size:13px">${label} words</span>
-              ${!m.unlocked ? `<span style="font-size:11px;color:var(--text-muted)">${pct}%</span>` : '<span style="font-size:11px;color:#4ade80">Unlocked!</span>'}
+              ${!m.unlocked ? `<span style="font-size:11px;color:var(--text-muted)">${pct}%</span>` : '<span style="font-size:11px;color:var(--success)">Unlocked!</span>'}
             </div>
             ${!m.unlocked ? `<div class="analytics-milestone-bar"><div class="analytics-milestone-fill" style="width:${pct}%"></div></div>` : ''}
           </div>

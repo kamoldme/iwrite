@@ -436,31 +436,39 @@
 }
 
 /* ===== SEPIA THEME ===== */
+/* ══════════════════════════════════════════════════════════════
+   SEPIA THEME — Deep Parchment / Paper Palette
+   Accent: #C37E3F (copper/leather)
+   Background: #E8DCC8 (aged parchment)
+   ══════════════════════════════════════════════════════════════ */
 .sepia {
-  --bg-primary: #f4efe6;
-  --bg-secondary: #faf7f2;
-  --bg-card: #faf7f2;
-  --bg-card-hover: #f2ece0;
-  --bg-elevated: #f8f4ed;
-  --bg-glass: rgba(250, 247, 242, 0.92);
+  --bg-primary: #E8DCC8;
+  --bg-secondary: #DED2BE;
+  --bg-card: #F0E6D4;
+  --bg-card-hover: #E8DECE;
+  --bg-elevated: #EDE3D1;
+  --bg-glass: rgba(232, 220, 200, 0.92);
   --text-primary: #2c1f0e;
-  --text-secondary: rgba(44, 31, 14, 0.64);
-  --text-muted: rgba(44, 31, 14, 0.40);
-  --accent: #b45309;
-  --accent-soft: rgba(180, 83, 9, 0.10);
-  --accent-glow: rgba(180, 83, 9, 0.18);
-  --border: rgba(44, 31, 14, 0.10);
-  --border-light: rgba(44, 31, 14, 0.05);
-  --border-hover: rgba(44, 31, 14, 0.18);
-  --hover-bg: rgba(44, 31, 14, 0.04);
-  --shadow: 0 1px 3px rgba(44, 31, 14, 0.08), 0 0 0 1px rgba(44, 31, 14, 0.05);
-  --shadow-lg: 0 12px 40px rgba(44, 31, 14, 0.12), 0 0 0 1px rgba(44, 31, 14, 0.05);
-  --shadow-3d: 0 2px 8px rgba(44, 31, 14, 0.08), 0 1px 2px rgba(44, 31, 14, 0.05);
-  --shadow-glow: 0 0 30px rgba(180, 83, 9, 0.08);
-  --shadow-inset-glow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(244,239,230,0.4) 100%);
-  --gradient-hero: radial-gradient(ellipse at 50% 0%, rgba(180,83,9,0.05) 0%, transparent 60%);
-  --xp-color: #b45309;
+  --text-secondary: rgba(44, 31, 14, 0.68);
+  --text-muted: rgba(44, 31, 14, 0.44);
+  --accent: #C37E3F;
+  --accent-soft: rgba(195, 126, 63, 0.12);
+  --accent-glow: rgba(195, 126, 63, 0.22);
+  --success: #C37E3F;
+  --success-soft: rgba(195, 126, 63, 0.12);
+  --border: rgba(44, 31, 14, 0.12);
+  --border-light: rgba(44, 31, 14, 0.06);
+  --border-hover: rgba(44, 31, 14, 0.22);
+  --hover-bg: rgba(44, 31, 14, 0.05);
+  --shadow: 0 1px 3px rgba(44, 31, 14, 0.10), 0 0 0 1px rgba(44, 31, 14, 0.06);
+  --shadow-lg: 0 12px 40px rgba(44, 31, 14, 0.14), 0 0 0 1px rgba(44, 31, 14, 0.06);
+  --shadow-3d: 0 2px 8px rgba(44, 31, 14, 0.10), 0 1px 2px rgba(44, 31, 14, 0.06);
+  --shadow-glow: 0 0 30px rgba(195, 126, 63, 0.10);
+  --shadow-inset-glow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  --gradient-card: linear-gradient(135deg, rgba(240,230,212,0.6) 0%, rgba(232,220,200,0.3) 100%);
+  --gradient-hero: radial-gradient(ellipse at 50% 0%, rgba(195,126,63,0.06) 0%, transparent 60%);
+  --gradient-accent: linear-gradient(135deg, #C37E3F 0%, #D4954F 100%);
+  --xp-color: #C37E3F;
 }
 
 /* ── Sepia: base overrides ── */
@@ -468,101 +476,162 @@
   background: var(--bg-primary);
   color: var(--text-primary);
 }
+/* Paper texture — SVG noise filter for organic grain */
 .sepia body::before {
   background-image:
-    linear-gradient(rgba(44,31,14,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(44,31,14,0.04) 1px, transparent 1px);
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      rgba(139, 90, 43, 0.012) 1px,
+      transparent 2px,
+      transparent 4px
+    ),
+    repeating-linear-gradient(
+      120deg,
+      transparent,
+      rgba(139, 90, 43, 0.015) 1px,
+      transparent 2px,
+      transparent 5px
+    ),
+    repeating-linear-gradient(
+      60deg,
+      transparent,
+      rgba(139, 90, 43, 0.01) 1px,
+      transparent 3px,
+      transparent 6px
+    );
+  opacity: 1;
 }
+/* Vignette — aged paper edge darkening */
 .sepia body::after {
-  background: radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(44,31,14,0.06) 100%);
+  background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(139, 90, 43, 0.08) 100%);
 }
 
 /* ── Sepia: nav ── */
 .sepia .nav {
-  background: rgba(244, 239, 230, 0.94);
+  background: rgba(222, 210, 190, 0.94);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
-.sepia .logo { text-shadow: none; }
+.sepia .logo { text-shadow: none; color: #5C3A1E; }
 
 /* ── Sepia: sidebar ── */
 .sepia .sidebar {
   background: var(--bg-secondary);
   border-right-color: var(--border);
-  box-shadow: 1px 0 8px rgba(44,31,14,0.04);
+  box-shadow: 1px 0 8px rgba(44,31,14,0.06);
 }
 .sepia .sidebar-nav-item.active {
-  background: rgba(180, 83, 9, 0.08);
-  border-color: rgba(180, 83, 9, 0.18);
+  background: rgba(195, 126, 63, 0.12);
+  border-color: rgba(195, 126, 63, 0.24);
   box-shadow: none;
 }
+.sepia .sidebar-nav-item:hover {
+  background: rgba(195, 126, 63, 0.06);
+}
 .sepia .user-avatar {
-  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.20);
+  box-shadow: 0 2px 8px rgba(195, 126, 63, 0.25);
 }
 
 /* ── Sepia: buttons ── */
 .sepia .btn-small,
 .sepia .btn-primary {
-  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.20);
+  background: #C37E3F;
+  box-shadow: 0 2px 8px rgba(195, 126, 63, 0.25);
 }
 .sepia .btn-small:hover,
 .sepia .btn-primary:hover {
-  box-shadow: 0 4px 16px rgba(180, 83, 9, 0.25);
+  background: #B06E32;
+  box-shadow: 0 4px 16px rgba(195, 126, 63, 0.30);
 }
-.sepia .btn-ghost { border-color: var(--border); }
-.sepia .btn-ghost:hover { border-color: rgba(180, 83, 9, 0.3); }
+.sepia .btn-ghost { border-color: rgba(195, 126, 63, 0.25); color: #C37E3F; }
+.sepia .btn-ghost:hover { border-color: rgba(195, 126, 63, 0.4); background: rgba(195, 126, 63, 0.06); }
 
 /* ── Sepia: dashboard cards ── */
 .sepia .stat-card,
 .sepia .dash-stat-card {
+  background: var(--bg-card);
   box-shadow: var(--shadow);
 }
 .sepia .dash-stat-card:hover {
-  box-shadow: 0 12px 36px rgba(44, 31, 14, 0.10);
-  border-color: rgba(180, 83, 9, 0.14);
+  box-shadow: 0 12px 36px rgba(44, 31, 14, 0.12);
+  border-color: rgba(195, 126, 63, 0.18);
 }
-.sepia .dashboard-hero { box-shadow: var(--shadow); }
+.sepia .dashboard-hero { box-shadow: var(--shadow); background: var(--bg-card); }
 .sepia .dashboard-hero::before {
-  background: radial-gradient(circle, rgba(180,83,9,0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(195,126,63,0.06) 0%, transparent 70%);
 }
 
-/* ── Sepia: heatmap ── */
-.sepia .heatmap-cell[data-level="0"] { background: rgba(44, 31, 14, 0.05); }
-.sepia .heatmap-cell[data-level="1"] { background: rgba(180, 83, 9, 0.22); }
-.sepia .heatmap-cell[data-level="2"] { background: rgba(180, 83, 9, 0.44); }
-.sepia .heatmap-cell[data-level="3"] { background: rgba(180, 83, 9, 0.68); }
-.sepia .heatmap-legend-cell[data-level="0"] { background: rgba(44,31,14,0.05); }
-.sepia .heatmap-legend-cell[data-level="1"] { background: rgba(180,83,9,0.22); }
-.sepia .heatmap-legend-cell[data-level="2"] { background: rgba(180,83,9,0.44); }
-.sepia .heatmap-legend-cell[data-level="3"] { background: rgba(180,83,9,0.68); }
+/* ── Sepia: heatmap — copper tones ── */
+.sepia .heatmap-cell[data-level="0"] { background: rgba(44, 31, 14, 0.06); }
+.sepia .heatmap-cell[data-level="1"] { background: rgba(195, 126, 63, 0.25); }
+.sepia .heatmap-cell[data-level="2"] { background: rgba(195, 126, 63, 0.50); }
+.sepia .heatmap-cell[data-level="3"] { background: rgba(195, 126, 63, 0.75); }
+.sepia .heatmap-legend-cell[data-level="0"] { background: rgba(44,31,14,0.06); }
+.sepia .heatmap-legend-cell[data-level="1"] { background: rgba(195,126,63,0.25); }
+.sepia .heatmap-legend-cell[data-level="2"] { background: rgba(195,126,63,0.50); }
+.sepia .heatmap-legend-cell[data-level="3"] { background: rgba(195,126,63,0.75); }
 
 /* ── Sepia: XP bar ── */
-.sepia .xp-bar-fill { box-shadow: 0 0 8px rgba(180, 83, 9, 0.18); }
+.sepia .xp-bar-fill { background: #C37E3F; box-shadow: 0 0 8px rgba(195, 126, 63, 0.22); }
+.sepia .xp-bar { background: rgba(44, 31, 14, 0.08); }
 
 /* ── Sepia: document cards ── */
+.sepia .doc-card { background: var(--bg-card); }
 .sepia .doc-card:hover {
-  box-shadow: 0 8px 28px rgba(44, 31, 14, 0.10);
-  border-color: rgba(180, 83, 9, 0.16);
+  box-shadow: 0 8px 28px rgba(44, 31, 14, 0.12);
+  border-color: rgba(195, 126, 63, 0.20);
 }
-.sepia .doc-action-btn { background: rgba(44, 31, 14, 0.03); }
+.sepia .doc-action-btn { background: rgba(44, 31, 14, 0.04); }
 
-/* ── Sepia: editor ── */
-.sepia .editor-back-btn { background: rgba(44, 31, 14, 0.03); }
-.sepia .danger-progress { background: rgba(44, 31, 14, 0.05); }
+/* ── Sepia: editor — writing on paper ── */
+.sepia .editor-back-btn { background: rgba(44, 31, 14, 0.04); }
+.sepia .danger-progress { background: rgba(44, 31, 14, 0.06); }
+.sepia .danger-progress-fill { background: #C37E3F; }
+.sepia .editor-area,
+.sepia .ql-editor,
+.sepia #editor-container { background: var(--bg-card); }
 
 /* ── Sepia: modals ── */
-.sepia .modal-overlay { background: rgba(44, 31, 14, 0.5); }
+.sepia .modal-overlay { background: rgba(44, 31, 14, 0.55); }
 .sepia .modal { background: var(--bg-card); }
 
 /* ── Sepia: toast ── */
-.sepia .toast { background: var(--bg-elevated); color: var(--text-primary); }
+.sepia .toast { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
 
 /* ── Sepia: selection popup ── */
 .sepia .selection-popup {
-  background: var(--bg-elevated);
+  background: var(--bg-card);
   border-color: var(--border);
   box-shadow: var(--shadow-lg);
 }
+
+/* ── Sepia: inputs & forms ── */
+.sepia input, .sepia textarea, .sepia select {
+  background: var(--bg-card);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+.sepia input:focus, .sepia textarea:focus, .sepia select:focus {
+  border-color: rgba(195, 126, 63, 0.4);
+  box-shadow: 0 0 0 3px rgba(195, 126, 63, 0.1);
+}
+
+/* ── Sepia: duel cards — copper tones ── */
+.sepia .duel-history-card.won { border-left-color: #C37E3F; }
+.sepia .dhc-badge.won { background: rgba(195, 126, 63, 0.12); color: #C37E3F; }
+
+/* ── Sepia: friend cards ── */
+.sepia .friend-card { background: var(--bg-card); }
+.sepia .friend-card:hover { box-shadow: 0 8px 28px rgba(44, 31, 14, 0.10); }
+
+/* ── Sepia: analytics charts ── */
+.sepia .analytics-bar { background: #C37E3F !important; }
+
+/* ── Sepia: scrollbar ── */
+.sepia ::-webkit-scrollbar-thumb { background: rgba(195, 126, 63, 0.25); }
+.sepia ::-webkit-scrollbar-thumb:hover { background: rgba(195, 126, 63, 0.40); }
+.sepia ::-webkit-scrollbar-track { background: rgba(44, 31, 14, 0.04); }
 
 /* ===== SESSION ANALYTICS ===== */
 .analytics-grid {
