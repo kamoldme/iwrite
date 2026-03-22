@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,900&family=Instrument+Sans:wght@400;500;600;700&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="/iWrite logo.png">
-  <link rel="stylesheet" href="/css/style.css?v=11">
+  <link rel="stylesheet" href="/css/style.css?v=12">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -48,7 +48,7 @@
         <div class="sidebar-header">
           <div style="display:flex;flex-direction:column">
             <a href="/" class="logo">iWrite4.me</a>
-            <span class="version-tag">v2.2.3</span>
+            <span class="version-tag">v2.2.4</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="streak-indicator" id="streak-badge" style="display:none;cursor:pointer" onclick="App.openStreakPopup()">
@@ -159,7 +159,7 @@
               <div class="dash-stat-value" id="total-words">0</div>
               <div class="dash-stat-label">Session Words</div>
             </div>
-            <div class="dash-stat-card dash-stat-sessions">
+            <div class="dash-stat-card dash-stat-sessions" style="cursor:pointer" onclick="App.switchView('documents')">
               <div class="dash-stat-emoji">&#x1F3AF;</div>
               <div class="dash-stat-value" id="total-sessions">0</div>
               <div class="dash-stat-label">Sessions Done</div>
@@ -314,9 +314,15 @@
 
         <!-- FRIENDS VIEW -->
         <div id="view-friends" class="view" style="display:none">
-          <div class="dashboard-header">
-            <h1>&#x1F46B; Friends</h1>
-            <p>Add friends by their email to challenge them to writing duels.</p>
+          <div class="dashboard-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+            <div>
+              <h1>&#x1F46B; Friends</h1>
+              <p>Add friends by their email to challenge them to writing duels.</p>
+            </div>
+            <button class="btn btn-small" id="copy-invite-link-btn" style="white-space:nowrap;display:flex;align-items:center;gap:6px;flex-shrink:0">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+              Copy Invite Link
+            </button>
           </div>
           <div class="friends-split-layout">
             <!-- Left: Friends list -->
@@ -452,10 +458,6 @@
                 Share My Progress
               </button>
               <div class="share-dropdown" id="share-dropdown" style="display:none">
-                <button class="share-dropdown-item" id="share-copy-link">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-                  Copy Friend Link
-                </button>
                 <button class="share-dropdown-item" id="share-download-card">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Download stat card
@@ -1102,10 +1104,10 @@
     </div>
   </div>
 
-  <script src="/js/api.js?v=11"></script>
-  <script src="/js/tree.js?v=11"></script>
-  <script src="/js/monsters.js?v=11"></script>
-  <script src="/js/editor.js?v=11"></script>
-  <script src="/js/app.js?v=11"></script>
+  <script src="/js/api.js?v=12"></script>
+  <script src="/js/tree.js?v=12"></script>
+  <script src="/js/monsters.js?v=12"></script>
+  <script src="/js/editor.js?v=12"></script>
+  <script src="/js/app.js?v=12"></script>
 </body>
 </html>

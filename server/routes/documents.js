@@ -427,8 +427,8 @@ router.get('/analytics/sessions', async (req, res) => {
   const completed = docs.filter(d => d.xpEarned > 0);
 
   // ── Basic stats (all users) ──
-  // Calculate from actual documents (user.totalWords can be inflated by repeated completions)
-  const totalSessions = completed.length;
+  // Use user.totalSessions as source of truth (incremented on each completion)
+  const totalSessions = user.totalSessions || completed.length;
   const totalWords = completed.reduce((s, d) => s + (d.wordCount || 0), 0);
   const totalWritingTime = completed.reduce((s, d) => s + (d.duration || 0), 0);
 

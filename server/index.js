@@ -23,7 +23,9 @@ app.set('trust proxy', 1);
 // CORS — lock to your domain
 const allowedOrigins = [
   'https://iwrite4.me',
-  'https://www.iwrite4.me'
+  'https://www.iwrite4.me',
+  'https://write4.me',
+  'https://www.write4.me'
 ];
 if (process.env.NODE_ENV !== 'production') {
   allowedOrigins.push('http://localhost:3000', 'http://localhost:5173');
@@ -226,19 +228,20 @@ app.get('/join/:code', async (req, res) => {
   const streak = referrer ? (referrer.streak || 0) : 0;
   const words = referrer ? (referrer.totalWords || 0) : 0;
   const desc = `${name} invited you to iWrite4.me — a writing tool that keeps you focused. ${words > 0 ? `${words.toLocaleString()} words written${streak > 0 ? `, ${streak}-day streak` : ''}.` : 'If you stop typing, it deletes your work.'}`;
+  const origin = `https://${req.get('host') || 'iwrite4.me'}`;
 
   res.send(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <title>${name} invited you to iWrite4.me</title>
     <meta property="og:title" content="${name} invited you to iWrite4.me">
     <meta property="og:description" content="${desc}">
-    <meta property="og:image" content="https://iwrite4.me/og-image.png">
-    <meta property="og:url" content="https://iwrite4.me/join/${req.params.code}">
+    <meta property="og:image" content="${origin}/og-image.png">
+    <meta property="og:url" content="${origin}/join/${req.params.code}">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${name} invited you to iWrite4.me">
     <meta name="twitter:description" content="${desc}">
-    <meta name="twitter:image" content="https://iwrite4.me/og-image.png">
+    <meta name="twitter:image" content="${origin}/og-image.png">
     <meta http-equiv="refresh" content="0;url=/app?ref=${encodeURIComponent(req.params.code)}">
   </head><body></body></html>`);
 });
@@ -415,19 +418,20 @@ app.get('/invite/:username', async (req, res) => {
   const level = user ? (user.level || 1) : 1;
   const sessions = user ? (user.totalSessions || 0) : 0;
   const desc = `${name} wants to be your writing buddy on iWrite4.me! ${words > 0 ? `${words.toLocaleString()} words written · Level ${level}${streak > 0 ? ` · ${streak}-day streak` : ''} · ${sessions} sessions.` : 'A distraction-free writing tool — if you stop typing, it deletes your work.'}`;
+  const origin = `https://${req.get('host') || 'iwrite4.me'}`;
 
   res.send(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <title>Write with ${name} on iWrite4.me</title>
     <meta property="og:title" content="Write with ${name} on iWrite4.me">
     <meta property="og:description" content="${desc}">
-    <meta property="og:image" content="https://iwrite4.me/og-image.png">
-    <meta property="og:url" content="https://iwrite4.me/invite/${encodeURIComponent(username)}">
+    <meta property="og:image" content="${origin}/og-image.png">
+    <meta property="og:url" content="${origin}/invite/${encodeURIComponent(username)}">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Write with ${name} on iWrite4.me">
     <meta name="twitter:description" content="${desc}">
-    <meta name="twitter:image" content="https://iwrite4.me/og-image.png">
+    <meta name="twitter:image" content="${origin}/og-image.png">
     <meta http-equiv="refresh" content="0;url=/app?invite=${encodeURIComponent(username)}&view=friends">
   </head><body></body></html>`);
 });

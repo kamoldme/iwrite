@@ -2349,6 +2349,15 @@ const App = {
   },
 
   async loadFriends() {
+    // Copy Invite Link button
+    const copyInvBtn = document.getElementById('copy-invite-link-btn');
+    if (copyInvBtn) {
+      copyInvBtn.onclick = () => {
+        const link = `${window.location.origin}/invite/${this.user.username || ''}`;
+        navigator.clipboard.writeText(link).then(() => this.toast('Invite link copied!', 'success'));
+      };
+    }
+
     const container = document.getElementById('friends-list');
     const reqSection = document.getElementById('friend-requests-section');
     const sugSection = document.getElementById('friend-suggestions-section');
@@ -3766,10 +3775,6 @@ const App = {
       const friendLink = () => `${window.location.origin}/invite/${this.user.username || ''}`;
       const shareText = () => `iWrite4.me — a distraction-free writing tool that keeps you focused. If you stop typing, it deletes your work.\n\nTry it: ${friendLink()}`;
 
-      document.getElementById('share-copy-link').onclick = () => {
-        navigator.clipboard.writeText(friendLink()).then(() => this.toast('Friend link copied!', 'success'));
-        shareDropdown.style.display = 'none';
-      };
       document.getElementById('share-download-card').onclick = () => {
         this._shareAnalyticsCard();
         shareDropdown.style.display = 'none';
