@@ -667,6 +667,7 @@ const App = {
     if (view === 'friends') this.loadFriends();
     if (view === 'support') this.loadSupport();
     if (view === 'analytics') this.loadAnalytics();
+    if (view === 'upgrade') this.loadUpgrade();
     if (view === 'duels') {
       this.loadDuelsView();
       // Auto-refresh duels tab every 10 seconds while viewing
@@ -712,6 +713,10 @@ const App = {
       }
       badge.className = 'plan-badge' + (isPro ? ' pro' : '');
     }
+
+    // Hide Upgrade nav for Pro users
+    const upgradeNav = document.getElementById('upgrade-nav-btn');
+    if (upgradeNav) upgradeNav.style.display = (this.user.plan === 'premium') ? 'none' : '';
 
     if (this.user.streak > 0) {
       document.getElementById('streak-badge').style.display = 'flex';
@@ -2135,10 +2140,6 @@ const App = {
       year: 'numeric', month: 'long', day: 'numeric'
     });
 
-    // Plan cards in profile
-    const planCardsEl = document.getElementById('profile-plan-cards');
-    if (planCardsEl) planCardsEl.innerHTML = this._planFeaturesHTML();
-
     // Avatar
     const letter = this.user.name.charAt(0).toUpperCase();
     const letterEl = document.getElementById('profile-avatar-letter');
@@ -2239,6 +2240,11 @@ const App = {
     } catch (e) {
       wrap.innerHTML = '';
     }
+  },
+
+  loadUpgrade() {
+    const el = document.getElementById('upgrade-plan-cards');
+    if (el) el.innerHTML = this._planFeaturesHTML();
   },
 
   getAchievements() {
