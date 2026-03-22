@@ -10,6 +10,15 @@ const { generateToken, authenticate, checkSubscriptionExpiry } = require('../mid
 const { logAction } = require('../utils/logger');
 const { OAuth2Client } = require('google-auth-library');
 
+// Streak → tree stage mapping (30 days = max)
+const TREE_STAGE_THRESHOLDS = [0, 1, 3, 5, 8, 11, 14, 17, 20, 23, 27, 30];
+function streakToTreeStage(streak) {
+  for (let i = TREE_STAGE_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (streak >= TREE_STAGE_THRESHOLDS[i]) return i;
+  }
+  return 0;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -196,6 +205,12 @@ router.get('/me', authenticate, checkSubscriptionExpiry, async (req, res) => {
         treeStage: 0
       });
     }
+  }
+
+  // Recalculate treeStage from current streak (new scale)
+  const correctTreeStage = streakToTreeStage(user.streak || 0);
+  if (user.treeStage !== correctTreeStage) {
+    user = await updateOne('users.json', u => u.id === req.user.id, { treeStage: correctTreeStage });
   }
 
   const { password: _, ...safeUser } = user;

@@ -5,6 +5,15 @@ const { logAction } = require('../utils/logger');
 const bcrypt = require('bcryptjs');
 const { v4: uuid } = require('uuid');
 
+// Streak → tree stage mapping (30 days = max)
+const TREE_STAGE_THRESHOLDS = [0, 1, 3, 5, 8, 11, 14, 17, 20, 23, 27, 30];
+function streakToTreeStage(streak) {
+  for (let i = TREE_STAGE_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (streak >= TREE_STAGE_THRESHOLDS[i]) return i;
+  }
+  return 0;
+}
+
 const router = express.Router();
 router.use(authenticate, requireAdmin);
 
@@ -76,7 +85,7 @@ router.patch('/users/:id', async (req, res) => {
 
   // Auto-sync treeStage when streak is changed
   if (updates.streak !== undefined && updates.treeStage === undefined) {
-    updates.treeStage = Math.min(Math.max(updates.streak, 0), 10);
+    updates.treeStage = streakToTreeStage(updates.streak);
     // Also update lastWritingDate to today so the streak doesn't immediately reset
     if (updates.streak > 0) {
       updates.lastWritingDate = new Date().toISOString().split('T')[0];

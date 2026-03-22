@@ -4,6 +4,15 @@ const { findOne, findMany, insertOne, updateOne, deleteOne } = require('../utils
 const { authenticate } = require('../middleware/auth');
 const { logAction } = require('../utils/logger');
 
+// Streak → tree stage mapping (30 days = max)
+const TREE_STAGE_THRESHOLDS = [0, 1, 3, 5, 8, 11, 14, 17, 20, 23, 27, 30];
+function streakToTreeStage(streak) {
+  for (let i = TREE_STAGE_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (streak >= TREE_STAGE_THRESHOLDS[i]) return i;
+  }
+  return 0;
+}
+
 // Activity generation for friends feed
 const WORD_MILESTONES = [1000, 5000, 10000, 25000, 50000, 100000];
 const STREAK_MILESTONES = [7, 14, 30, 50, 100];
@@ -266,15 +275,15 @@ router.post('/:id/complete', async (req, res) => {
   if (lastDate === today) {
     // already wrote today — no streak or tree change
     newStreak = user.streak;
-    newTreeStage = user.treeStage || 0;
+    newTreeStage = streakToTreeStage(newStreak);
   } else if (lastDate === yesterday) {
-    // streak continues — tree grows one stage
+    // streak continues
     newStreak = user.streak + 1;
-    newTreeStage = Math.min(11, (user.treeStage || 0) + 1);
+    newTreeStage = streakToTreeStage(newStreak);
   } else {
     // streak broken — tree resets from the beginning
     newStreak = 1;
-    newTreeStage = 1;
+    newTreeStage = streakToTreeStage(1);
   }
 
   const totalWords = (user.totalWords || 0) + (wordCount || 0);

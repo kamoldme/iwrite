@@ -1450,10 +1450,22 @@ const App = {
 
   startSession() {
     // Monthly session limit is enforced server-side (invisible to user)
+    const targetInput = parseInt(document.getElementById('session-target-words').value) || 0;
+    if (targetInput > 0 && targetInput <= 50) {
+      const jokes = [
+        "Bro, are you even planning to write something? 😂",
+        "50 words? That's barely a text message 💀",
+        "Come on, even a grocery list is longer than that 🛒",
+        "Is this a writing session or a tweet? 🐦",
+        "Your target should be at least 51 words. Dream bigger! ✨"
+      ];
+      this.showToast(jokes[Math.floor(Math.random() * jokes.length)], 'warning');
+      return;
+    }
     this.closeSessionModal();
     // Show document name modal before starting
     this._pendingTopic = document.getElementById('session-topic-input').value.trim();
-    this._pendingTargetWords = parseInt(document.getElementById('session-target-words').value) || 0;
+    this._pendingTargetWords = targetInput;
     document.getElementById('doc-name-input').value = '';
     document.getElementById('doc-name-modal').classList.add('active');
   },
@@ -4469,7 +4481,7 @@ const App = {
         <h4 style="margin-top:16px;margin-bottom:8px">XP & Levels</h4>
         <p>Earn XP for every session based on words written and time spent. Level up with increasing thresholds.</p>
         <h4 style="margin-top:16px;margin-bottom:8px">Streaks & Writing Tree</h4>
-        <p>Write every day to grow your streak and watch your tree evolve through 12 stages — from seed to forest.</p>
+        <p>Write every day to grow your streak and watch your tree evolve through 12 stages — from seed to forest over 30 days.</p>
         <h4 style="margin-top:16px;margin-bottom:8px">Leaderboard</h4>
         <p>Top 10 writers displayed with a podium for the top 3. See where you rank.</p>
         <h4 style="margin-top:16px;margin-bottom:8px">Google Sign-In</h4>
@@ -4499,8 +4511,8 @@ const App = {
     },
     'tree': {
       title: 'Your Writing Tree',
-      html: `<p>Your tree is a visual reflection of your consistency. It grows one stage each day you complete a session.</p>
-        <ul><li>12 stages: Seed, Sprout, Seedling, Sapling, Young Tree, Growing Tree, Mature Tree, Strong Tree, Grand Tree, Ancient Tree, World Tree, <strong>Forest</strong></li><li>Break your streak and your tree <strong>resets back to a seed</strong>.</li><li>Active streaks give your tree a warm golden glow.</li></ul>`
+      html: `<p>Your tree is a visual reflection of your consistency. It evolves as your streak grows — reaching full Forest at 30 days.</p>
+        <ul><li>12 stages: Seed → Sprout (1d) → Seedling (3d) → Sapling (5d) → Young Tree (8d) → Growing Tree (11d) → Mature Tree (14d) → Strong Tree (17d) → Grand Tree (20d) → Ancient Tree (23d) → World Tree (27d) → <strong>Forest (30d)</strong></li><li>Break your streak and your tree <strong>resets back to a seed</strong>.</li><li>Active streaks give your tree a warm golden glow.</li></ul>`
     },
     'leaderboard': {
       title: 'Leaderboard',
