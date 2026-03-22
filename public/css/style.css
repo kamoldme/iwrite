@@ -5049,13 +5049,13 @@ body.editor-active .mobile-sidebar-toggle {
 }
 .toast-pro-badge {
   display: inline-block;
-  padding: 0px 12px;
-  background: linear-gradient(135deg, #f59e0b, #f97316);
+  font-size: 9px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   color: #000;
-  font-weight: 800;
-  font-size: 12px;
-  border-radius: 6px;
-  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  margin: 0 4px;
   vertical-align: baseline;
 }
 

@@ -3500,7 +3500,7 @@ const App = {
     if (this.toastTimer) clearTimeout(this.toastTimer);
     const el = document.getElementById('toast');
     // Replace "Pro" with styled orange gradient badge
-    const styled = message.replace(/\bPro\b/g, '<span class="toast-pro-badge">Pro</span>');
+    const styled = message.replace(/\bPro\b/g, '<span class="toast-pro-badge">PRO</span>');
     el.innerHTML = styled;
     el.className = `toast visible ${type}`;
     this.toastTimer = setTimeout(() => {
