@@ -42,6 +42,13 @@ const App = {
       localStorage.setItem('iwrite_pending_invite', inviteUser);
     }
 
+    // Persist referral code across login flow
+    const refCode = params.get('ref');
+    if (refCode) {
+      localStorage.setItem('iwrite_ref', refCode);
+      window.history.replaceState({}, document.title, '/app');
+    }
+
     const token = API.getToken();
     if (!token) {
       this.showAuth();
@@ -119,7 +126,7 @@ const App = {
       const res = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential: response.credential })
+        body: JSON.stringify({ credential: response.credential, ref: localStorage.getItem('iwrite_ref') || undefined })
       });
 
       if (!res.ok) {
@@ -131,6 +138,7 @@ const App = {
 
       const data = await res.json();
       API.setToken(data.token);
+      localStorage.removeItem('iwrite_ref');
       this.user = data.user;
       if (this.user.role === 'admin') {
         localStorage.setItem('iwrite_admin_token', data.token);
@@ -2193,6 +2201,44 @@ const App = {
         <p>${a.description}</p>
       </div>
     `).join('');
+
+    // Referral section
+    this._loadReferral();
+  },
+
+  async _loadReferral() {
+    const wrap = document.getElementById('referral-section');
+    if (!wrap) return;
+    try {
+      const data = await API.request('/auth/referral');
+      const link = `${window.location.origin}/join/${data.referralCode}`;
+      const progress = data.progress; // 0-4
+      const dots = Array.from({length: 5}, (_, i) =>
+        `<div class="referral-dot ${i < progress ? 'filled' : ''}"></div>`
+      ).join('');
+
+      wrap.innerHTML = `
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">Invite Friends</h3>
+        <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px">
+          Invite 5 friends and get <strong>1 month of Pro free</strong>. They just need to sign up through your link.
+        </p>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <input type="text" value="${link}" readonly style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;color:var(--text-primary);font-size:13px;font-family:var(--font-mono)">
+          <button onclick="navigator.clipboard.writeText('${link}').then(()=>App.toast('Link copied!','success'))" class="btn btn-small" style="white-space:nowrap">Copy</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="display:flex;gap:6px">${dots}</div>
+          <span style="color:var(--text-secondary);font-size:13px">${data.referralCount} invited · ${5 - progress} more for Pro</span>
+        </div>
+        ${data.referredUsers.length ? `
+          <div style="margin-top:12px;font-size:12px;color:var(--text-muted)">
+            ${data.referredUsers.map(u => `<span style="margin-right:8px">✓ ${u.name}</span>`).join('')}
+          </div>
+        ` : ''}
+      `;
+    } catch (e) {
+      wrap.innerHTML = '';
+    }
   },
 
   getAchievements() {

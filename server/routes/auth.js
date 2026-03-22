@@ -45,6 +45,14 @@ function validateUsername(username) {
   return null;
 }
 
+function generateReferralCode() {
+  // 8-char alphanumeric code
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 function generateRandomUsername() {
   const adjectives = ['swift', 'bright', 'quiet', 'bold', 'keen', 'wild', 'calm', 'warm', 'cool', 'free'];
   const nouns = ['writer', 'scribe', 'author', 'poet', 'muse', 'quill', 'ink', 'page', 'story', 'word'];
@@ -111,11 +119,35 @@ router.post('/register', async (req, res) => {
       sentRequests: [],
       sharedTokens: [],
       lastUsernameChange: null,
+      referralCode: generateReferralCode(),
+      referredBy: null,
+      referralCount: 0,
       createdAt: new Date().toISOString()
     };
 
+    // Handle referral — credit the referrer
+    const { ref } = req.body;
+    if (ref) {
+      const referrer = await findOne('users.json', u => u.referralCode === ref);
+      if (referrer && referrer.id !== user.id) {
+        user.referredBy = ref;
+        const newCount = (referrer.referralCount || 0) + 1;
+        const updates = { referralCount: newCount };
+        // Every 5 referrals → grant 1 month of Pro
+        if (newCount % 5 === 0) {
+          const now = new Date();
+          const currentExpiry = referrer.planExpiresAt ? new Date(referrer.planExpiresAt) : now;
+          const base = currentExpiry > now ? currentExpiry : now;
+          updates.plan = 'premium';
+          updates.planStartedAt = updates.planStartedAt || now.toISOString();
+          updates.planExpiresAt = new Date(base.getTime() + 30 * 86400000).toISOString();
+        }
+        await updateOne('users.json', u => u.id === referrer.id, updates);
+      }
+    }
+
     await insertOne('users.json', user);
-    logAction('user_registered', { name: user.name, email: user.email }, user.id);
+    logAction('user_registered', { name: user.name, email: user.email, referredBy: ref || null }, user.id);
     const token = generateToken(user);
     const { password: _, ...safeUser } = user;
     res.status(201).json({ token, user: safeUser });
@@ -150,8 +182,22 @@ router.post('/login', async (req, res) => {
 });
 
 router.get('/me', authenticate, checkSubscriptionExpiry, async (req, res) => {
-  const user = await findOne('users.json', u => u.id === req.user.id);
+  let user = await findOne('users.json', u => u.id === req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
+
+  // Real-time streak check — if lastWritingDate is older than yesterday, streak is broken
+  if (user.lastWritingDate && user.streak > 0) {
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    if (user.lastWritingDate !== today && user.lastWritingDate !== yesterday) {
+      // Streak broken — reset streak and tree
+      user = await updateOne('users.json', u => u.id === req.user.id, {
+        streak: 0,
+        treeStage: 0
+      });
+    }
+  }
+
   const { password: _, ...safeUser } = user;
   // If subscription just expired during this request, notify the frontend
   if (req.subscriptionExpired) {
@@ -326,11 +372,35 @@ router.post('/google', async (req, res) => {
         sentRequests: [],
         sharedTokens: [],
         lastUsernameChange: null,
+        referralCode: generateReferralCode(),
+        referredBy: null,
+        referralCount: 0,
         needsProfile: true,
         createdAt: new Date().toISOString()
       };
+
+      // Handle referral — credit the referrer
+      const { ref } = req.body;
+      if (ref) {
+        const referrer = await findOne('users.json', u => u.referralCode === ref);
+        if (referrer && referrer.id !== user.id) {
+          user.referredBy = ref;
+          const newCount = (referrer.referralCount || 0) + 1;
+          const updates = { referralCount: newCount };
+          if (newCount % 5 === 0) {
+            const now = new Date();
+            const currentExpiry = referrer.planExpiresAt ? new Date(referrer.planExpiresAt) : now;
+            const base = currentExpiry > now ? currentExpiry : now;
+            updates.plan = 'premium';
+            updates.planStartedAt = updates.planStartedAt || now.toISOString();
+            updates.planExpiresAt = new Date(base.getTime() + 30 * 86400000).toISOString();
+          }
+          await updateOne('users.json', u => u.id === referrer.id, updates);
+        }
+      }
+
       await insertOne('users.json', user);
-      logAction('user_registered_google', { name: user.name, email: user.email }, user.id);
+      logAction('user_registered_google', { name: user.name, email: user.email, referredBy: user.referredBy }, user.id);
     }
 
     const token = generateToken(user);
@@ -376,6 +446,41 @@ router.delete('/avatar', authenticate, async (req, res) => {
     res.json(safeUser);
   } catch (err) {
     res.status(500).json({ error: 'Failed to remove avatar' });
+  }
+});
+
+// ===== REFERRAL =====
+router.get('/referral', authenticate, async (req, res) => {
+  try {
+    let user = await findOne('users.json', u => u.id === req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Backfill referral code for existing users who don't have one
+    if (!user.referralCode) {
+      user = await updateOne('users.json', u => u.id === req.user.id, {
+        referralCode: generateReferralCode(),
+        referralCount: user.referralCount || 0,
+        referredBy: user.referredBy || null
+      });
+    }
+
+    // Find users who were referred by this user
+    const { findMany } = require('../utils/storage');
+    const referred = await findMany('users.json', u => u.referredBy === user.referralCode);
+    const referredList = referred.map(u => ({
+      name: (u.name || '').split(' ')[0],
+      joinedAt: u.createdAt
+    }));
+
+    res.json({
+      referralCode: user.referralCode,
+      referralCount: user.referralCount || 0,
+      referredUsers: referredList,
+      nextRewardAt: Math.ceil(((user.referralCount || 0) + 1) / 5) * 5,
+      progress: (user.referralCount || 0) % 5
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

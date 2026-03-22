@@ -201,6 +201,11 @@ app.get('/api/active-users', (req, res) => {
   });
 });
 
+// Referral link redirect
+app.get('/join/:code', (req, res) => {
+  res.redirect(302, `/app?ref=${encodeURIComponent(req.params.code)}`);
+});
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/documents', require('./routes/documents'));

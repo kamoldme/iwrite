@@ -4446,6 +4446,18 @@ body.editor-active .mobile-sidebar-toggle {
   border-color: rgba(74, 222, 128, 0.4);
 }
 
+.referral-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+.referral-dot.filled {
+  background: var(--success);
+  border-color: var(--success);
+}
+
 .achievement-icon {
   font-size: 24px;
   margin-bottom: 6px;
