@@ -2221,7 +2221,7 @@ const App = {
       wrap.innerHTML = `
         <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">Invite Friends</h3>
         <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px">
-          Invite 5 friends and get <strong>1 month of Pro free</strong>. They just need to sign up through your link.
+          Invite 5 friends and get <strong style="color:var(--success)">1 month of Pro free</strong>. They just need to sign up through your link.
         </p>
         <div style="display:flex;gap:8px;margin-bottom:16px">
           <input type="text" value="${link}" readonly style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;color:var(--text-primary);font-size:13px;font-family:var(--font-mono)">
