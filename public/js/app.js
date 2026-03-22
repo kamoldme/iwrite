@@ -714,14 +714,16 @@ const App = {
       badge.className = 'plan-badge' + (isPro ? ' pro' : '');
     }
 
-    // Hide Upgrade nav + dividers for Pro users
+    // Hide Upgrade nav + dividers for Pro users, show profile-support divider instead
     const upgradeNav = document.getElementById('upgrade-nav-btn');
     const upgradeDivTop = document.getElementById('upgrade-divider-top');
     const upgradeDivBottom = document.getElementById('upgrade-divider-bottom');
+    const proProfileDiv = document.getElementById('pro-profile-divider');
     const hideUpgrade = this.user.plan === 'premium';
     if (upgradeNav) upgradeNav.style.display = hideUpgrade ? 'none' : '';
     if (upgradeDivTop) upgradeDivTop.style.display = hideUpgrade ? 'none' : '';
     if (upgradeDivBottom) upgradeDivBottom.style.display = hideUpgrade ? 'none' : '';
+    if (proProfileDiv) proProfileDiv.style.display = hideUpgrade ? '' : 'none';
 
     if (this.user.streak > 0) {
       document.getElementById('streak-badge').style.display = 'flex';

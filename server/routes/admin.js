@@ -180,15 +180,34 @@ router.delete('/users/:id', async (req, res) => {
 
 // ===== DOCUMENTS =====
 router.get('/documents', async (req, res) => {
-  const docs = await findMany('documents.json');
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(10, parseInt(req.query.limit) || 50));
+  const search = (req.query.search || '').trim().toLowerCase();
+
+  const allDocs = await findMany('documents.json');
   const users = await findMany('users.json');
   const userMap = {};
   users.forEach(u => { userMap[u.id] = u.name; });
 
-  res.json(docs.map(d => ({
+  let docs = allDocs.map(d => ({
     ...d,
     ownerName: userMap[d.userId] || 'Unknown'
-  })).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)));
+  })).sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+
+  // Server-side filtering
+  if (search) {
+    docs = docs.filter(d =>
+      (d.title || '').toLowerCase().includes(search) ||
+      (d.ownerName || '').toLowerCase().includes(search)
+    );
+  }
+
+  const total = docs.length;
+  const totalPages = Math.ceil(total / limit);
+  const offset = (page - 1) * limit;
+  const paginated = docs.slice(offset, offset + limit);
+
+  res.json({ items: paginated, page, totalPages, total, limit });
 });
 
 router.get('/documents/:id', async (req, res) => {

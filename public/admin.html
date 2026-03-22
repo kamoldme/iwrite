@@ -392,6 +392,7 @@
             <thead><tr><th>Title</th><th>Owner</th><th>Words</th><th>Mode</th><th>Status</th><th>Reason</th><th>Last Updated</th><th>Actions</th></tr></thead>
             <tbody></tbody>
           </table>
+          <div id="docs-pager" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px"></div>
         </div>
 
         <!-- LOST FILES -->
@@ -571,6 +572,9 @@
     let adminToken = localStorage.getItem('iwrite_admin_token');
     let allUsers = [];
     let allDocs = [];
+    let _docsPage = 1;
+    let _docsTotalPages = 1;
+    let _docsTotal = 0;
     let currentSupportFilter = 'all';
 
     // ===== UTILITY =====
@@ -859,7 +863,11 @@
       const filtered = q ? allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q)) : allUsers;
       renderUsersTable(filtered);
     });
-    document.getElementById('docs-search').addEventListener('input', () => applyDocsFilter());
+    let _docsSearchTimer = null;
+    document.getElementById('docs-search').addEventListener('input', () => {
+      clearTimeout(_docsSearchTimer);
+      _docsSearchTimer = setTimeout(() => loadDocs(1), 300);
+    });
     function applyDocsFilter() {
       const raw = (document.getElementById('docs-search').value || '').trim();
       if (!raw) { renderDocsTable(allDocs); return; }
@@ -1254,17 +1262,36 @@
       return `<button class="status-badge-btn" onclick="event.stopPropagation();showStatusInfo('${status}')"><span class="badge badge-${status}">${label}</span></button>`;
     }
 
-    async function loadDocs() {
+    async function loadDocs(page) {
       try {
-        allDocs = await adminRequest('/admin/documents');
+        if (page) _docsPage = page;
+        const search = (document.getElementById('docs-search').value || '').trim();
+        const params = new URLSearchParams({ page: _docsPage, limit: 50 });
+        if (search) params.set('search', search);
+        const result = await adminRequest(`/admin/documents?${params}`);
+        allDocs = result.items || result;
+        _docsPage = result.page || 1;
+        _docsTotalPages = result.totalPages || 1;
+        _docsTotal = result.total || allDocs.length;
         applyDocsFilter();
+        renderDocsPager();
         renderLostFiles();
       } catch { toast('Failed to load documents', 'error'); }
     }
 
+    function renderDocsPager() {
+      const pager = document.getElementById('docs-pager');
+      if (!pager || _docsTotalPages <= 1) { if (pager) pager.innerHTML = ''; return; }
+      let html = '';
+      html += `<button class="admin-btn admin-btn-ghost" ${_docsPage <= 1 ? 'disabled' : ''} onclick="loadDocs(${_docsPage - 1})">← Prev</button>`;
+      html += `<span style="font-size:13px;color:var(--text-secondary)">Page ${_docsPage} of ${_docsTotalPages} (${_docsTotal} total)</span>`;
+      html += `<button class="admin-btn admin-btn-ghost" ${_docsPage >= _docsTotalPages ? 'disabled' : ''} onclick="loadDocs(${_docsPage + 1})">Next →</button>`;
+      pager.innerHTML = html;
+    }
+
     function renderDocsTable(docs) {
       const countEl = document.getElementById('docs-result-count');
-      if (countEl) countEl.textContent = `Showing ${docs.length} of ${allDocs.length} documents`;
+      if (countEl) countEl.textContent = `Showing ${docs.length} of ${_docsTotal} documents (page ${_docsPage}/${_docsTotalPages})`;
       const tbody = document.querySelector('#docs-table tbody');
       tbody.innerHTML = docs.map(d => {
         const status = getDocStatus(d);
@@ -1303,6 +1330,8 @@
             ${doc.failedAt ? `<div class="user-detail-stat"><div class="label">Lost At</div><div class="value" style="font-size:12px;color:var(--danger)">${new Date(doc.failedAt).toLocaleString()}</div></div>` : ''}
             ${doc.failReason ? `<div class="user-detail-stat"><div class="label">Reason</div><div class="value" style="font-size:13px">${esc(doc.failReason)}</div></div>` : ''}
           </div>
+          ${doc.prompt ? `<h4 style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Prompt / Question</h4>
+          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;font-size:14px;line-height:1.6;margin-bottom:16px;font-style:italic;color:var(--text-secondary)">${esc(doc.prompt)}</div>` : ''}
           <h4 style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Content</h4>
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;font-size:14px;line-height:1.7;max-height:400px;overflow-y:auto">${doc.content || '<em style="color:var(--text-muted)">Empty document</em>'}</div>
         `;
