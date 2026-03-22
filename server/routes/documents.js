@@ -468,9 +468,11 @@ router.get('/analytics/sessions', async (req, res) => {
     }
   }
 
-  // Best streak (from user record)
+  // Best streak (from user record) — live check
   const bestStreak = { days: user.longestStreak || 0 };
-  const currentStreak = user.streak || 0;
+  const _today = new Date().toISOString().split('T')[0];
+  const _yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const currentStreak = (user.lastWritingDate === _today || user.lastWritingDate === _yesterday) ? (user.streak || 0) : 0;
 
   const personalRecords = { longestSession, mostWordsDay, mostWordsWeek, bestStreak, currentStreak };
 

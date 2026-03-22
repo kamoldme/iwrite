@@ -8,6 +8,15 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Real-time streak: returns 0 if lastWritingDate is stale (older than yesterday)
+function liveStreak(user) {
+  if (!user.lastWritingDate || !user.streak) return 0;
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  if (user.lastWritingDate === today || user.lastWritingDate === yesterday) return user.streak;
+  return 0;
+}
+
 // Trust Railway's reverse proxy
 app.set('trust proxy', 1);
 
@@ -260,7 +269,7 @@ app.get('/api/leaderboard', async (req, res) => {
           totalSessions: u.totalSessions || 0,
           xp: u.xp || 0,
           level: u.level || 0,
-          streak: u.streak || 0,
+          streak: liveStreak(u),
           minutesWritten,
           avatar: u.avatar || null,
           avatarUpdatedAt: u.avatarUpdatedAt || null,
