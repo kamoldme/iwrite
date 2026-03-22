@@ -210,9 +210,37 @@ app.get('/api/active-users', (req, res) => {
   });
 });
 
-// Referral link redirect
-app.get('/join/:code', (req, res) => {
-  res.redirect(302, `/app?ref=${encodeURIComponent(req.params.code)}`);
+// Referral link — serve OG tags for social previews, then redirect browsers
+app.get('/join/:code', async (req, res) => {
+  const ua = (req.headers['user-agent'] || '').toLowerCase();
+  const isBot = /bot|crawler|spider|preview|telegram|whatsapp|slack|discord|facebook|twitter|linkedin|embedly|quora|pinterest/i.test(ua);
+
+  if (!isBot) {
+    return res.redirect(302, `/app?ref=${encodeURIComponent(req.params.code)}`);
+  }
+
+  // For bots/crawlers: serve HTML with OG meta for link preview
+  const { findOne } = require('./utils/storage');
+  const referrer = await findOne('users.json', u => u.referralCode === req.params.code);
+  const name = referrer ? (referrer.name || '').split(' ')[0] : 'Someone';
+  const streak = referrer ? (referrer.streak || 0) : 0;
+  const words = referrer ? (referrer.totalWords || 0) : 0;
+  const desc = `${name} invited you to iWrite4.me — a writing tool that keeps you focused. ${words > 0 ? `${words.toLocaleString()} words written${streak > 0 ? `, ${streak}-day streak` : ''}.` : 'If you stop typing, it deletes your work.'}`;
+
+  res.send(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>${name} invited you to iWrite4.me</title>
+    <meta property="og:title" content="${name} invited you to iWrite4.me">
+    <meta property="og:description" content="${desc}">
+    <meta property="og:image" content="https://iwrite4.me/og-image.png">
+    <meta property="og:url" content="https://iwrite4.me/join/${req.params.code}">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${name} invited you to iWrite4.me">
+    <meta name="twitter:description" content="${desc}">
+    <meta name="twitter:image" content="https://iwrite4.me/og-image.png">
+    <meta http-equiv="refresh" content="0;url=/app?ref=${encodeURIComponent(req.params.code)}">
+  </head><body></body></html>`);
 });
 
 // Routes

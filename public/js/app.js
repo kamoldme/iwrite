@@ -3782,7 +3782,7 @@ const App = {
         shareDropdown.style.display = 'none';
       };
       document.getElementById('share-to-telegram').onclick = () => {
-        window.open(`https://t.me/share/url?url=${encodeURIComponent('https://iwrite4.me')}&text=${encodeURIComponent(shareText())}`, '_blank');
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(shareText())}`, '_blank');
         shareDropdown.style.display = 'none';
       };
       document.getElementById('share-to-instagram').onclick = () => {
