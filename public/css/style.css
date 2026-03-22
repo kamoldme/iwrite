@@ -8080,9 +8080,43 @@ body.editor-active .mobile-sidebar-toggle {
   font-weight: 600;
   font-size: 16px;
   color: var(--text-primary);
-  margin-bottom: 8px;
-  truncate: ellipsis;
+  margin-bottom: 2px;
+  text-overflow: ellipsis;
   overflow: hidden;
+  white-space: nowrap;
+}
+.profile-avatar-username {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.profile-plan-info {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.profile-plan-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.5px;
+}
+.profile-plan-badge.pro {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #000;
+}
+.profile-plan-badge.free {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.profile-plan-expiry {
+  font-size: 11px;
+  color: var(--text-muted);
   white-space: nowrap;
 }
 .profile-avatar-actions {

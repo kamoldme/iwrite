@@ -2148,6 +2148,26 @@ const App = {
     const nameEl = document.getElementById('profile-avatar-name');
     const removeBtn = document.getElementById('remove-avatar-btn');
     if (nameEl) nameEl.textContent = this.user.name;
+    const avatarUsernameEl = document.getElementById('profile-avatar-username');
+    if (avatarUsernameEl) avatarUsernameEl.textContent = `@${this.user.username || ''}`;
+
+    // Plan info on right side
+    const planInfoEl = document.getElementById('profile-plan-info');
+    if (planInfoEl) {
+      const isPro = this.user.plan === 'premium';
+      if (isPro) {
+        let expiryText = '';
+        if (this.user.planExpiresAt === 'infinite') {
+          expiryText = 'Lifetime';
+        } else if (this.user.planExpiresAt) {
+          expiryText = `Expires ${new Date(this.user.planExpiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        }
+        planInfoEl.innerHTML = `<span class="profile-plan-badge pro">PRO</span><span class="profile-plan-expiry">${expiryText}</span>`;
+      } else {
+        planInfoEl.innerHTML = `<span class="profile-plan-badge free">FREE</span><span class="profile-plan-expiry">Free forever</span>`;
+      }
+    }
+
     if (this.user.avatar && imgEl && letterEl) {
       const t = this.user.avatarUpdatedAt || '';
       imgEl.src = `${this.user.avatar}?t=${t}`;
