@@ -714,9 +714,14 @@ const App = {
       badge.className = 'plan-badge' + (isPro ? ' pro' : '');
     }
 
-    // Hide Upgrade nav for Pro users
+    // Hide Upgrade nav + dividers for Pro users
     const upgradeNav = document.getElementById('upgrade-nav-btn');
-    if (upgradeNav) upgradeNav.style.display = (this.user.plan === 'premium') ? 'none' : '';
+    const upgradeDivTop = document.getElementById('upgrade-divider-top');
+    const upgradeDivBottom = document.getElementById('upgrade-divider-bottom');
+    const hideUpgrade = this.user.plan === 'premium';
+    if (upgradeNav) upgradeNav.style.display = hideUpgrade ? 'none' : '';
+    if (upgradeDivTop) upgradeDivTop.style.display = hideUpgrade ? 'none' : '';
+    if (upgradeDivBottom) upgradeDivBottom.style.display = hideUpgrade ? 'none' : '';
 
     if (this.user.streak > 0) {
       document.getElementById('streak-badge').style.display = 'flex';
@@ -1637,17 +1642,20 @@ const App = {
       if (requests.length > 0) {
         reqSection.style.display = 'block';
         document.getElementById('duel-request-count').textContent = requests.length;
-        reqList.innerHTML = requests.map(d => `
+        reqList.innerHTML = requests.map(d => {
+          const cPro = d.challengerPlan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
+          return `
           <div class="duel-request-card">
             <div class="duel-request-info">
-              <h4>${this.escapeHtml(d.challengerName)} challenged you!</h4>
+              <h4>${this.escapeHtml(d.challengerName)}${cPro} challenged you!</h4>
               <span>${d.duration} min duel</span>
             </div>
             <div class="duel-request-actions">
               <button class="btn btn-primary btn-small" onclick="App.acceptDuel('${d.id}')">Accept</button>
               <button class="btn btn-ghost btn-small" onclick="App.declineDuel('${d.id}')">Decline</button>
             </div>
-          </div>`).join('');
+          </div>`;
+        }).join('');
       } else {
         reqSection.style.display = 'none';
       }
@@ -1657,17 +1665,20 @@ const App = {
       if (sentSection) {
         if (sentDuels.length > 0) {
           sentSection.style.display = 'block';
-          document.getElementById('duel-sent-list').innerHTML = sentDuels.map(d => `
+          document.getElementById('duel-sent-list').innerHTML = sentDuels.map(d => {
+            const oPro = d.opponentPlan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
+            return `
             <div class="duel-request-card duel-sent-card">
               <div class="duel-request-info">
-                <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Waiting for ${this.escapeHtml(d.opponentName)}</h4>
+                <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Waiting for ${this.escapeHtml(d.opponentName)}${oPro}</h4>
                 <span>${d.duration} min duel</span>
               </div>
               <div class="duel-request-actions">
                 <button class="btn btn-primary btn-small" onclick="App.enterDuelWaiting('${d.id}')">Join</button>
                 <button class="btn btn-ghost btn-small" onclick="App.cancelDuelRequest('${d.id}')">Cancel</button>
               </div>
-            </div>`).join('');
+            </div>`;
+          }).join('');
         } else {
           sentSection.style.display = 'none';
         }
@@ -1685,6 +1696,8 @@ const App = {
         let html = history.map(d => {
           const isChallenger = d.challengerId === this.user.id;
           const oppName = isChallenger ? d.opponentName : d.challengerName;
+          const oppPlan = isChallenger ? d.opponentPlan : d.challengerPlan;
+          const oppPro = oppPlan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
           const won = d.winnerId === this.user.id;
           const tie = !d.winnerId;
           const resultClass = tie ? 'tie' : (won ? 'won' : 'lost');
@@ -1709,7 +1722,7 @@ const App = {
           return `
           <div class="duel-history-card ${resultClass}">
             <span class="dhc-badge ${resultClass}">${resultLabel}</span>
-            <span class="dhc-vs">vs <strong>${this.escapeHtml(oppName)}</strong></span>
+            <span class="dhc-vs">vs <strong>${this.escapeHtml(oppName)}</strong>${oppPro}</span>
             <span class="dhc-score">${myWords} — ${oppWords}</span>
             <span class="dhc-date">${dateStr}</span>
             <button class="dhc-info-btn" onclick="(function(el){var d=document.getElementById('${detailId}');d.style.display=d.style.display==='none'?'flex':'none';el.classList.toggle('active')})(this)" title="Details">
@@ -2435,10 +2448,11 @@ const App = {
       } else {
         container.innerHTML = friends.map(f => {
           const fl = this.calcXPLevel(f.xp || 0);
+          const fPro = f.plan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
           return `
           <div class="doc-card friend-card">
             <div class="doc-card-info">
-              <h4>${this.escapeHtml(f.name)}</h4>
+              <h4>${this.escapeHtml(f.name)}${fPro}</h4>
               <div class="friend-stats">
                 <span class="friend-stat" title="Total words"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>${(f.totalWords || 0).toLocaleString()}</span>
                 <span class="friend-stat" title="Streak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>${f.streak || 0}</span>
@@ -2554,7 +2568,8 @@ const App = {
 
   _formatActivity(a) {
     const rawName = this.escapeHtml(a.data?.name || 'Someone');
-    const name = `<strong style="color:#d4a017">${rawName}</strong>`;
+    const proBadge = a.userPlan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
+    const name = `<strong style="color:#d4a017">${rawName}</strong>${proBadge}`;
     switch (a.type) {
       case 'long_session': return { icon: '✍️', text: `${name} wrote for ${a.data.duration} minutes straight!` };
       case 'word_milestone': return { icon: '📚', text: `${name} just hit ${(a.data.words || 0).toLocaleString()} total words!` };

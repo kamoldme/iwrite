@@ -48,7 +48,7 @@
         <div class="sidebar-header">
           <div style="display:flex;flex-direction:column">
             <a href="/" class="logo">iWrite4.me</a>
-            <span class="version-tag">v2.3.0</span>
+            <span class="version-tag">v2.3.1</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="streak-indicator" id="streak-badge" style="display:none;cursor:pointer" onclick="App.openStreakPopup()">
@@ -92,12 +92,12 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             Profile
           </button>
-          <div class="sidebar-divider"></div>
+          <div class="sidebar-divider" id="upgrade-divider-top"></div>
           <button class="sidebar-nav-item" data-view="upgrade" id="upgrade-nav-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             Upgrade to Pro
           </button>
-          <div class="sidebar-divider"></div>
+          <div class="sidebar-divider" id="upgrade-divider-bottom"></div>
           <button class="sidebar-nav-item" data-view="support">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             Support
@@ -159,7 +159,7 @@
               <div class="dash-stat-value" id="total-words">0</div>
               <div class="dash-stat-label">Session Words</div>
             </div>
-            <div class="dash-stat-card dash-stat-sessions" style="cursor:pointer" onclick="App.switchView('documents')">
+            <div class="dash-stat-card dash-stat-sessions" style="cursor:pointer" onclick="App.switchView('documents')" title="View all sessions">
               <div class="dash-stat-emoji">&#x1F3AF;</div>
               <div class="dash-stat-value" id="total-sessions">0</div>
               <div class="dash-stat-label">Sessions Done</div>

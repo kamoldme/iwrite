@@ -374,6 +374,67 @@
   box-shadow: var(--shadow-lg);
 }
 
+/* ── Light: toast ── */
+.light .toast {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+/* ── Light: upgrade cards ── */
+.light .upgrade-card {
+  box-shadow: var(--shadow);
+}
+.light .upgrade-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+.light .upgrade-card-featured {
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.20), var(--shadow);
+}
+
+/* ── Light: share dropdown ── */
+.light .share-dropdown {
+  background: var(--bg-card);
+  border-color: var(--border);
+  box-shadow: var(--shadow-lg);
+}
+.light .share-dropdown-item:hover {
+  background: var(--hover-bg);
+}
+
+/* ── Light: referral dots ── */
+.light .referral-dot {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* ── Light: friend cards ── */
+.light .friend-card:hover {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Light: duel history cards ── */
+.light .duel-history-card {
+  box-shadow: var(--shadow);
+}
+
+/* ── Light: analytics gate text ── */
+.light .analytics-pro-gate-overlay .upgrade-label {
+  color: var(--text-primary);
+}
+
+/* ── Light: profile plan badge ── */
+.light .profile-plan-badge.free {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+/* ── Light: danger countdown ── */
+.light .danger-countdown {
+  background: rgba(255, 255, 255, 0.97);
+  color: var(--text-primary);
+}
+
 /* ===== SEPIA THEME ===== */
 .sepia {
   --bg-primary: #f4efe6;
@@ -7566,15 +7627,30 @@ body.editor-active .mobile-sidebar-toggle {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: 1px 6px;
-  border-radius: 4px;
+  padding: 1px 5px;
+  border-radius: 8px;
   background: var(--accent-soft);
   color: var(--accent);
   flex-shrink: 0;
 }
 .plan-badge.pro {
-  background: linear-gradient(135deg, #f59e0b, #f97316);
-  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #000;
+}
+
+/* Reusable inline PRO badge — used in friends list, activity feed, duels */
+.pro-inline-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #000;
+  padding: 1px 5px;
+  border-radius: 8px;
+  margin-left: 4px;
+  vertical-align: middle;
+  line-height: 1;
 }
 
 /* ===== PRICING MODAL ===== */

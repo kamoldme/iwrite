@@ -164,7 +164,13 @@ router.get('/feed', async (req, res) => {
     if (friendIds.size === 0) return res.json([]);
     const allActivities = await findMany('activities.json', a => friendIds.has(a.userId));
     const sorted = allActivities.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
-    res.json(sorted);
+    // Enrich with user plan for PRO badges
+    const enriched = [];
+    for (const act of sorted) {
+      const u = await findOne('users.json', u => u.id === act.userId);
+      enriched.push({ ...act, userPlan: u ? u.plan : 'free' });
+    }
+    res.json(enriched);
   } catch {
     res.status(500).json({ error: 'Server error' });
   }
