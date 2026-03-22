@@ -4458,6 +4458,189 @@ body.editor-active .mobile-sidebar-toggle {
   border-color: var(--success);
 }
 
+/* ── Upgrade to Pro View ── */
+.upgrade-hero {
+  text-align: center;
+  padding: 48px 24px 32px;
+}
+.upgrade-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 12px;
+  animation: upgradeFadeUp 0.6s ease both;
+}
+.upgrade-pro-badge {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-style: italic;
+}
+.upgrade-subtitle {
+  color: var(--text-secondary);
+  font-size: 15px;
+  max-width: 480px;
+  margin: 0 auto;
+  animation: upgradeFadeUp 0.6s 0.1s ease both;
+}
+.upgrade-cards {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding: 0 24px 48px;
+  flex-wrap: wrap;
+}
+.upgrade-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px 28px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  animation: upgradeFadeUp 0.5s ease both;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.upgrade-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+}
+.upgrade-card-featured {
+  border: 2px solid var(--text-primary);
+  position: relative;
+}
+.upgrade-card-current {
+  /* subtle highlight for current plan */
+}
+.upgrade-card-head {
+  margin-bottom: 24px;
+}
+.upgrade-card-name {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.upgrade-card-desc {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+.upgrade-card-price {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.upgrade-price-dollar {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  align-self: flex-start;
+  margin-top: 8px;
+}
+.upgrade-price-amount {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.upgrade-price-period {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+.upgrade-price-original {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-decoration: line-through;
+  margin-left: 8px;
+}
+.upgrade-price-uzs {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.upgrade-card-btn-wrap {
+  margin-bottom: 24px;
+}
+.upgrade-card-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+.upgrade-card-btn-primary {
+  background: var(--text-primary);
+  color: var(--bg-primary);
+}
+.upgrade-card-btn-primary:hover:not(:disabled) {
+  opacity: 0.85;
+  transform: scale(1.02);
+}
+.upgrade-card-btn-muted {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  cursor: default;
+}
+.upgrade-card-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+.upgrade-card-divider {
+  height: 1px;
+  background: var(--border);
+  margin-bottom: 24px;
+}
+.upgrade-card-features h4 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.upgrade-card-features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.upgrade-card-features li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 6px 0;
+  padding-left: 22px;
+  position: relative;
+  line-height: 1.4;
+}
+.upgrade-card-features li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 8px;
+  height: 8px;
+  background: var(--text-primary);
+  border-radius: 50%;
+}
+.upgrade-card-featured .upgrade-card-features li::before {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+@keyframes upgradeFadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .upgrade-hero { padding: 32px 16px 24px; }
+  .upgrade-title { font-size: 1.6rem; }
+  .upgrade-cards { flex-direction: column; align-items: center; padding: 0 16px 32px; }
+  .upgrade-card { width: 100%; max-width: 400px; }
+}
+
 .achievement-icon {
   font-size: 24px;
   margin-bottom: 6px;

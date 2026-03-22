@@ -2244,7 +2244,78 @@ const App = {
 
   loadUpgrade() {
     const el = document.getElementById('upgrade-plan-cards');
-    if (el) el.innerHTML = this._planFeaturesHTML();
+    if (!el) return;
+    const isPro = this.user && this.user.plan === 'premium';
+
+    const freeFeatures = [
+      'Timed sessions (30, 45 & 60 min)',
+      'Dangerous mode (fixed timer)',
+      'Streak tracking & tree growth',
+      'XP / Level system',
+      'Friends & duels',
+      'Document sharing'
+    ];
+    const proFeatures = [
+      'Everything in Free',
+      'All timer options + custom',
+      'Custom danger inactivity timer',
+      'YouTube background music',
+      'Larger word & editing limits',
+      'Folders & pinned documents',
+      'Export to PDF',
+      'Full session analytics',
+      'Username change 3x/month',
+      'Pro badge on leaderboard',
+      'Priority support'
+    ];
+
+    const expiryInfo = isPro && this.user.planExpiresAt && this.user.planExpiresAt !== 'infinite'
+      ? ` · expires ${new Date(this.user.planExpiresAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}`
+      : (isPro && this.user.planExpiresAt === 'infinite' ? ' · Lifetime' : '');
+
+    el.innerHTML = `
+      <div class="upgrade-card${!isPro ? ' upgrade-card-current' : ''}" style="animation-delay:0.1s">
+        <div class="upgrade-card-head">
+          <h3 class="upgrade-card-name">Free</h3>
+          <p class="upgrade-card-desc">Perfect for getting started with focused writing.</p>
+          <div class="upgrade-card-price">
+            <span class="upgrade-price-dollar">$</span>
+            <span class="upgrade-price-amount">0</span>
+            <span class="upgrade-price-period">/month</span>
+          </div>
+        </div>
+        <div class="upgrade-card-btn-wrap">
+          ${!isPro ? '<button class="upgrade-card-btn upgrade-card-btn-muted" disabled>Current plan</button>' : '<button class="upgrade-card-btn upgrade-card-btn-muted" disabled>Free plan</button>'}
+        </div>
+        <div class="upgrade-card-divider"></div>
+        <div class="upgrade-card-features">
+          <h4>Features</h4>
+          <ul>${freeFeatures.map(f => `<li>${f}</li>`).join('')}</ul>
+        </div>
+      </div>
+
+      <div class="upgrade-card upgrade-card-featured${isPro ? ' upgrade-card-current' : ''}" style="animation-delay:0.2s">
+        <div class="upgrade-card-head">
+          <h3 class="upgrade-card-name">Pro</h3>
+          <p class="upgrade-card-desc">Enhanced features for serious, dedicated writers.</p>
+          <div class="upgrade-card-price">
+            <span class="upgrade-price-dollar">$</span>
+            <span class="upgrade-price-amount">1.99</span>
+            <span class="upgrade-price-period">/month</span>
+            <span class="upgrade-price-original">$4</span>
+          </div>
+          <div class="upgrade-price-uzs">~25,000 UZS</div>
+        </div>
+        <div class="upgrade-card-btn-wrap">
+          ${isPro ? `<button class="upgrade-card-btn upgrade-card-btn-primary" disabled>Current plan${expiryInfo}</button>` : '<button class="upgrade-card-btn upgrade-card-btn-primary">Purchase plan</button>'}
+        </div>
+        <div class="upgrade-card-divider"></div>
+        <div class="upgrade-card-features">
+          <h4>Features</h4>
+          <ul>${proFeatures.map(f => `<li>${f}</li>`).join('')}</ul>
+        </div>
+      </div>
+    `;
   },
 
   getAchievements() {
@@ -3049,18 +3120,7 @@ const App = {
   },
 
   openPricing() {
-    // On mobile, go directly to profile subscription section
-    if (window.innerWidth <= 768) {
-      this.switchView('profile');
-      setTimeout(() => {
-        const el = document.getElementById('profile-plan-cards');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 200);
-      return;
-    }
-    const overlay = document.getElementById('pricing-overlay');
-    overlay.classList.add('active');
-    document.getElementById('pricing-cards-inner').innerHTML = this._planFeaturesHTML();
+    this.switchView('upgrade');
   },
 
   closePricing() {
