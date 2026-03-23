@@ -1,4 +1,5 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const { v4: uuid } = require('uuid');
 const { findOne, findMany, insertOne, updateOne, deleteOne } = require('../utils/storage');
 const { authenticate } = require('../middleware/auth');
@@ -101,9 +102,11 @@ function readTimeMinutes(html) {
 }
 
 function buildExcerpt(story) {
-  if (story.excerpt && story.excerpt.trim()) return story.excerpt.trim();
   const text = stripHtml(story.content);
-  return text.slice(0, 180) + (text.length > 180 ? '...' : '');
+  const words = text.split(/\s+/).filter(Boolean);
+  if (!words.length) return '';
+  const excerptWords = words.slice(0, 30).join(' ');
+  return excerptWords + (words.length > 30 ? '...' : '');
 }
 
 function canEditStory(story, userId, isAdmin) {
@@ -119,10 +122,45 @@ function canViewStory(story, userId, isAdmin) {
 }
 
 function storyScore(story) {
-  const publishedAt = story.publishedAt ? new Date(story.publishedAt).getTime() : 0;
-  const ageDays = publishedAt ? Math.max(0, (Date.now() - publishedAt) / 86400000) : 999;
-  const freshness = Math.max(0, 21 - ageDays);
-  return (story.likeCount || 0) * 3 + (story.commentCount || 0) * 5 + freshness;
+  return (story.viewCount || 0) + ((story.likeCount || 0) * 4) + ((story.commentCount || 0) * 3);
+}
+
+function canManageStoryComments(story, userId, isAdmin) {
+  if (isAdmin) return true;
+  return story.userId === userId;
+}
+
+function getOptionalViewer(req) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return null;
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET || 'iwrite-dev-secret-change-in-production');
+  } catch {
+    return null;
+  }
+}
+
+async function loadStoryComments(story, options = {}) {
+  const includePending = !!options.includePending;
+  const users = await findMany('users.json');
+  const userMap = new Map(users.map(u => [u.id, u]));
+  const comments = await findMany('story-comments.json', c => {
+    if (c.storyId !== story.id) return false;
+    if (c.status === 'approved') return true;
+    return includePending && c.status === 'pending';
+  });
+
+  return comments
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    .map(comment => {
+      const author = userMap.get(comment.userId);
+      return {
+        ...comment,
+        authorName: author ? author.name : comment.authorName || 'Unknown',
+        authorUsername: author ? (author.username || null) : null
+      };
+    });
 }
 
 async function hydrateStories(stories, currentUserId) {
@@ -156,6 +194,7 @@ async function hydrateStories(stories, currentUserId) {
       content: safeContent,
       excerpt: buildExcerpt(story),
       readTimeMinutes: story.readTimeMinutes || readTimeMinutes(safeContent),
+      viewCount: story.viewCount || 0,
       likeCount,
       commentCount,
       likedByMe,
@@ -168,33 +207,68 @@ async function hydrateStories(stories, currentUserId) {
   });
 }
 
+router.get('/public/:id', async (req, res) => {
+  try {
+    const viewer = getOptionalViewer(req);
+    let story = await findOne('stories.json', s => s.id === req.params.id);
+    if (!story || story.status !== 'published') {
+      return res.status(404).json({ error: 'Published story not found' });
+    }
+
+    if (!viewer || (viewer.id && viewer.id !== story.userId && viewer.role !== 'admin')) {
+      story = await updateOne('stories.json', s => s.id === req.params.id, {
+        viewCount: (story.viewCount || 0) + 1,
+        lastViewedAt: new Date().toISOString()
+      }) || story;
+    }
+
+    const [hydrated] = await hydrateStories([story], viewer ? viewer.id : null);
+    res.json(hydrated);
+  } catch (err) {
+    console.error('Public story detail error:', err);
+    res.status(500).json({ error: 'Failed to load story' });
+  }
+});
+
+router.get('/public/:id/comments', async (req, res) => {
+  try {
+    const story = await findOne('stories.json', s => s.id === req.params.id);
+    if (!story || story.status !== 'published') {
+      return res.status(404).json({ error: 'Published story not found' });
+    }
+
+    const comments = await loadStoryComments(story);
+    res.json(comments);
+  } catch (err) {
+    console.error('Public story comments error:', err);
+    res.status(500).json({ error: 'Failed to load story comments' });
+  }
+});
+
 router.use(authenticate);
 
 router.get('/', async (req, res) => {
   try {
-    const filter = (req.query.filter || 'recent').toLowerCase();
+    const filter = (req.query.filter || 'feed').toLowerCase();
+    const sort = (req.query.sort || 'newest').toLowerCase();
     const stories = await findMany('stories.json');
     const hydrated = await hydrateStories(stories, req.user.id);
 
     let filtered = hydrated;
-    if (filter === 'recent') {
-      filtered = hydrated.filter(s => s.status === 'published')
-        .sort((a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt));
-    } else if (filter === 'popular') {
-      filtered = hydrated.filter(s => s.status === 'published')
-        .sort((a, b) => b.popularityScore - a.popularityScore || new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
-    } else if (filter === 'drafts') {
-      filtered = hydrated.filter(s => s.userId === req.user.id && ['draft', 'changes_requested', 'rejected'].includes(s.status))
+    if (filter === 'mine') {
+      filtered = hydrated
+        .filter(s => s.userId === req.user.id)
         .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
-    } else if (filter === 'review') {
-      filtered = hydrated.filter(s => s.userId === req.user.id && s.status === 'pending_review')
-        .sort((a, b) => new Date(b.submittedAt || b.updatedAt || b.createdAt) - new Date(a.submittedAt || a.updatedAt || a.createdAt));
-    } else if (filter === 'published') {
-      filtered = hydrated.filter(s => s.userId === req.user.id && ['published', 'hidden'].includes(s.status))
-        .sort((a, b) => new Date(b.publishedAt || b.updatedAt || b.createdAt) - new Date(a.publishedAt || a.updatedAt || a.createdAt));
     } else {
-      filtered = hydrated.filter(s => s.status === 'published')
-        .sort((a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt));
+      filtered = hydrated.filter(s => s.status === 'published');
+
+      if (sort === 'oldest') {
+        filtered.sort((a, b) => new Date(a.publishedAt || a.createdAt) - new Date(b.publishedAt || b.createdAt));
+      } else if (sort === 'popular') {
+        filtered.sort((a, b) => b.popularityScore - a.popularityScore || new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
+      } else {
+        filtered.sort((a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt));
+      }
     }
 
     res.json(filtered);
@@ -206,10 +280,17 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const story = await findOne('stories.json', s => s.id === req.params.id);
+    let story = await findOne('stories.json', s => s.id === req.params.id);
     if (!story) return res.status(404).json({ error: 'Story not found' });
     if (!canViewStory(story, req.user.id, req.user.role === 'admin')) {
       return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (story.status === 'published' && story.userId !== req.user.id && req.user.role !== 'admin') {
+      story = await updateOne('stories.json', s => s.id === req.params.id, {
+        viewCount: (story.viewCount || 0) + 1,
+        lastViewedAt: new Date().toISOString()
+      }) || story;
     }
 
     const [hydrated] = await hydrateStories([story], req.user.id);
@@ -232,12 +313,13 @@ router.post('/', async (req, res) => {
       userId: req.user.id,
       sourceDocumentId: null,
       title,
-      excerpt: buildExcerpt({ excerpt: req.body.excerpt || '', content }),
+      excerpt: buildExcerpt({ content }),
       content,
       status: 'draft',
       allowComments,
       commentsLocked: !allowComments,
       moderationNote: '',
+      viewCount: 0,
       createdAt: now,
       updatedAt: now,
       submittedAt: null,
@@ -271,6 +353,7 @@ router.post('/from-document/:documentId', async (req, res) => {
       allowComments: true,
       commentsLocked: false,
       moderationNote: '',
+      viewCount: 0,
       createdAt: now,
       updatedAt: now,
       submittedAt: null,
@@ -300,10 +383,13 @@ router.patch('/:id', async (req, res) => {
     };
     if (req.body.title !== undefined) updates.title = (req.body.title || '').trim() || 'Untitled Story';
     if (req.body.content !== undefined) updates.content = sanitizeStoryContent(req.body.content || '');
-    if (req.body.excerpt !== undefined) updates.excerpt = (req.body.excerpt || '').trim();
     if (req.body.allowComments !== undefined) {
       updates.allowComments = !!req.body.allowComments;
       updates.commentsLocked = !req.body.allowComments;
+    }
+    if (updates.content !== undefined) {
+      updates.excerpt = buildExcerpt({ content: updates.content });
+      updates.readTimeMinutes = readTimeMinutes(updates.content);
     }
 
     const updated = await updateOne('stories.json', s => s.id === req.params.id, updates);
@@ -312,6 +398,34 @@ router.patch('/:id', async (req, res) => {
   } catch (err) {
     console.error('Update story error:', err);
     res.status(500).json({ error: 'Failed to update story' });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const story = await findOne('stories.json', s => s.id === req.params.id);
+    if (!story) return res.status(404).json({ error: 'Story not found' });
+
+    const isAdmin = req.user.role === 'admin';
+    const canDelete = isAdmin || (story.userId === req.user.id && ['draft', 'changes_requested', 'rejected', 'pending_review'].includes(story.status));
+    if (!canDelete) {
+      return res.status(403).json({ error: 'This story cannot be deleted right now' });
+    }
+
+    await deleteOne('stories.json', s => s.id === req.params.id);
+    const storyComments = await findMany('story-comments.json', c => c.storyId === req.params.id);
+    const storyLikes = await findMany('story-likes.json', l => l.storyId === req.params.id);
+    for (const comment of storyComments) {
+      await deleteOne('story-comments.json', c => c.id === comment.id);
+    }
+    for (const like of storyLikes) {
+      await deleteOne('story-likes.json', l => l.id === like.id);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Delete story error:', err);
+    res.status(500).json({ error: 'Failed to delete story' });
   }
 });
 
@@ -371,6 +485,32 @@ router.post('/:id/like', async (req, res) => {
   }
 });
 
+router.patch('/:id/settings', async (req, res) => {
+  try {
+    const story = await findOne('stories.json', s => s.id === req.params.id);
+    if (!story) return res.status(404).json({ error: 'Story not found' });
+    if (!canManageStoryComments(story, req.user.id, req.user.role === 'admin')) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const updates = {
+      updatedAt: new Date().toISOString()
+    };
+
+    if (req.body.allowComments !== undefined) {
+      updates.allowComments = !!req.body.allowComments;
+      updates.commentsLocked = !req.body.allowComments;
+    }
+
+    const updated = await updateOne('stories.json', s => s.id === req.params.id, updates);
+    const [hydrated] = await hydrateStories([updated], req.user.id);
+    res.json(hydrated);
+  } catch (err) {
+    console.error('Story settings error:', err);
+    res.status(500).json({ error: 'Failed to update story settings' });
+  }
+});
+
 router.get('/:id/comments', async (req, res) => {
   try {
     const story = await findOne('stories.json', s => s.id === req.params.id);
@@ -380,24 +520,8 @@ router.get('/:id/comments', async (req, res) => {
     }
 
     const includePending = req.query.include_pending === '1' && (req.user.role === 'admin' || story.userId === req.user.id);
-    const users = await findMany('users.json');
-    const userMap = new Map(users.map(u => [u.id, u]));
-    const comments = await findMany('story-comments.json', c => {
-      if (c.storyId !== story.id) return false;
-      if (c.status === 'approved') return true;
-      return includePending && c.status === 'pending';
-    });
-
-    res.json(comments
-      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-      .map(comment => {
-        const author = userMap.get(comment.userId);
-        return {
-          ...comment,
-          authorName: author ? author.name : comment.authorName || 'Unknown',
-          authorUsername: author ? (author.username || null) : null
-        };
-      }));
+    const comments = await loadStoryComments(story, { includePending });
+    res.json(comments);
   } catch (err) {
     console.error('Story comments error:', err);
     res.status(500).json({ error: 'Failed to load story comments' });
@@ -425,17 +549,39 @@ router.post('/:id/comments', async (req, res) => {
       userId: req.user.id,
       authorName: user ? user.name : 'Unknown',
       text,
-      status: 'pending',
+      status: 'approved',
       createdAt: new Date().toISOString(),
       moderatedAt: null,
       moderatedBy: null
     };
 
     await insertOne('story-comments.json', comment);
-    res.status(201).json({ ok: true, status: 'pending' });
+    res.status(201).json({ ok: true, status: 'approved' });
   } catch (err) {
     console.error('Create story comment error:', err);
     res.status(500).json({ error: 'Failed to add comment' });
+  }
+});
+
+router.delete('/:id/comments/:commentId', async (req, res) => {
+  try {
+    const story = await findOne('stories.json', s => s.id === req.params.id);
+    if (!story) return res.status(404).json({ error: 'Story not found' });
+
+    const comment = await findOne('story-comments.json', c => c.id === req.params.commentId && c.storyId === story.id);
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+    const isAdmin = req.user.role === 'admin';
+    const canDelete = isAdmin || story.userId === req.user.id || comment.userId === req.user.id;
+    if (!canDelete) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    await deleteOne('story-comments.json', c => c.id === comment.id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Delete story comment error:', err);
+    res.status(500).json({ error: 'Failed to delete comment' });
   }
 });
 

@@ -85,7 +85,7 @@ app.use('/uploads/avatars', express.static(avatarsDir));
 // Force no-cache on HTML/CSS/JS so deployments are instant
 app.use((req, res, next) => {
   const url = req.url.split('?')[0];
-  if (url.endsWith('.html') || url === '/' || url === '/app' || url === '/manual-login') {
+  if (url.endsWith('.html') || url === '/' || url === '/app' || url === '/manual-login' || url.startsWith('/story/')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
   } else if (url.endsWith('.css') || url.endsWith('.js')) {
@@ -391,6 +391,9 @@ app.get('/manual-login', (req, res) => {
 });
 app.get('/shared/:token', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'shared.html'));
+});
+app.get('/story/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'story.html'));
 });
 app.get('/privacy', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'privacy.html'));

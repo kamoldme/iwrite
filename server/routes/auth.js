@@ -131,6 +131,11 @@ router.post('/register', async (req, res) => {
       referralCode: generateReferralCode(),
       referredBy: null,
       referralCount: 0,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      planSource: null,
+      trialUsed: false,
+      planPaymentFailed: false,
       createdAt: new Date().toISOString()
     };
 
@@ -148,6 +153,7 @@ router.post('/register', async (req, res) => {
           const currentExpiry = referrer.planExpiresAt ? new Date(referrer.planExpiresAt) : now;
           const base = currentExpiry > now ? currentExpiry : now;
           updates.plan = 'premium';
+          updates.planSource = 'referral';
           updates.planStartedAt = updates.planStartedAt || now.toISOString();
           updates.planExpiresAt = new Date(base.getTime() + 30 * 86400000).toISOString();
         }
@@ -390,6 +396,11 @@ router.post('/google', async (req, res) => {
         referralCode: generateReferralCode(),
         referredBy: null,
         referralCount: 0,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        planSource: null,
+        trialUsed: false,
+        planPaymentFailed: false,
         needsProfile: true,
         createdAt: new Date().toISOString()
       };
@@ -407,6 +418,7 @@ router.post('/google', async (req, res) => {
             const currentExpiry = referrer.planExpiresAt ? new Date(referrer.planExpiresAt) : now;
             const base = currentExpiry > now ? currentExpiry : now;
             updates.plan = 'premium';
+            updates.planSource = 'referral';
             updates.planStartedAt = updates.planStartedAt || now.toISOString();
             updates.planExpiresAt = new Date(base.getTime() + 30 * 86400000).toISOString();
           }

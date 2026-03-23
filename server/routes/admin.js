@@ -441,6 +441,30 @@ router.patch('/stories/:id', async (req, res) => {
   if (req.body.allowComments !== undefined) updates.allowComments = !!req.body.allowComments;
 
   const updated = await updateOne('stories.json', s => s.id === req.params.id, updates);
+
+  if (
+    updated &&
+    updates.status === 'changes_requested' &&
+    updated.sourceDocumentId &&
+    typeof updates.moderationNote === 'string' &&
+    updates.moderationNote.trim()
+  ) {
+    await insertOne('comments.json', {
+      id: uuid(),
+      userId: req.user.id,
+      author: 'iWrite Editorial',
+      text: updates.moderationNote.trim(),
+      highlightedText: null,
+      startOffset: null,
+      endOffset: null,
+      status: 'pending',
+      documentId: updated.sourceDocumentId,
+      storyId: updated.id,
+      source: 'story_moderation',
+      createdAt: new Date().toISOString()
+    });
+  }
+
   res.json(updated);
 });
 

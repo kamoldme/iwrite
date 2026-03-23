@@ -407,17 +407,36 @@
         <div id="tab-stories" style="display:none">
           <div class="admin-page-title">Stories</div>
           <div class="admin-card" style="padding:20px;margin-bottom:20px">
-            <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">Story Moderation Queue</h3>
+            <div class="admin-toolbar" style="margin-bottom:12px">
+              <div>
+                <h3 style="font-size:14px;font-weight:600;margin-bottom:4px">Moderation Queue</h3>
+                <div style="font-size:12px;color:var(--text-muted)">Only submitted stories waiting for approval appear here.</div>
+              </div>
+            </div>
             <table class="admin-table">
-              <thead><tr><th>Title</th><th>Author</th><th>Status</th><th>Published</th><th>Engagement</th><th>Actions</th></tr></thead>
-              <tbody id="stories-admin-tbody"></tbody>
+              <thead><tr><th>Title</th><th>Author</th><th>Submitted</th><th>Engagement</th><th>Actions</th></tr></thead>
+              <tbody id="stories-moderation-tbody"></tbody>
             </table>
           </div>
           <div class="admin-card" style="padding:20px">
-            <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">Story Comment Moderation</h3>
+            <div class="admin-toolbar" style="margin-bottom:12px">
+              <div>
+                <h3 style="font-size:14px;font-weight:600;margin-bottom:4px">Published Stories</h3>
+                <div style="font-size:12px;color:var(--text-muted)">Search by title or owner, then sort by views or likes.</div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <input class="admin-search" id="published-stories-search" placeholder="Search title or owner..." style="max-width:240px;margin-bottom:0">
+                <select id="published-stories-sort" class="admin-search" style="width:auto;max-width:180px;padding:6px 10px;margin-bottom:0">
+                  <option value="views">Most Views</option>
+                  <option value="likes">Most Likes</option>
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
+                </select>
+              </div>
+            </div>
             <table class="admin-table">
-              <thead><tr><th>Story</th><th>Author</th><th>Status</th><th>Comment</th><th>Created</th><th>Actions</th></tr></thead>
-              <tbody id="story-comments-admin-tbody"></tbody>
+              <thead><tr><th>Title</th><th>Owner</th><th>Published</th><th>Views</th><th>Likes</th><th>Comments</th><th>Actions</th></tr></thead>
+              <tbody id="stories-published-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -978,6 +997,8 @@
       clearTimeout(_docsSearchTimer);
       _docsSearchTimer = setTimeout(() => loadDocs(1), 300);
     });
+    document.getElementById('published-stories-search').addEventListener('input', () => renderStoriesAdmin());
+    document.getElementById('published-stories-sort').addEventListener('change', () => renderStoriesAdmin());
     function applyDocsFilter() {
       const raw = (document.getElementById('docs-search').value || '').trim();
       if (!raw) { renderDocsTable(allDocs); return; }
@@ -1465,55 +1486,77 @@
 
     async function loadStoriesAdmin() {
       try {
-        const [stories, comments] = await Promise.all([
-          adminRequest('/admin/stories'),
-          adminRequest('/admin/story-comments')
-        ]);
-        allStories = stories;
-        renderStoriesAdmin(stories);
-        renderStoryCommentsAdmin(comments);
+        allStories = await adminRequest('/admin/stories');
+        renderStoriesAdmin();
       } catch {
         toast('Failed to load stories', 'error');
       }
     }
 
-    function renderStoriesAdmin(stories) {
-      const tbody = document.getElementById('stories-admin-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = stories.map(story => `
+    function getPublishedStoriesAdmin() {
+      const search = (document.getElementById('published-stories-search')?.value || '').trim().toLowerCase();
+      const sort = document.getElementById('published-stories-sort')?.value || 'views';
+      let stories = allStories.filter(story => ['published', 'hidden'].includes(story.status));
+
+      if (search) {
+        stories = stories.filter(story => {
+          const haystack = [
+            story.title || '',
+            story.authorName || '',
+            story.authorUsername || ''
+          ].join(' ').toLowerCase();
+          return haystack.includes(search);
+        });
+      }
+
+      stories.sort((a, b) => {
+        if (sort === 'likes') return (b.likeCount || 0) - (a.likeCount || 0) || new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0);
+        if (sort === 'newest') return new Date(b.publishedAt || b.updatedAt || 0) - new Date(a.publishedAt || a.updatedAt || 0);
+        if (sort === 'oldest') return new Date(a.publishedAt || a.updatedAt || 0) - new Date(b.publishedAt || b.updatedAt || 0);
+        return (b.viewCount || 0) - (a.viewCount || 0) || new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0);
+      });
+
+      return stories;
+    }
+
+    function renderStoriesAdmin() {
+      const moderationTbody = document.getElementById('stories-moderation-tbody');
+      const publishedTbody = document.getElementById('stories-published-tbody');
+      if (!moderationTbody || !publishedTbody) return;
+
+      const moderationStories = allStories
+        .filter(story => story.status === 'pending_review')
+        .sort((a, b) => new Date(b.submittedAt || b.updatedAt || 0) - new Date(a.submittedAt || a.updatedAt || 0));
+
+      moderationTbody.innerHTML = moderationStories.length ? moderationStories.map(story => `
         <tr>
           <td><strong>${esc(story.title)}</strong><div style="font-size:11px;color:var(--text-muted)">${story.sourceDocumentId ? 'From session' : 'Standalone story'}</div></td>
           <td>${esc(story.authorName || 'Unknown')}${story.authorUsername ? `<div style="font-size:11px;color:var(--text-muted)">@${esc(story.authorUsername)}</div>` : ''}</td>
-          <td>${storyStatusBadge(story.status)}${story.moderationNote ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">${esc(story.moderationNote)}</div>` : ''}${story.allowComments === false ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Author disabled comments</div>` : ''}</td>
-          <td style="font-size:12px;color:var(--text-muted)">${story.publishedAt ? new Date(story.publishedAt).toLocaleString() : '—'}</td>
-          <td style="font-size:12px">${story.likeCount || 0} likes · ${story.commentCount || 0} comments${story.pendingComments ? ` · ${story.pendingComments} pending` : ''}</td>
+          <td style="font-size:12px;color:var(--text-muted)">${story.submittedAt ? new Date(story.submittedAt).toLocaleString() : '—'}</td>
+          <td style="font-size:12px">${story.viewCount || 0} views · ${story.likeCount || 0} likes · ${story.commentCount || 0} comments</td>
           <td class="actions">
-            ${story.status !== 'published' ? `<button class="admin-btn admin-btn-success" onclick="setStoryStatus('${story.id}','published')">Approve</button>` : `<button class="admin-btn admin-btn-ghost" onclick="setStoryStatus('${story.id}','hidden')">Hide</button>`}
+            <button class="admin-btn admin-btn-success" onclick="setStoryStatus('${story.id}','published')">Approve</button>
             <button class="admin-btn admin-btn-ghost" onclick="setStoryStatus('${story.id}','changes_requested')">Request Changes</button>
             <button class="admin-btn admin-btn-danger" onclick="setStoryStatus('${story.id}','rejected')">Reject</button>
-            <button class="admin-btn admin-btn-ghost" onclick="toggleStoryCommentsLock('${story.id}', ${story.commentsLocked || story.allowComments === false ? 'true' : 'false'})">${story.commentsLocked || story.allowComments === false ? 'Enable Comments' : 'Disable Comments'}</button>
+          </td>
+        </tr>
+      `).join('') : '<tr><td colspan="5" class="admin-empty">No stories waiting for approval.</td></tr>';
+
+      const publishedStories = getPublishedStoriesAdmin();
+      publishedTbody.innerHTML = publishedStories.length ? publishedStories.map(story => `
+        <tr>
+          <td><strong>${esc(story.title)}</strong>${story.moderationNote ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">${esc(story.moderationNote)}</div>` : ''}</td>
+          <td>${esc(story.authorName || 'Unknown')}${story.authorUsername ? `<div style="font-size:11px;color:var(--text-muted)">@${esc(story.authorUsername)}</div>` : ''}</td>
+          <td style="font-size:12px;color:var(--text-muted)">${story.publishedAt ? new Date(story.publishedAt).toLocaleString() : '—'}</td>
+          <td>${story.viewCount || 0}</td>
+          <td>${story.likeCount || 0}</td>
+          <td>${story.commentCount || 0}</td>
+          <td class="actions">
+            ${story.status === 'published' ? `<button class="admin-btn admin-btn-ghost" onclick="setStoryStatus('${story.id}','hidden')">Hide</button>` : `<button class="admin-btn admin-btn-success" onclick="setStoryStatus('${story.id}','published')">Republish</button>`}
             <button class="admin-btn admin-btn-danger" onclick="deleteStoryAdmin('${story.id}')">Delete</button>
           </td>
         </tr>
-      `).join('');
-    }
-
-    function renderStoryCommentsAdmin(comments) {
-      const tbody = document.getElementById('story-comments-admin-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = comments.map(comment => `
-        <tr>
-          <td><strong>${esc(comment.storyTitle || 'Unknown story')}</strong><div style="font-size:11px;color:var(--text-muted)">${comment.storyStatus ? esc(comment.storyStatus) : ''}</div></td>
-          <td>${esc(comment.authorName || 'Unknown')}</td>
-          <td>${storyStatusBadge(comment.status)}</td>
-          <td style="max-width:340px;white-space:normal;line-height:1.5">${esc(comment.text)}</td>
-          <td style="font-size:12px;color:var(--text-muted)">${comment.createdAt ? new Date(comment.createdAt).toLocaleString() : '—'}</td>
-          <td class="actions">
-            ${comment.status !== 'approved' ? `<button class="admin-btn admin-btn-success" onclick="moderateStoryComment('${comment.id}','approved')">Approve</button>` : `<button class="admin-btn admin-btn-ghost" onclick="moderateStoryComment('${comment.id}','hidden')">Hide</button>`}
-            <button class="admin-btn admin-btn-danger" onclick="moderateStoryComment('${comment.id}','rejected')">Reject</button>
-          </td>
-        </tr>
-      `).join('');
+      `).join('') : '<tr><td colspan="7" class="admin-empty">No published stories match this filter.</td></tr>';
     }
 
     async function setStoryStatus(id, status) {
@@ -1533,22 +1576,6 @@
       }
     }
 
-    async function toggleStoryCommentsLock(id, enableComments) {
-      try {
-        await adminRequest(`/admin/stories/${id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            commentsLocked: !enableComments,
-            allowComments: !!enableComments
-          })
-        });
-        toast(enableComments ? 'Comments enabled' : 'Comments disabled', 'success');
-        loadStoriesAdmin();
-      } catch (err) {
-        toast(err.message || 'Failed to update comments setting', 'error');
-      }
-    }
-
     async function deleteStoryAdmin(id) {
       const ok = await adminConfirm('Delete this story and all of its likes/comments?');
       if (!ok) return;
@@ -1558,19 +1585,6 @@
         loadStoriesAdmin();
       } catch (err) {
         toast(err.message || 'Failed to delete story', 'error');
-      }
-    }
-
-    async function moderateStoryComment(id, status) {
-      try {
-        await adminRequest(`/admin/story-comments/${id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ status })
-        });
-        toast('Comment updated', 'success');
-        loadStoriesAdmin();
-      } catch (err) {
-        toast(err.message || 'Failed to update comment', 'error');
       }
     }
 

@@ -27,10 +27,15 @@ function authenticate(req, res, next) {
 }
 
 // Check and auto-downgrade expired premium subscriptions
+// Skips Stripe-managed and trial users — Stripe controls their lifecycle via webhooks
 async function checkSubscriptionExpiry(req, res, next) {
   try {
     const user = await findOne('users.json', u => u.id === req.user.id);
     if (user && user.plan === 'premium' && user.planExpiresAt && user.planExpiresAt !== 'infinite') {
+      // Skip Stripe-managed users — their subscription lifecycle is handled by webhooks
+      if (user.planSource === 'stripe' || user.planSource === 'trial') {
+        return next();
+      }
       const expiresAt = new Date(user.planExpiresAt);
       if (expiresAt < new Date()) {
         await updateOne('users.json', u => u.id === user.id, {
