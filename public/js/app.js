@@ -47,6 +47,11 @@ const App = {
       localStorage.setItem('iwrite_pending_invite', inviteUser);
     }
 
+    const pendingStory = params.get('story');
+    if (pendingStory) {
+      localStorage.setItem('iwrite_pending_story', pendingStory);
+    }
+
     // Persist referral code across login flow
     const refCode = params.get('ref');
     if (refCode) {
@@ -194,11 +199,11 @@ const App = {
     Editor.resumeSession().then(sessionResumed => {
       if (!sessionResumed) {
         const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
-        this.switchView(savedView);
+        if (!this._openPendingStory()) this.switchView(savedView);
       }
     }).catch(() => {
       const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
-      this.switchView(savedView);
+      if (!this._openPendingStory()) this.switchView(savedView);
     });
 
     this.bindAppEvents();
@@ -207,6 +212,23 @@ const App = {
     this._startMaintenancePolling();
     this._checkInviteParam();
     this._updatePaymentFailedBanner();
+  },
+
+  _openPendingStory() {
+    const params = new URLSearchParams(window.location.search);
+    const storyId = params.get('story') || localStorage.getItem('iwrite_pending_story');
+    if (!storyId || typeof this.selectStory !== 'function') return false;
+    localStorage.removeItem('iwrite_pending_story');
+    if (params.get('story')) {
+      window.history.replaceState({}, document.title, '/app');
+    }
+    this.storyTab = 'feed';
+    this.storyMineFilter = 'drafts';
+    this.switchView('stories');
+    setTimeout(() => {
+      this.selectStory(storyId).catch(() => {});
+    }, 150);
+    return true;
   },
 
   _updatePaymentFailedBanner() {

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,900&family=Instrument+Sans:wght@400;500;600;700&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="/iWrite logo.png">
-  <link rel="stylesheet" href="/css/style.css?v=18">
+  <link rel="stylesheet" href="/css/style.css?v=22">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -262,26 +262,34 @@
 
         <!-- STORIES VIEW -->
         <div id="view-stories" class="view stories-view stories-mode-feed" style="display:none">
-          <div class="dashboard-header stories-header">
-            <div>
-              <h1>&#x1F4DA; Stories</h1>
-              <p>Read the community feed, shape your sessions into articles, and publish untimed stories after moderation.</p>
+          <div class="stories-topbar">
+            <div class="stories-filter-row stories-primary-tabs">
+              <button class="stories-filter-btn active" data-story-tab="feed">Feed</button>
+              <button class="stories-filter-btn" data-story-tab="mine">My Stories</button>
             </div>
-            <div class="stories-header-actions">
-              <button class="btn btn-ghost" id="story-refresh-btn">Refresh</button>
-              <button class="btn btn-primary" id="new-story-btn">+ New Story</button>
+            <div class="stories-topbar-actions">
+              <div class="stories-topbar-filters">
+                <div class="stories-filter-row" id="stories-feed-sort-row">
+                  <button class="stories-filter-btn active" data-story-sort="newest">Newest</button>
+                  <button class="stories-filter-btn" data-story-sort="oldest">Oldest</button>
+                  <button class="stories-filter-btn" data-story-sort="popular">Most Popular</button>
+                </div>
+                <div class="stories-filter-row" id="stories-mine-filter-row" style="display:none">
+                  <button class="stories-filter-btn active" data-story-mine-filter="drafts">Drafts</button>
+                  <button class="stories-filter-btn" data-story-mine-filter="review">Under Review</button>
+                  <button class="stories-filter-btn" data-story-mine-filter="published">Published</button>
+                </div>
+              </div>
+              <div class="stories-topbar-quick-actions">
+                <button class="stories-icon-btn" id="story-refresh-btn" title="Refresh stories" aria-label="Refresh stories">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.13-3.36L23 10"/><path d="M20.49 15a9 9 0 01-14.13 3.36L1 14"/></svg>
+                </button>
+                <button class="btn btn-primary stories-primary-btn" id="new-story-btn" aria-label="Create new story">
+                  <span class="stories-primary-icon">+</span>
+                  <span class="stories-primary-label">New Story</span>
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div class="stories-toolbar">
-            <div class="stories-filter-row">
-              <button class="stories-filter-btn active" data-story-filter="recent">Most Recent</button>
-              <button class="stories-filter-btn" data-story-filter="popular">Most Popular</button>
-              <button class="stories-filter-btn" data-story-filter="drafts">My Drafts</button>
-              <button class="stories-filter-btn" data-story-filter="review">Under Review</button>
-              <button class="stories-filter-btn" data-story-filter="published">My Published</button>
-            </div>
-            <div class="stories-toolbar-note" id="stories-toolbar-note">Tip: you can also publish an existing session from the session card menu.</div>
           </div>
 
           <div class="stories-layout">

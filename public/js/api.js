@@ -344,12 +344,16 @@ const API = {
     return this.request('/documents/analytics/sessions');
   },
 
-  async getStories(filter = 'recent') {
-    return this.request(`/stories?filter=${encodeURIComponent(filter)}`);
+  async getStories(filter = 'feed', sort = 'newest') {
+    return this.request(`/stories?filter=${encodeURIComponent(filter)}&sort=${encodeURIComponent(sort)}`);
   },
 
   async getStory(id) {
     return this.request(`/stories/${id}`);
+  },
+
+  async getPublicStory(id) {
+    return this.request(`/stories/public/${id}`);
   },
 
   async createStory(payload = {}) {
@@ -372,9 +376,22 @@ const API = {
     });
   },
 
+  async updateStorySettings(id, payload) {
+    return this.request(`/stories/${id}/settings`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    });
+  },
+
   async submitStory(id) {
     return this.request(`/stories/${id}/submit`, {
       method: 'POST'
+    });
+  },
+
+  async deleteStory(id) {
+    return this.request(`/stories/${id}`, {
+      method: 'DELETE'
     });
   },
 
@@ -388,10 +405,20 @@ const API = {
     return this.request(`/stories/${id}/comments${includePending ? '?include_pending=1' : ''}`);
   },
 
+  async getPublicStoryComments(id) {
+    return this.request(`/stories/public/${id}/comments`);
+  },
+
   async addStoryComment(id, text) {
     return this.request(`/stories/${id}/comments`, {
       method: 'POST',
       body: JSON.stringify({ text })
+    });
+  },
+
+  async deleteStoryComment(storyId, commentId) {
+    return this.request(`/stories/${storyId}/comments/${commentId}`, {
+      method: 'DELETE'
     });
   },
 
