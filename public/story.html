@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iWrite4.me — Story</title>
+
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,900&family=Instrument+Sans:wght@400;500;600;700&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="/iWrite logo.png">
+  <link rel="stylesheet" href="/css/style.css?v=22">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="logo">iWrite4.me</a>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="story-user-label" style="font-size:13px;color:var(--text-muted)"></span>
+        <a href="/app" class="btn btn-small">Open App</a>
+      </div>
+    </div>
+  </nav>
+
+  <main id="public-story-root" style="padding-top:96px;padding-left:24px;padding-right:24px;padding-bottom:48px">
+    <div style="text-align:center"><div class="spinner" style="margin:40px auto"></div></div>
+  </main>
+
+  <script>
+    const storyId = window.location.pathname.split('/').pop();
+    let currentUser = null;
+    let story = null;
+    let comments = [];
+
+    function getToken() {
+      return localStorage.getItem('iwrite_token');
+    }
+
+    function escapeHtml(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatStoryDate(value) {
+      if (!value) return 'Unscheduled';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'Unscheduled';
+      return date.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    function renderMetaLine(items) {
+      return items.map(item => `<span>${item}</span>`).join('<span class="story-meta-divider">&middot;</span>');
+    }
+
+    function icon(name, filled) {
+      if (name === 'heart') {
+        return filled
+          ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>'
+          : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg>';
+      }
+      if (name === 'comment') {
+        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>';
+      }
+      if (name === 'share') {
+        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
+      }
+      return '';
+    }
+
+    async function apiRequest(path, options = {}, includeAuth = true) {
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (includeAuth) {
+        const token = getToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
+      const res = await fetch(`/api${path}`, { ...options, headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+
+    async function loadCurrentUser() {
+      try {
+        currentUser = await apiRequest('/auth/me');
+        document.getElementById('story-user-label').textContent = `Signed in as ${currentUser.name}`;
+      } catch {
+        currentUser = null;
+        document.getElementById('story-user-label').textContent = '';
+      }
+    }
+
+    async function loadStory() {
+      await loadCurrentUser();
+      try {
+        story = await apiRequest(`/stories/public/${storyId}`);
+        comments = await apiRequest(`/stories/public/${storyId}/comments`, {}, false);
+        render();
+      } catch {
+        document.getElementById('public-story-root').innerHTML = `
+          <div class="empty-state">
+            <h3>Story not found</h3>
+            <p>This story may have been removed or is not public yet.</p>
+            <a href="/" class="btn btn-primary btn-small">Go Home</a>
+          </div>
+        `;
+      }
+    }
+
+    function promptLogin() {
+      window.location.href = `/app?story=${encodeURIComponent(storyId)}`;
+    }
+
+    async function toggleLike() {
+      if (!currentUser) {
+        promptLogin();
+        return;
+      }
+
+      try {
+        await apiRequest(`/stories/${storyId}/like`, { method: 'POST' });
+        await loadStory();
+      } catch (err) {
+        alert(err.message || 'Failed to update like');
+      }
+    }
+
+    async function submitComment() {
+      if (!currentUser) {
+        promptLogin();
+        return;
+      }
+
+      const input = document.getElementById('public-story-comment-input');
+      const text = input ? input.value.trim() : '';
+      if (!text) return;
+
+      try {
+        await apiRequest(`/stories/${storyId}/comments`, {
+          method: 'POST',
+          body: JSON.stringify({ text })
+        });
+        input.value = '';
+        await loadStory();
+      } catch (err) {
+        alert(err.message || 'Failed to add comment');
+      }
+    }
+
+    async function copyShareLink() {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+      } catch {
+        return;
+      }
+    }
+
+    function render() {
+      const commentsOpen = story.allowComments !== false && !story.commentsLocked;
+      const canComment = currentUser && commentsOpen;
+
+      document.getElementById('public-story-root').innerHTML = `
+        <div class="story-reader-shell">
+          <article class="story-reader-article">
+            <h1 class="story-detail-title">${escapeHtml(story.title)}</h1>
+            <div class="story-reader-author-row">
+              <div class="story-author">
+                <span class="story-author-avatar">
+                  ${story.authorAvatar
+                    ? `<img src="${escapeHtml(story.authorAvatar)}" alt="${escapeHtml(story.authorName || 'Writer')}" class="story-author-avatar-img">`
+                    : `<span class="story-author-avatar-fallback">${escapeHtml((story.authorName || 'W').slice(0, 1))}</span>`}
+                </span>
+                <span class="story-author-copy">
+                  <strong>${escapeHtml(story.authorName || 'Unknown')}</strong>
+                  <span>${story.authorUsername ? '@' + escapeHtml(story.authorUsername) : 'Writer'}</span>
+                </span>
+              </div>
+              <div class="story-reader-author-meta">
+                ${renderMetaLine([`${story.readTimeMinutes || 1} min read`, formatStoryDate(story.publishedAt || story.updatedAt || story.createdAt)])}
+              </div>
+            </div>
+
+            <div class="story-reader-action-row">
+              <button class="story-action-btn ${story.likedByMe ? 'liked' : ''}" id="public-story-like-btn">${icon('heart', story.likedByMe)}<span>${story.likeCount || 0}</span></button>
+              <button class="story-action-btn" id="public-story-comment-anchor-btn">${icon('comment')}<span>${story.commentCount || 0}</span></button>
+              <button class="story-action-btn" id="public-story-share-btn">${icon('share')}<span>Share Link</span></button>
+            </div>
+
+            <div class="story-detail-content shared-content">${story.content}</div>
+          </article>
+
+          <div class="story-bottom-action-bar">
+            <button class="story-action-btn ${story.likedByMe ? 'liked' : ''}" id="public-story-bottom-like-btn">${icon('heart', story.likedByMe)}<span>${story.likeCount || 0}</span></button>
+            <button class="story-action-btn" id="public-story-bottom-comment-btn">${icon('comment')}<span>${story.commentCount || 0}</span></button>
+            <button class="story-action-btn" id="public-story-bottom-share-btn">${icon('share')}<span>Share Link</span></button>
+          </div>
+
+          <section class="story-comments-panel" id="public-story-comments-anchor">
+            <div class="story-comments-head">
+              <h3>Comments</h3>
+              <span>${story.commentCount || 0}</span>
+            </div>
+
+            ${commentsOpen ? `
+              ${canComment ? `
+                <div class="story-comment-form">
+                  <textarea id="public-story-comment-input" placeholder="Add a response..."></textarea>
+                  <div class="story-comment-form-actions">
+                    <button class="btn btn-primary stories-submit-btn" id="public-story-comment-submit">Post Comment</button>
+                  </div>
+                </div>
+              ` : `
+                <div class="story-comment-locked">
+                  <a href="/app?story=${encodeURIComponent(storyId)}" style="color:var(--accent);font-weight:700;text-decoration:none">Sign in to like or comment</a>
+                </div>
+              `}
+            ` : '<div class="story-comment-locked">Comments are turned off for this story.</div>'}
+
+            <div class="story-comment-list">
+              ${comments.length ? comments.map(comment => `
+                <div class="story-comment-card">
+                  <div class="story-comment-card-head">
+                    <div class="story-comment-author-wrap">
+                      <strong>${escapeHtml(comment.authorName || 'Unknown')}</strong>
+                      ${comment.authorUsername ? `<span>@${escapeHtml(comment.authorUsername)}</span>` : ''}
+                    </div>
+                    <div class="story-comment-actions">
+                      <span>${formatStoryDate(comment.createdAt)}</span>
+                    </div>
+                  </div>
+                  <p>${escapeHtml(comment.text)}</p>
+                </div>
+              `).join('') : '<div class="story-empty-inline">No comments yet.</div>'}
+            </div>
+          </section>
+        </div>
+      `;
+
+      document.getElementById('public-story-like-btn')?.addEventListener('click', toggleLike);
+      document.getElementById('public-story-share-btn')?.addEventListener('click', copyShareLink);
+      document.getElementById('public-story-comment-anchor-btn')?.addEventListener('click', () => {
+        document.getElementById('public-story-comments-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      document.getElementById('public-story-comment-submit')?.addEventListener('click', submitComment);
+
+      document.getElementById('public-story-bottom-like-btn')?.addEventListener('click', toggleLike);
+      document.getElementById('public-story-bottom-share-btn')?.addEventListener('click', copyShareLink);
+      document.getElementById('public-story-bottom-comment-btn')?.addEventListener('click', () => {
+        document.getElementById('public-story-comments-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+
+    loadStory();
+  </script>
+</body>
+</html>

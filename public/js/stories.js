@@ -12,37 +12,15 @@
     hidden: { label: 'Hidden', tone: 'muted' }
   };
 
-  const STORY_FILTER_META = {
-    recent: {
-      kicker: 'Community Feed',
-      title: 'Most Recent',
-      description: 'Freshly approved stories from the iWrite community, ordered by publication time.',
-      note: 'Tip: publish any finished session from the session card menu or start an untimed article from here.'
-    },
-    popular: {
-      kicker: 'Community Feed',
-      title: 'Most Popular',
-      description: 'Stories that are earning attention through likes, comments, and recent momentum.',
-      note: 'Popular combines likes, comments, and freshness so older hits do not crowd out new voices.'
-    },
-    drafts: {
-      kicker: 'Writer Workspace',
-      title: 'My Drafts',
-      description: 'Untimed article drafts. Shape session writing into something publishable, then send it for review.',
-      note: 'Drafts stay private to you and admins until they are approved.'
-    },
-    review: {
-      kicker: 'Writer Workspace',
-      title: 'Under Review',
-      description: 'Submitted stories waiting for moderation. You can read them here while the team reviews them.',
-      note: 'Admins can approve, hide, reject, or request changes before anything goes live.'
-    },
-    published: {
-      kicker: 'Writer Workspace',
-      title: 'My Published',
-      description: 'Your approved stories and anything currently hidden by moderation.',
-      note: 'Published stories can still be liked and commented on if comments remain open.'
-    }
+  const STORY_FONT_CLASSES = ['font-serif', 'font-mono', 'font-georgia', 'font-garamond', 'font-courier'];
+
+  const STORY_AUDIO_SOURCES = {
+    lofi1: 'https://archive.org/download/chill-lofi-music-relax-study/Leavv%20-%20Cloud%20Shapes.mp3',
+    lofi2: 'https://archive.org/download/chill-lofi-music-relax-study/Tom%20Doolie%20-%20Land%20of%20Calm.mp3',
+    brown: 'https://archive.org/download/brownnoise_202103/Smoothed%20Brown%20Noise.mp3',
+    hz40: 'https://archive.org/download/heightened-awareness-pure-gamma-waves-40-hz-mp-3-160-k/Heightened%20Awareness%20Pure%20Gamma%20Waves%20-%2040%20Hz%28MP3_160K%29.mp3',
+    rain: 'https://archive.org/download/relaxingsounds/Rain%207%20%28Lightest%29%208h%20DripsOnTrees-no%20thunder.mp3',
+    wind: 'https://archive.org/download/relaxingsounds/Wind%201%208h%20%28or%20Rapids%29%20Gentle%2CLowPitch%2CBrownNoise.mp3'
   };
 
   function formatStoryDate(value) {
@@ -61,18 +39,63 @@
     return (words[0]?.[0] || 'I') + (words[1]?.[0] || '');
   }
 
+  function renderMetaLine(items) {
+    return items.map(item => `<span>${item}</span>`).join('<span class="story-meta-divider">&middot;</span>');
+  }
+
+  function renderIcon(icon, options = {}) {
+    const filled = !!options.filled;
+    if (icon === 'back') {
+      return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>';
+    }
+    if (icon === 'refresh') {
+      return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.13-3.36L23 10"/><path d="M20.49 15a9 9 0 01-14.13 3.36L1 14"/></svg>';
+    }
+    if (icon === 'heart') {
+      return filled
+        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg>';
+    }
+    if (icon === 'comment') {
+      return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>';
+    }
+    if (icon === 'share') {
+      return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
+    }
+    if (icon === 'view') {
+      return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+    if (icon === 'copy') {
+      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+    }
+    if (icon === 'edit') {
+      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
+    }
+    if (icon === 'audio') {
+      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+    }
+    if (icon === 'fullscreen') {
+      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+    }
+    if (icon === 'delete') {
+      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>';
+    }
+    return '';
+  }
+
   Object.assign(App, {
-    storyFilter: 'recent',
+    storyTab: 'feed',
+    storySort: 'newest',
+    storyMineFilter: 'drafts',
     storyMode: 'feed',
     storyList: [],
     storyDetail: null,
     storyComments: [],
     storySelectedId: null,
     storyEditingId: null,
-
-    getStoryFilterMeta() {
-      return STORY_FILTER_META[this.storyFilter] || STORY_FILTER_META.recent;
-    },
+    _storyAudioElement: null,
+    _storyAudioKey: null,
+    _storyAudioOutsideHandler: null,
 
     setStoriesMode(mode) {
       this.storyMode = mode;
@@ -81,40 +104,23 @@
         viewEl.classList.remove('stories-mode-feed', 'stories-mode-read', 'stories-mode-compose');
         viewEl.classList.add(`stories-mode-${mode}`);
       }
-      this.updateStoriesToolbarNote();
     },
 
-    updateStoriesToolbarNote() {
-      const noteEl = document.getElementById('stories-toolbar-note');
-      if (!noteEl) return;
-      const meta = this.getStoryFilterMeta();
-      if (this.storyMode === 'compose') {
-        noteEl.textContent = 'This editor is untimed. Publish-ready stories go through moderation before they appear in the community feed.';
-        return;
-      }
-      if (this.storyMode === 'read') {
-        noteEl.textContent = 'Stories live inside iWrite, but this reading view is intentionally calmer than the session dashboard.';
-        return;
-      }
-      noteEl.textContent = meta.note;
-    },
+    syncStoryControls() {
+      document.querySelectorAll('.stories-filter-btn[data-story-tab]').forEach(button => {
+        button.classList.toggle('active', button.dataset.storyTab === this.storyTab);
+      });
+      document.querySelectorAll('.stories-filter-btn[data-story-sort]').forEach(button => {
+        button.classList.toggle('active', button.dataset.storySort === this.storySort);
+      });
+      document.querySelectorAll('.stories-filter-btn[data-story-mine-filter]').forEach(button => {
+        button.classList.toggle('active', button.dataset.storyMineFilter === this.storyMineFilter);
+      });
 
-    renderStoryAuthor(story, variant = 'compact') {
-      const avatar = story.authorAvatar
-        ? `<img src="${esc(story.authorAvatar)}" alt="${esc(story.authorName || 'Writer')}" class="story-author-avatar-img">`
-        : `<span class="story-author-avatar-fallback">${esc(initialsFor(story.authorName || 'Writer'))}</span>`;
-      const username = story.authorUsername ? `@${esc(story.authorUsername)}` : 'Writer';
-      const plan = story.authorPlan === 'premium' ? '<span class="story-author-plan">Pro</span>' : '';
-
-      return `
-        <div class="story-author story-author-${variant}">
-          <span class="story-author-avatar">${avatar}</span>
-          <span class="story-author-copy">
-            <strong>${esc(story.authorName || 'Unknown')}</strong>
-            <span>${username}${plan}</span>
-          </span>
-        </div>
-      `;
+      const feedSortRow = document.getElementById('stories-feed-sort-row');
+      const mineFilterRow = document.getElementById('stories-mine-filter-row');
+      if (feedSortRow) feedSortRow.style.display = this.storyTab === 'feed' ? 'flex' : 'none';
+      if (mineFilterRow) mineFilterRow.style.display = this.storyTab === 'mine' ? 'flex' : 'none';
     },
 
     renderStoryStatus(story) {
@@ -122,52 +128,98 @@
       return `<span class="story-status-badge ${meta.tone}">${meta.label}</span>`;
     },
 
-    renderStoryFeatured(story) {
+    renderStoryAuthor(story) {
+      const avatar = story.authorAvatar
+        ? `<img src="${esc(story.authorAvatar)}" alt="${esc(story.authorName || 'Writer')}" class="story-author-avatar-img">`
+        : `<span class="story-author-avatar-fallback">${esc(initialsFor(story.authorName || 'Writer'))}</span>`;
+      const username = story.authorUsername ? `@${esc(story.authorUsername)}` : 'Writer';
+      const plan = story.authorPlan === 'premium'
+        ? '<span class="pro-nav-badge">PRO</span>'
+        : '';
+
       return `
-        <article class="story-feature-card" data-story-id="${story.id}">
-          <div class="story-feature-main">
-            <div class="story-feature-kicker">Featured Story</div>
-            <h3>${esc(story.title)}</h3>
-            <p class="story-feature-excerpt">${esc(story.excerpt || 'No summary yet.')}</p>
-            <div class="story-feature-author-row">
-              ${this.renderStoryAuthor(story, 'featured')}
-            </div>
-          </div>
-          <div class="story-feature-side">
-            <div class="story-feature-metrics">
-              <span>${formatStoryDate(story.publishedAt || story.updatedAt || story.createdAt)}</span>
-              <span>${story.readTimeMinutes || 1} min read</span>
-              <span>${story.likeCount || 0} likes</span>
-              <span>${story.commentCount || 0} comments</span>
-            </div>
-            <button class="btn btn-primary btn-small story-feature-read-btn" data-story-id="${story.id}">Read Story</button>
-          </div>
-        </article>
+        <div class="story-author">
+          <span class="story-author-avatar">${avatar}</span>
+          <span class="story-author-copy">
+            <strong>${esc(story.authorName || 'Unknown')}</strong>
+            <span>${username}</span>
+          </span>
+          ${plan}
+        </div>
       `;
     },
 
-    renderStoryCard(story) {
-      const showStatus = this.storyFilter !== 'recent' && this.storyFilter !== 'popular';
-      const showModerationNote = story.moderationNote && story.userId === this.user.id;
+    renderMetric(icon, count, options = {}) {
+      const active = !!options.active;
+      const extraClass = options.className || '';
       return `
-        <article class="story-feed-card" data-story-id="${story.id}">
-          <div class="story-feed-card-top">
-            <div class="story-feed-badges">
-              ${showStatus ? this.renderStoryStatus(story) : '<span class="story-feed-label">Story</span>'}
-              ${story.commentsLocked ? '<span class="story-feed-label">Comments closed</span>' : ''}
-            </div>
-            <span class="story-feed-date">${formatStoryDate(story.publishedAt || story.updatedAt || story.createdAt)}</span>
+        <span class="story-metric ${active ? 'active' : ''} ${extraClass}">
+          ${renderIcon(icon, { filled: active })}
+          <span>${count || 0}</span>
+        </span>
+      `;
+    },
+
+    getMineStories() {
+      const mine = this.storyList.filter(story => story.userId === this.user.id);
+      if (this.storyMineFilter === 'review') {
+        return mine.filter(story => story.status === 'pending_review');
+      }
+      if (this.storyMineFilter === 'published') {
+        return mine.filter(story => ['published', 'hidden'].includes(story.status));
+      }
+      return mine.filter(story => ['draft', 'changes_requested', 'rejected'].includes(story.status));
+    },
+
+    renderFeedStoryCard(story, isHero) {
+      const tag = isHero ? 'article class="story-hero-card"' : 'article class="story-feed-item"';
+      const closeTag = 'article';
+      return `
+        <${tag} data-story-id="${story.id}">
+          <div class="story-feed-item-head">
+            ${this.renderStoryAuthor(story)}
           </div>
           <h3>${esc(story.title)}</h3>
-          <p class="story-feed-excerpt">${esc(story.excerpt || 'No summary yet.')}</p>
-          <div class="story-feed-meta">
-            ${this.renderStoryAuthor(story)}
-            <span>${story.readTimeMinutes || 1} min read</span>
-            <span>${story.likeCount || 0} likes</span>
-            <span>${story.commentCount || 0} comments</span>
+          ${story.excerpt ? `<p class="story-feed-excerpt">${esc(story.excerpt)}</p>` : ''}
+          <div class="story-feed-footer">
+            ${renderMetaLine([
+              formatStoryDate(story.publishedAt || story.updatedAt || story.createdAt),
+              `${story.readTimeMinutes || 1} min read`
+            ])}
+            ${this.renderMetric('heart', story.likeCount, { active: story.likedByMe })}
+            ${this.renderMetric('comment', story.commentCount)}
           </div>
-          ${showModerationNote ? `<div class="story-feed-note">${esc(story.moderationNote)}</div>` : ''}
-        </article>
+        </${closeTag}>
+      `;
+    },
+
+    renderMyStoryCard(story) {
+      const canDelete = this.storyMineFilter === 'drafts';
+      const canEdit = ['draft', 'changes_requested', 'rejected'].includes(story.status);
+      const canShare = ['published', 'hidden'].includes(story.status);
+      return `
+        <div class="doc-card story-doc-card" data-story-id="${story.id}">
+          <div class="doc-card-info">
+            <div class="doc-icon doc-icon-draft">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div class="doc-card-text">
+              <h4>${esc(story.title)} ${this.renderStoryStatus(story)}</h4>
+              <div class="doc-card-meta">
+                <span>${story.readTimeMinutes || 1} min read</span>
+                <span>${formatStoryDate(story.publishedAt || story.updatedAt || story.createdAt)}</span>
+                <span>${story.commentCount || 0} comments</span>
+                ${story.likeCount ? `<span>${story.likeCount} likes</span>` : ''}
+              </div>
+              ${story.moderationNote ? `<div class="story-card-note">${esc(story.moderationNote)}</div>` : ''}
+            </div>
+          </div>
+          <div class="doc-card-actions story-card-actions">
+            ${canEdit ? `<button class="doc-action-btn" data-story-action="edit" data-story-id="${story.id}" title="Edit">${renderIcon('edit')}</button>` : `<button class="doc-action-btn" data-story-action="open" data-story-id="${story.id}" title="Open">${renderIcon('view')}</button>`}
+            ${canShare ? `<button class="doc-action-btn" data-story-action="share" data-story-id="${story.id}" title="Copy story link">${renderIcon('share')}</button>` : ''}
+            ${canDelete ? `<button class="doc-action-btn delete" data-story-action="delete" data-story-id="${story.id}" title="Delete draft">${renderIcon('delete')}</button>` : ''}
+          </div>
+        </div>
       `;
     },
 
@@ -175,31 +227,23 @@
       const feedEl = document.getElementById('stories-feed');
       if (!feedEl) return;
 
-      const meta = this.getStoryFilterMeta();
+      const list = this.storyTab === 'feed' ? this.storyList : this.getMineStories();
 
-      if (!this.storyList.length) {
-        const copy = this.storyFilter === 'drafts'
-          ? { title: 'No drafts yet', sub: 'Start a new story or publish an old session into Stories.' }
-          : this.storyFilter === 'review'
-          ? { title: 'Nothing under review', sub: 'Submitted stories will wait here while admins moderate them.' }
-          : this.storyFilter === 'published'
-          ? { title: 'No published stories yet', sub: 'Once a story is approved, it will appear here.' }
-          : { title: 'No stories yet', sub: 'Be the first to publish something thoughtful.' };
+      if (!list.length) {
+        const emptyTitle = this.storyTab === 'feed' ? 'No stories yet' : 'Nothing in this section yet';
+        const emptyText = this.storyTab === 'feed'
+          ? 'Approved stories appear here.'
+          : this.storyMineFilter === 'drafts'
+          ? 'Start a new story or publish one of your sessions.'
+          : this.storyMineFilter === 'review'
+          ? 'Stories waiting for approval appear here.'
+          : 'Published stories appear here.';
 
         feedEl.innerHTML = `
-          <div class="stories-feed-shell">
-            <div class="stories-feed-lead">
-              <div class="stories-feed-copy">
-                <span class="stories-kicker">${meta.kicker}</span>
-                <h2>${meta.title}</h2>
-                <p>${meta.description}</p>
-              </div>
-            </div>
-            <div class="empty-state story-empty-state">
-              <h3>${copy.title}</h3>
-              <p>${copy.sub}</p>
-              <button class="btn btn-primary btn-small" id="stories-empty-create">New Story</button>
-            </div>
+          <div class="empty-state story-empty-state">
+            <h3>${emptyTitle}</h3>
+            <p>${emptyText}</p>
+            <button class="btn btn-primary stories-primary-btn" id="stories-empty-create">+ New Story</button>
           </div>
         `;
         const createBtn = document.getElementById('stories-empty-create');
@@ -207,81 +251,72 @@
         return;
       }
 
-      const featured = ['recent', 'popular'].includes(this.storyFilter) ? this.storyList[0] : null;
-      const cards = featured ? this.storyList.slice(1) : this.storyList;
+      if (this.storyTab === 'feed') {
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const recentStories = list.filter(s => {
+          const d = new Date(s.publishedAt || s.updatedAt || s.createdAt);
+          return d.getTime() >= sevenDaysAgo;
+        });
+        const heroPool = recentStories.length ? recentStories : list;
+        const hero = heroPool.reduce((best, s) => (s.popularityScore || 0) > (best.popularityScore || 0) ? s : best, heroPool[0]);
+        const rest = list.filter(s => s.id !== hero.id);
+        feedEl.innerHTML = `<div class="stories-list">${this.renderFeedStoryCard(hero, true)}${rest.map(s => this.renderFeedStoryCard(s, false)).join('')}</div>`;
+      } else {
+        feedEl.innerHTML = `<div class="stories-mine-list">${list.map(story => this.renderMyStoryCard(story)).join('')}</div>`;
+      }
 
-      feedEl.innerHTML = `
-        <div class="stories-feed-shell">
-          <section class="stories-feed-lead">
-            <div class="stories-feed-copy">
-              <span class="stories-kicker">${meta.kicker}</span>
-              <h2>${meta.title}</h2>
-              <p>${meta.description}</p>
-            </div>
-            ${featured ? this.renderStoryFeatured(featured) : ''}
-          </section>
-
-          <section class="stories-feed-stream">
-            <div class="stories-feed-section-head">
-              <div>
-                <h3>${featured ? 'More Stories' : 'Stories'}</h3>
-                <p>${cards.length || this.storyList.length} available in this view</p>
-              </div>
-              ${['drafts', 'review', 'published'].includes(this.storyFilter) ? '<button class="btn btn-ghost btn-small" id="stories-create-inline">+ New Story</button>' : ''}
-            </div>
-            <div class="stories-card-list">
-              ${(cards.length ? cards : featured ? [featured] : this.storyList).map(story => this.renderStoryCard(story)).join('')}
-            </div>
-          </section>
-        </div>
-      `;
-
-      feedEl.querySelectorAll('[data-story-id]').forEach(card => {
+      feedEl.querySelectorAll('.story-feed-item[data-story-id], .story-hero-card[data-story-id], .story-doc-card[data-story-id]').forEach(card => {
         card.addEventListener('click', (event) => {
-          const storyId = event.currentTarget.dataset.storyId;
+          const actionButton = event.target.closest('[data-story-action]');
+          if (actionButton) return;
+          const storyId = card.dataset.storyId;
           if (storyId) this.selectStory(storyId);
         });
       });
 
-      const inlineCreateBtn = document.getElementById('stories-create-inline');
-      if (inlineCreateBtn) inlineCreateBtn.onclick = () => this.createStoryDraft();
+      feedEl.querySelectorAll('[data-story-action]').forEach(button => {
+        button.addEventListener('click', async (event) => {
+          event.stopPropagation();
+          const storyId = button.dataset.storyId;
+          const action = button.dataset.storyAction;
+          if (!storyId || !action) return;
+          if (action === 'edit') {
+            await this.selectStory(storyId, { openEditor: true });
+            return;
+          }
+          if (action === 'open') {
+            await this.selectStory(storyId);
+            return;
+          }
+          if (action === 'share') {
+            await this.copyStoryLink({ id: storyId });
+            return;
+          }
+          if (action === 'delete') {
+            await this.deleteStoryDraft(storyId);
+          }
+        });
+      });
     },
 
     async loadStories() {
       const feedEl = document.getElementById('stories-feed');
-      const detailEl = document.getElementById('story-detail');
-      if (feedEl) feedEl.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:8px auto 18px"></div><p>Loading stories...</p></div>';
-      if (detailEl && this.storyMode !== 'feed') detailEl.innerHTML = '<div class="empty-state"><p>Loading story…</p></div>';
+      if (feedEl) {
+        const skeletonCard = `<div class="story-skeleton-card"><div class="story-skeleton-line skeleton-author"></div><div class="story-skeleton-line skeleton-title"></div><div class="story-skeleton-line skeleton-excerpt"></div><div class="story-skeleton-line skeleton-excerpt-short"></div><div class="story-skeleton-line skeleton-meta"></div></div>`;
+        feedEl.innerHTML = `<div class="story-skeleton-list">${skeletonCard}${skeletonCard}${skeletonCard}</div>`;
+      }
 
       try {
-        this.storyList = await API.getStories(this.storyFilter);
+        this.storyList = await API.getStories(this.storyTab, this.storySort);
         this.renderStoriesFeed();
-
-        if (this.storyEditingId) {
-          const editingStory = this.storyList.find(story => story.id === this.storyEditingId);
-          if (editingStory) {
-            await this.selectStory(editingStory.id, { openEditor: true });
-            return;
-          }
-          this.storyEditingId = null;
+        if (this.storyMode === 'feed') {
+          const detailEl = document.getElementById('story-detail');
+          if (detailEl) detailEl.innerHTML = '';
         }
-
-        if (this.storySelectedId && this.storyMode !== 'feed') {
-          const selectedStory = this.storyList.find(story => story.id === this.storySelectedId);
-          if (selectedStory) {
-            await this.selectStory(selectedStory.id);
-            return;
-          }
-          this.storySelectedId = null;
-        }
-
-        this.storyDetail = null;
-        this.storyComments = [];
-        this.setStoriesMode('feed');
-        if (detailEl) detailEl.innerHTML = '';
       } catch (err) {
-        if (feedEl) feedEl.innerHTML = `<div class="empty-state"><h3>Stories are unavailable</h3><p>${esc(err.message || 'Failed to load stories.')}</p></div>`;
-        if (detailEl) detailEl.innerHTML = '<div class="empty-state"><p>Try refreshing in a moment.</p></div>';
+        if (feedEl) {
+          feedEl.innerHTML = `<div class="empty-state"><h3>Stories are unavailable</h3><p>${esc(err.message || 'Failed to load stories.')}</p></div>`;
+        }
       }
     },
 
@@ -290,114 +325,155 @@
       this.storyEditingId = null;
       this.storyDetail = null;
       this.storyComments = [];
+      this.stopStoryAudio();
+      this.closeStoryAudioDropdown();
       this.setStoriesMode('feed');
-      this.renderStoriesFeed();
       const detailEl = document.getElementById('story-detail');
       if (detailEl) detailEl.innerHTML = '';
+      this.renderStoriesFeed();
     },
 
     async selectStory(id, options = {}) {
+      const detailEl = document.getElementById('story-detail');
       this.storySelectedId = id;
       this.storyEditingId = options.openEditor ? id : null;
       this.setStoriesMode(options.openEditor ? 'compose' : 'read');
 
-      const detailEl = document.getElementById('story-detail');
-      if (detailEl) detailEl.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:8px auto 18px"></div><p>Loading story…</p></div>';
+      if (detailEl) {
+        detailEl.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:8px auto 18px"></div><p>Loading story...</p></div>';
+      }
 
       try {
         this.storyDetail = await API.getStory(id);
-        const includePending = this.storyDetail.userId === this.user.id || this.user.role === 'admin';
-        this.storyComments = await API.getStoryComments(id, includePending);
+        this.storyComments = await API.getStoryComments(id);
       } catch (err) {
         this.storyDetail = null;
         this.storyComments = [];
         this.setStoriesMode('feed');
-        if (detailEl) detailEl.innerHTML = `<div class="empty-state"><h3>Story unavailable</h3><p>${esc(err.message || 'Failed to load story.')}</p></div>`;
+        if (detailEl) {
+          detailEl.innerHTML = `<div class="empty-state"><h3>Story unavailable</h3><p>${esc(err.message || 'Failed to load story.')}</p></div>`;
+        }
         return;
       }
 
       if (options.openEditor) {
         this.renderStoryComposer();
-        return;
+      } else {
+        this.renderStoryDetail();
       }
-      this.renderStoryDetail();
+    },
+
+    renderStoryComment(comment, options = {}) {
+      const deleteButton = options.canDelete
+        ? `<button class="story-comment-delete" data-story-comment-delete="${comment.id}">Delete</button>`
+        : '';
+
+      return `
+        <div class="story-comment-card">
+          <div class="story-comment-card-head">
+            <div class="story-comment-author-wrap">
+              <strong>${esc(comment.authorName || 'Unknown')}</strong>
+              ${comment.authorUsername ? `<span>@${esc(comment.authorUsername)}</span>` : ''}
+            </div>
+            <div class="story-comment-actions">
+              <span>${formatStoryDate(comment.createdAt)}</span>
+              ${deleteButton}
+            </div>
+          </div>
+          <p>${esc(comment.text)}</p>
+        </div>
+      `;
+    },
+
+    async copyStoryLink(story) {
+      const url = `${window.location.origin}/story/${story.id}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        App.toast('Story link copied', 'success');
+      } catch {
+        App.toast('Failed to copy link', 'error');
+      }
+    },
+
+    scrollToStoryComments() {
+      const commentsEl = document.getElementById('story-comments-anchor');
+      if (commentsEl) commentsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
 
     renderStoryDetail() {
       const detailEl = document.getElementById('story-detail');
-      if (!detailEl || !this.storyDetail) return;
-
       const story = this.storyDetail;
-      const pendingComments = this.storyComments.filter(comment => comment.status === 'pending').length;
-      const approvedComments = this.storyComments.filter(comment => comment.status === 'approved');
+      if (!detailEl || !story) return;
+
       const ownerOrAdmin = story.userId === this.user.id || this.user.role === 'admin';
       const commentsOpen = story.status === 'published' && story.allowComments !== false && !story.commentsLocked;
+      const canEdit = story.userId === this.user.id && ['draft', 'changes_requested', 'rejected'].includes(story.status);
 
+      this.stopStoryAudio();
+      this.closeStoryAudioDropdown();
       this.setStoriesMode('read');
+
       detailEl.innerHTML = `
         <div class="story-reader-shell">
           <div class="story-reader-topbar">
-            <button class="btn btn-ghost btn-small" id="story-back-feed">Back to Feed</button>
-            <div class="story-detail-actions">
-              ${story.status === 'published' ? `<button class="btn btn-ghost btn-small" id="story-like-btn">${story.likedByMe ? '&#x2665;' : '&#x2661;'} ${story.likeCount || 0}</button>` : ''}
-              ${story.userId === this.user.id && ['draft', 'changes_requested', 'rejected'].includes(story.status) ? '<button class="btn btn-primary btn-small" id="story-edit-btn">Edit Draft</button>' : ''}
-              ${story.userId === this.user.id && story.status === 'pending_review' ? '<button class="btn btn-ghost btn-small" disabled>Waiting for Review</button>' : ''}
+            <button class="stories-icon-btn stories-back-btn" id="story-back-feed" title="Back" aria-label="Back">${renderIcon('back')}</button>
+            <div class="story-detail-top-actions">
+              ${canEdit ? '<button class="stories-inline-btn" id="story-edit-btn">Edit</button>' : ''}
             </div>
           </div>
 
           <article class="story-reader-article">
-            <div class="story-detail-badges">
-              ${this.renderStoryStatus(story)}
-              ${story.commentsLocked ? '<span class="story-status-badge muted">Comments locked</span>' : ''}
-              ${story.allowComments === false ? '<span class="story-status-badge muted">Comments off</span>' : ''}
-            </div>
-
+            ${story.status !== 'published' ? `<div class="story-detail-status-row">${this.renderStoryStatus(story)}</div>` : ''}
             <h1 class="story-detail-title">${esc(story.title)}</h1>
-            ${story.excerpt ? `<p class="story-detail-dek">${esc(story.excerpt)}</p>` : ''}
 
-            <div class="story-reader-meta-bar">
-              ${this.renderStoryAuthor(story, 'featured')}
-              <div class="story-reader-meta-pills">
-                <span>${formatStoryDate(story.publishedAt || story.updatedAt || story.createdAt)}</span>
-                <span>${story.readTimeMinutes || 1} min read</span>
-                <span>${story.commentCount || 0} comments</span>
+            <div class="story-reader-author-row">
+              ${this.renderStoryAuthor(story)}
+              <div class="story-reader-author-meta">
+                ${renderMetaLine([
+                  `${story.readTimeMinutes || 1} min read`,
+                  formatStoryDate(story.publishedAt || story.updatedAt || story.createdAt)
+                ])}
               </div>
             </div>
 
-            ${ownerOrAdmin && story.moderationNote ? `<div class="story-moderation-note"><strong>Moderation note:</strong> ${esc(story.moderationNote)}</div>` : ''}
+            <div class="story-reader-action-row">
+              ${story.status === 'published' ? `<button class="story-action-btn ${story.likedByMe ? 'liked' : ''}" id="story-like-btn">${renderIcon('heart', { filled: story.likedByMe })}<span>${story.likeCount || 0}</span></button>` : ''}
+              <button class="story-action-btn" id="story-comments-btn">${renderIcon('comment')}<span>${story.commentCount || 0}</span></button>
+              ${story.status === 'published' ? `<button class="story-action-btn" id="story-share-btn">${renderIcon('share')}<span>Share Link</span></button>` : ''}
+              ${ownerOrAdmin && story.status === 'published' ? `<button class="story-comment-switch ${commentsOpen ? 'active' : ''}" id="story-toggle-comments-btn">${renderIcon('comment')}<span>${commentsOpen ? 'Comments On' : 'Comments Off'}</span></button>` : ''}
+            </div>
 
+            ${ownerOrAdmin && story.moderationNote ? `<div class="story-card-note story-reader-note">${esc(story.moderationNote)}</div>` : ''}
             <div class="story-detail-content shared-content">${story.content || '<p style="color:var(--text-muted)">No content yet.</p>'}</div>
           </article>
 
-          <section class="story-comments-panel">
+          <div class="story-bottom-action-bar">
+            ${story.status === 'published' ? `<button class="story-action-btn ${story.likedByMe ? 'liked' : ''}" id="story-bottom-like-btn">${renderIcon('heart', { filled: story.likedByMe })}<span>${story.likeCount || 0}</span></button>` : ''}
+            <button class="story-action-btn" id="story-bottom-comments-btn">${renderIcon('comment')}<span>${story.commentCount || 0}</span></button>
+            ${story.status === 'published' ? `<button class="story-action-btn" id="story-bottom-share-btn">${renderIcon('share')}<span>Share Link</span></button>` : ''}
+          </div>
+
+          <section class="story-comments-panel" id="story-comments-anchor">
             <div class="story-comments-head">
-              <div>
-                <h3>Comments</h3>
-                <p>Readers can react after moderation.</p>
-              </div>
-              ${pendingComments > 0 && ownerOrAdmin ? `<span class="story-comment-pending-pill">${pendingComments} pending</span>` : ''}
+              <h3>Comments</h3>
+              <span>${story.commentCount || 0}</span>
             </div>
 
             ${commentsOpen ? `
               <div class="story-comment-form">
-                <textarea id="story-comment-input" placeholder="Add a thoughtful response..."></textarea>
+                <textarea id="story-comment-input" placeholder="Add a response..."></textarea>
                 <div class="story-comment-form-actions">
-                  <span>Comments are moderated before they appear publicly.</span>
-                  <button class="btn btn-primary btn-small" id="story-comment-submit">Post Comment</button>
+                  <button class="btn btn-primary stories-submit-btn" id="story-comment-submit">Post Comment</button>
                 </div>
               </div>
-            ` : `<div class="story-comment-locked">${story.status !== 'published' ? 'Comments open after publication.' : 'Comments are closed for this story.'}</div>`}
+            ` : `<div class="story-comment-locked">${story.status === 'published' ? 'Comments are turned off for this story.' : 'Comments open after publication.'}</div>`}
 
             <div class="story-comment-list">
-              ${approvedComments.length ? approvedComments.map(comment => `
-                <div class="story-comment-card">
-                  <div class="story-comment-card-head">
-                    <strong>${esc(comment.authorName)}</strong>
-                    <span>${formatStoryDate(comment.createdAt)}</span>
-                  </div>
-                  <p>${esc(comment.text)}</p>
-                </div>
-              `).join('') : '<div class="empty-state" style="padding:24px 16px"><p>No approved comments yet.</p></div>'}
+              ${this.storyComments.length
+                ? this.storyComments.map(comment => this.renderStoryComment(comment, {
+                    canDelete: ownerOrAdmin || comment.userId === this.user.id
+                  })).join('')
+                : '<div class="story-empty-inline">No comments yet.</div>'}
             </div>
           </section>
         </div>
@@ -406,17 +482,160 @@
       const backBtn = document.getElementById('story-back-feed');
       if (backBtn) backBtn.onclick = () => this.openStoriesFeed();
 
+      const editBtn = document.getElementById('story-edit-btn');
+      if (editBtn) editBtn.onclick = () => this.selectStory(story.id, { openEditor: true });
+
       const likeBtn = document.getElementById('story-like-btn');
       if (likeBtn) likeBtn.onclick = () => this.toggleStoryLike(story.id);
 
-      const editBtn = document.getElementById('story-edit-btn');
-      if (editBtn) editBtn.onclick = () => {
-        this.storyEditingId = story.id;
-        this.renderStoryComposer();
-      };
+      const commentsBtn = document.getElementById('story-comments-btn');
+      if (commentsBtn) commentsBtn.onclick = () => this.scrollToStoryComments();
+
+      const shareBtn = document.getElementById('story-share-btn');
+      if (shareBtn) shareBtn.onclick = () => this.copyStoryLink(story);
+
+      const toggleCommentsBtn = document.getElementById('story-toggle-comments-btn');
+      if (toggleCommentsBtn) toggleCommentsBtn.onclick = () => this.toggleStoryCommentsSetting(story.id, !commentsOpen);
 
       const submitCommentBtn = document.getElementById('story-comment-submit');
       if (submitCommentBtn) submitCommentBtn.onclick = () => this.submitStoryComment(story.id);
+
+      const bottomLikeBtn = document.getElementById('story-bottom-like-btn');
+      if (bottomLikeBtn) bottomLikeBtn.onclick = () => this.toggleStoryLike(story.id);
+      const bottomCommentsBtn = document.getElementById('story-bottom-comments-btn');
+      if (bottomCommentsBtn) bottomCommentsBtn.onclick = () => this.scrollToStoryComments();
+      const bottomShareBtn = document.getElementById('story-bottom-share-btn');
+      if (bottomShareBtn) bottomShareBtn.onclick = () => this.copyStoryLink(story);
+
+      detailEl.querySelectorAll('[data-story-comment-delete]').forEach(button => {
+        button.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const commentId = button.dataset.storyCommentDelete;
+          if (commentId) this.deleteStoryComment(story.id, commentId);
+        });
+      });
+    },
+
+    buildStoryAudioDropdown() {
+      const tracks = [
+        ['lofi1', 'Lofi Chill'],
+        ['lofi2', 'Lofi Study'],
+        ['brown', 'Brown Noise'],
+        ['hz40', '40Hz Gamma'],
+        ['rain', 'Rain'],
+        ['wind', 'Wind']
+      ];
+
+      return `
+        <div class="story-audio-dropdown" id="story-audio-dropdown" style="display:none">
+          ${tracks.map(([key, label]) => `
+            <div class="story-audio-track" data-audio="${key}">
+              <button class="audio-play-btn" type="button" data-story-audio-play="${key}" title="Play">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+              </button>
+              <span class="story-audio-track-name">${label}</span>
+              <input type="range" class="audio-track-vol" data-story-audio-vol="${key}" min="0" max="100" value="50" title="Volume">
+            </div>
+          `).join('')}
+        </div>
+      `;
+    },
+
+    updateComposerCommentsToggle() {
+      const input = document.getElementById('story-comments-toggle');
+      const button = document.getElementById('story-comments-toggle-btn');
+      if (!input || !button) return;
+      button.classList.toggle('active', input.checked);
+      button.querySelector('.story-comment-switch-label').textContent = input.checked ? 'Comments On' : 'Comments Off';
+    },
+
+    applyStoryEditorFont(font) {
+      const editor = document.getElementById('story-editor');
+      if (!editor) return;
+      STORY_FONT_CLASSES.forEach(className => editor.classList.remove(className));
+      if (font && font !== 'sans') editor.classList.add(`font-${font}`);
+      localStorage.setItem('iwrite_editor_font', font || 'sans');
+    },
+
+    bindStoryAudioControls() {
+      const audioBtn = document.getElementById('story-audio-btn');
+      const audioDrop = document.getElementById('story-audio-dropdown');
+      if (!audioBtn || !audioDrop) return;
+
+      audioBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        audioDrop.style.display = audioDrop.style.display === 'none' ? 'block' : 'none';
+      });
+
+      audioDrop.addEventListener('click', (event) => event.stopPropagation());
+
+      if (this._storyAudioOutsideHandler) {
+        document.removeEventListener('click', this._storyAudioOutsideHandler);
+      }
+      this._storyAudioOutsideHandler = () => this.closeStoryAudioDropdown();
+      document.addEventListener('click', this._storyAudioOutsideHandler);
+
+      audioDrop.querySelectorAll('[data-story-audio-play]').forEach(button => {
+        button.addEventListener('click', () => this.playStoryAudio(button.dataset.storyAudioPlay));
+      });
+
+      audioDrop.querySelectorAll('[data-story-audio-vol]').forEach(input => {
+        input.addEventListener('input', () => {
+          if (this._storyAudioKey === input.dataset.storyAudioVol && this._storyAudioElement) {
+            this._storyAudioElement.volume = Number(input.value || 50) / 100;
+          }
+        });
+      });
+    },
+
+    playStoryAudio(key) {
+      if (this._storyAudioKey === key && this._storyAudioElement) {
+        if (this._storyAudioElement.paused) {
+          this._storyAudioElement.play().catch(() => {});
+        } else {
+          this._storyAudioElement.pause();
+        }
+        this.updateStoryAudioUI();
+        return;
+      }
+
+      this.stopStoryAudio();
+
+      const src = STORY_AUDIO_SOURCES[key];
+      if (!src) return;
+      const volumeInput = document.querySelector(`[data-story-audio-vol="${key}"]`);
+      this._storyAudioElement = new Audio(src);
+      this._storyAudioElement.loop = true;
+      this._storyAudioElement.crossOrigin = 'anonymous';
+      this._storyAudioElement.volume = Number(volumeInput?.value || 50) / 100;
+      this._storyAudioKey = key;
+      this._storyAudioElement.play().catch(() => {});
+      this.updateStoryAudioUI();
+    },
+
+    stopStoryAudio() {
+      if (this._storyAudioElement) {
+        this._storyAudioElement.pause();
+        this._storyAudioElement.currentTime = 0;
+        this._storyAudioElement = null;
+      }
+      this._storyAudioKey = null;
+      this.updateStoryAudioUI();
+    },
+
+    updateStoryAudioUI() {
+      document.querySelectorAll('.story-audio-track').forEach(track => {
+        track.classList.toggle('active', track.dataset.audio === this._storyAudioKey && !!this._storyAudioElement && !this._storyAudioElement.paused);
+      });
+    },
+
+    closeStoryAudioDropdown() {
+      const audioDrop = document.getElementById('story-audio-dropdown');
+      if (audioDrop) audioDrop.style.display = 'none';
+      if (this._storyAudioOutsideHandler) {
+        document.removeEventListener('click', this._storyAudioOutsideHandler);
+        this._storyAudioOutsideHandler = null;
+      }
     },
 
     renderStoryComposer() {
@@ -424,57 +643,65 @@
       const story = this.storyDetail;
       if (!detailEl || !story) return;
 
+      this.closeStoryAudioDropdown();
       this.setStoriesMode('compose');
       detailEl.innerHTML = `
         <div class="story-composer-shell">
           <div class="story-composer-topbar">
-            <button class="btn btn-ghost btn-small" id="story-back-feed">Back to Feed</button>
+            <button class="stories-icon-btn stories-back-btn" id="story-back-feed" title="Back" aria-label="Back">${renderIcon('back')}</button>
             <div class="story-composer-top-actions">
-              <button class="btn btn-ghost btn-small" id="story-preview-draft">Preview</button>
+              <input type="checkbox" id="story-comments-toggle" ${story.allowComments !== false ? 'checked' : ''} hidden>
+              <button class="story-comment-switch ${story.allowComments !== false ? 'active' : ''}" id="story-comments-toggle-btn" type="button">
+                ${renderIcon('comment')}
+                <span class="story-comment-switch-label">${story.allowComments !== false ? 'Comments On' : 'Comments Off'}</span>
+              </button>
+              <button class="doc-action-btn" id="story-fullscreen-btn" title="Toggle fullscreen" type="button">${renderIcon('fullscreen')}</button>
+              <div class="story-audio-wrap">
+                <button class="doc-action-btn" id="story-audio-btn" title="Background audio" type="button">${renderIcon('audio')}</button>
+                ${this.buildStoryAudioDropdown()}
+              </div>
+              <button class="doc-action-btn" id="story-copy-btn" title="Copy story" type="button">${renderIcon('copy')}</button>
             </div>
           </div>
 
-          <div class="story-composer-card">
-            <div class="story-composer-head">
-              <div>
-                <span class="stories-kicker">${story.sourceDocumentId ? 'Session to Story' : 'Untimed Writing'}</span>
-                <h2>${story.sourceDocumentId ? 'Shape this session into a publishable story' : 'Write an article for the community feed'}</h2>
-                <p>This editor is untimed, calmer, and built for publishing instead of session pressure.</p>
+          <div id="story-float-toolbar" class="story-float-toolbar">
+            <button type="button" data-float-cmd="bold"><strong>B</strong></button>
+            <button type="button" data-float-cmd="italic"><em>I</em></button>
+            <span class="float-separator"></span>
+            <button type="button" data-float-cmd="createLink" id="float-link-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            </button>
+            <div class="story-float-link-input" id="float-link-input-wrap">
+              <input type="text" id="float-link-url" placeholder="Paste URL...">
+              <button type="button" id="float-link-apply">✓</button>
+              <button type="button" id="float-link-cancel">✕</button>
+            </div>
+            <span class="float-separator"></span>
+            <div class="story-format-dropdown-wrap">
+              <button type="button" class="story-format-dropdown-btn" id="float-format-toggle">
+                <span id="float-format-label">Normal</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="story-format-dropdown" id="float-format-dropdown">
+                <button type="button" data-float-block="p">Normal text</button>
+                <button type="button" data-float-block="h1">Heading 1</button>
+                <button type="button" data-float-block="h2">Heading 2</button>
+                <button type="button" data-float-block="h3">Heading 3</button>
+                <button type="button" data-float-block="blockquote">Blockquote</button>
+                <button type="button" data-float-block="ul">Bulleted list</button>
+                <button type="button" data-float-block="ol">Numbered list</button>
               </div>
-              <label class="story-comments-toggle">
-                <input type="checkbox" id="story-comments-toggle" ${story.allowComments !== false ? 'checked' : ''}>
-                <span>Allow comments after publish</span>
-              </label>
             </div>
+          </div>
 
-            <div class="story-composer-fields">
-              <input type="text" id="story-title-input" class="story-title-input" placeholder="Story title" value="${esc(story.title)}">
-              <textarea id="story-excerpt-input" class="story-excerpt-input" placeholder="Short summary or dek to pull readers in">${esc(story.excerpt || '')}</textarea>
-            </div>
-
-            <div class="story-toolbar" id="story-toolbar">
-              <button type="button" data-command="formatBlock" data-value="h1">H1</button>
-              <button type="button" data-command="formatBlock" data-value="h2">H2</button>
-              <button type="button" data-command="bold">Bold</button>
-              <button type="button" data-command="italic">Italic</button>
-              <button type="button" data-command="insertUnorderedList">Bullets</button>
-              <button type="button" data-command="insertOrderedList">Numbers</button>
-              <button type="button" data-command="formatBlock" data-value="blockquote">Quote</button>
-              <button type="button" data-command="createLink">Link</button>
-              <button type="button" data-command="removeFormat">Clear</button>
-            </div>
-
+          <div class="story-compose-canvas">
+            <input type="text" id="story-title-input" class="story-title-input story-title-input-plain" placeholder="Title" value="${esc(story.title)}">
             <div id="story-editor" class="story-editor" contenteditable="true"></div>
+          </div>
 
-            <div class="story-composer-footer">
-              <div class="story-composer-note">
-                ${story.sourceDocumentId ? 'This draft was created from one of your sessions. The original session remains untouched.' : 'You can come back later, keep revising, and only submit when it feels ready.'}
-              </div>
-              <div class="story-composer-actions">
-                <button class="btn btn-ghost" id="story-save-draft">Save Draft</button>
-                <button class="btn btn-primary" id="story-submit-review">Submit for Review</button>
-              </div>
-            </div>
+          <div class="story-composer-footer">
+            <button class="btn btn-ghost stories-save-btn" id="story-save-draft">Save Draft</button>
+            <button class="btn btn-primary stories-submit-btn" id="story-submit-review">Submit for Review</button>
           </div>
         </div>
       `;
@@ -483,63 +710,195 @@
       editor.innerHTML = story.content || '<p></p>';
       editor.focus();
 
-      document.querySelectorAll('#story-toolbar button').forEach(button => {
-        button.addEventListener('click', () => {
-          const command = button.dataset.command;
-          const value = button.dataset.value || null;
-          if (command === 'createLink') {
-            const url = window.prompt('Enter the link URL');
-            if (url) document.execCommand('createLink', false, url);
-            editor.focus();
-            return;
-          }
-          document.execCommand(command, false, value);
-          editor.focus();
-        });
-      });
+      this.initFloatingToolbar(editor);
 
       const backBtn = document.getElementById('story-back-feed');
       if (backBtn) backBtn.onclick = () => this.openStoriesFeed();
 
-      const previewBtn = document.getElementById('story-preview-draft');
-      if (previewBtn) previewBtn.onclick = () => {
-        this.storyEditingId = null;
-        this.renderStoryDetail();
+      const toggleBtn = document.getElementById('story-comments-toggle-btn');
+      const toggleInput = document.getElementById('story-comments-toggle');
+      if (toggleBtn && toggleInput) {
+        toggleBtn.onclick = () => {
+          toggleInput.checked = !toggleInput.checked;
+          this.updateComposerCommentsToggle();
+        };
+        this.updateComposerCommentsToggle();
+      }
+
+      const fullscreenBtn = document.getElementById('story-fullscreen-btn');
+      if (fullscreenBtn) fullscreenBtn.onclick = () => {
+        if (typeof Editor !== 'undefined' && Editor.toggleFullscreen) Editor.toggleFullscreen();
       };
+
+      const copyBtn = document.getElementById('story-copy-btn');
+      if (copyBtn) {
+        copyBtn.onclick = async () => {
+          try {
+            if (typeof App._doCopy === 'function') {
+              await App._doCopy(editor);
+            } else {
+              await navigator.clipboard.writeText(editor.innerText);
+            }
+            App.toast('Copied to clipboard!', 'success');
+          } catch {
+            App.toast('Copy failed', 'error');
+          }
+        };
+      }
+
+      this.bindStoryAudioControls();
 
       document.getElementById('story-save-draft').onclick = () => this.saveStoryDraft(false);
       document.getElementById('story-submit-review').onclick = () => this.saveStoryDraft(true);
     },
 
+    initFloatingToolbar(editor) {
+      const toolbar = document.getElementById('story-float-toolbar');
+      if (!toolbar) return;
+
+      let savedRange = null;
+      let debounceTimer = null;
+
+      const positionToolbar = () => {
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.rangeCount) {
+          toolbar.classList.remove('visible');
+          return;
+        }
+        const range = sel.getRangeAt(0);
+        if (!editor.contains(range.commonAncestorContainer)) {
+          toolbar.classList.remove('visible');
+          return;
+        }
+        const rect = range.getBoundingClientRect();
+        const editorRect = editor.closest('.story-composer-shell').getBoundingClientRect();
+        let top = rect.top - editorRect.top - toolbar.offsetHeight - 8;
+        if (top < 0) top = rect.bottom - editorRect.top + 8;
+        const left = rect.left - editorRect.left + (rect.width / 2) - (toolbar.offsetWidth / 2);
+        toolbar.style.top = `${top}px`;
+        toolbar.style.left = `${Math.max(0, left)}px`;
+        toolbar.classList.add('visible');
+      };
+
+      const onSelectionChange = () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(positionToolbar, 100);
+      };
+
+      document.addEventListener('selectionchange', onSelectionChange);
+      this._floatToolbarCleanup = () => document.removeEventListener('selectionchange', onSelectionChange);
+
+      // Bold & Italic
+      toolbar.querySelectorAll('[data-float-cmd]').forEach(btn => {
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          const cmd = btn.dataset.floatCmd;
+          if (cmd === 'createLink') {
+            const sel = window.getSelection();
+            if (sel.rangeCount) savedRange = sel.getRangeAt(0).cloneRange();
+            document.getElementById('float-link-input-wrap').classList.add('visible');
+            document.getElementById('float-link-url').focus();
+            return;
+          }
+          document.execCommand(cmd, false, null);
+          editor.focus();
+        });
+      });
+
+      // Link input
+      const linkApply = document.getElementById('float-link-apply');
+      const linkCancel = document.getElementById('float-link-cancel');
+      const linkUrl = document.getElementById('float-link-url');
+      const linkWrap = document.getElementById('float-link-input-wrap');
+
+      const applyLink = () => {
+        const url = linkUrl.value.trim();
+        if (url && savedRange) {
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(savedRange);
+          document.execCommand('createLink', false, url);
+        }
+        linkUrl.value = '';
+        linkWrap.classList.remove('visible');
+        savedRange = null;
+        editor.focus();
+      };
+
+      linkApply.addEventListener('mousedown', (e) => { e.preventDefault(); applyLink(); });
+      linkUrl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyLink(); } });
+      linkCancel.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        linkUrl.value = '';
+        linkWrap.classList.remove('visible');
+        savedRange = null;
+        editor.focus();
+      });
+
+      // Format dropdown
+      const formatToggle = document.getElementById('float-format-toggle');
+      const formatDropdown = document.getElementById('float-format-dropdown');
+      const formatLabel = document.getElementById('float-format-label');
+
+      formatToggle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        formatDropdown.classList.toggle('open');
+      });
+
+      const blockLabels = { p: 'Normal', h1: 'Heading 1', h2: 'Heading 2', h3: 'Heading 3', blockquote: 'Quote', ul: 'Bullets', ol: 'Numbers' };
+
+      formatDropdown.querySelectorAll('[data-float-block]').forEach(btn => {
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          const block = btn.dataset.floatBlock;
+          if (block === 'ul') {
+            document.execCommand('insertUnorderedList', false, null);
+          } else if (block === 'ol') {
+            document.execCommand('insertOrderedList', false, null);
+          } else {
+            document.execCommand('formatBlock', false, `<${block}>`);
+          }
+          formatLabel.textContent = blockLabels[block] || 'Normal';
+          formatDropdown.classList.remove('open');
+          editor.focus();
+        });
+      });
+
+      // Close dropdown on outside click
+      document.addEventListener('mousedown', (e) => {
+        if (!formatDropdown.contains(e.target) && !formatToggle.contains(e.target)) {
+          formatDropdown.classList.remove('open');
+        }
+      });
+    },
+
     async saveStoryDraft(submitAfterSave) {
       if (!this.storyDetail) return;
       const titleInput = document.getElementById('story-title-input');
-      const excerptInput = document.getElementById('story-excerpt-input');
       const editor = document.getElementById('story-editor');
       const commentsToggle = document.getElementById('story-comments-toggle');
       const title = titleInput ? titleInput.value.trim() : this.storyDetail.title;
-      const excerpt = excerptInput ? excerptInput.value.trim() : this.storyDetail.excerpt;
       const content = editor ? editor.innerHTML : this.storyDetail.content;
       const allowComments = commentsToggle ? commentsToggle.checked : true;
 
       try {
-        const updated = await API.updateStory(this.storyDetail.id, { title, excerpt, content, allowComments });
+        const updated = await API.updateStory(this.storyDetail.id, { title, content, allowComments });
         this.storyDetail = updated;
-        this.storySelectedId = updated.id;
-        this.storyEditingId = updated.id;
         App.toast('Story draft saved', 'success');
 
         if (submitAfterSave) {
           const submitted = await API.submitStory(updated.id);
-          this.storyDetail = submitted;
-          this.storyEditingId = null;
-          this.storyFilter = 'review';
-          this.syncStoryFilters();
-          this.storySelectedId = submitted.id;
-          App.toast('Story sent for moderation', 'success');
+          this.storyTab = 'mine';
+          this.storyMineFilter = 'review';
+          this.syncStoryControls();
+          await this.loadStories();
+          await this.selectStory(submitted.id);
+          App.toast('Story sent for approval', 'success');
+          return;
         }
 
         await this.loadStories();
+        await this.selectStory(updated.id, { openEditor: true });
       } catch (err) {
         App.toast(err.message || 'Failed to save story', 'error');
       }
@@ -549,15 +908,14 @@
       try {
         const story = await API.createStory({
           title: 'Untitled Story',
-          excerpt: '',
           content: '<p></p>',
           allowComments: true
         });
-        this.storyFilter = 'drafts';
-        this.syncStoryFilters();
-        this.storySelectedId = story.id;
-        this.storyEditingId = story.id;
+        this.storyTab = 'mine';
+        this.storyMineFilter = 'drafts';
+        this.syncStoryControls();
         await this.loadStories();
+        await this.selectStory(story.id, { openEditor: true });
       } catch (err) {
         App.toast(err.message || 'Failed to create story', 'error');
       }
@@ -565,24 +923,38 @@
 
     async createStoryFromDocument(documentId) {
       try {
-        this.storyFilter = 'drafts';
-        this.syncStoryFilters();
+        this.storyTab = 'mine';
+        this.storyMineFilter = 'drafts';
+        this.syncStoryControls();
         this.switchView('stories');
         const story = await API.createStoryFromDocument(documentId);
-        this.storySelectedId = story.id;
-        this.storyEditingId = story.id;
         await this.loadStories();
-        App.toast('Session copied into Stories draft', 'success');
+        await this.selectStory(story.id, { openEditor: true });
+        App.toast('Session copied into Stories', 'success');
       } catch (err) {
         App.toast(err.message || 'Failed to create story from session', 'error');
+      }
+    },
+
+    async deleteStoryDraft(storyId) {
+      const ok = await this.showConfirm('Delete this draft?');
+      if (!ok) return;
+      try {
+        await API.deleteStory(storyId);
+        if (this.storySelectedId === storyId) this.openStoriesFeed();
+        await this.loadStories();
+        App.toast('Draft deleted', 'success');
+      } catch (err) {
+        App.toast(err.message || 'Failed to delete draft', 'error');
       }
     },
 
     async toggleStoryLike(storyId) {
       try {
         await API.toggleStoryLike(storyId);
-        this.storySelectedId = storyId;
+        const currentId = this.storySelectedId || storyId;
         await this.loadStories();
+        await this.selectStory(currentId);
       } catch (err) {
         App.toast(err.message || 'Failed to update like', 'error');
       }
@@ -596,19 +968,33 @@
       try {
         await API.addStoryComment(storyId, text);
         if (input) input.value = '';
-        App.toast('Comment sent for moderation', 'success');
-        this.storySelectedId = storyId;
-        await this.loadStories();
+        await this.selectStory(storyId);
+        App.toast('Comment posted', 'success');
       } catch (err) {
         App.toast(err.message || 'Failed to add comment', 'error');
       }
     },
 
-    syncStoryFilters() {
-      document.querySelectorAll('.stories-filter-btn[data-story-filter]').forEach(button => {
-        button.classList.toggle('active', button.dataset.storyFilter === this.storyFilter);
-      });
-      this.updateStoriesToolbarNote();
+    async deleteStoryComment(storyId, commentId) {
+      const ok = await this.showConfirm('Delete this comment?');
+      if (!ok) return;
+      try {
+        await API.deleteStoryComment(storyId, commentId);
+        await this.selectStory(storyId);
+        App.toast('Comment deleted', 'success');
+      } catch (err) {
+        App.toast(err.message || 'Failed to delete comment', 'error');
+      }
+    },
+
+    async toggleStoryCommentsSetting(storyId, nextState) {
+      try {
+        await API.updateStorySettings(storyId, { allowComments: !!nextState });
+        await this.selectStory(storyId);
+        App.toast(nextState ? 'Comments turned on' : 'Comments turned off', 'success');
+      } catch (err) {
+        App.toast(err.message || 'Failed to update comments', 'error');
+      }
     }
   });
 
@@ -622,14 +1008,32 @@
     const refreshStoriesBtn = document.getElementById('story-refresh-btn');
     if (refreshStoriesBtn) refreshStoriesBtn.addEventListener('click', () => this.loadStories());
 
-    document.querySelectorAll('.stories-filter-btn[data-story-filter]').forEach(button => {
+    document.querySelectorAll('.stories-filter-btn[data-story-tab]').forEach(button => {
       button.addEventListener('click', () => {
-        this.storyFilter = button.dataset.storyFilter;
+        this.storyTab = button.dataset.storyTab;
         this.storySelectedId = null;
         this.storyEditingId = null;
+        this.storyDetail = null;
+        this.storyComments = [];
         this.setStoriesMode('feed');
-        this.syncStoryFilters();
+        this.syncStoryControls();
         this.loadStories();
+      });
+    });
+
+    document.querySelectorAll('.stories-filter-btn[data-story-sort]').forEach(button => {
+      button.addEventListener('click', () => {
+        this.storySort = button.dataset.storySort;
+        this.syncStoryControls();
+        if (this.storyTab === 'feed') this.loadStories();
+      });
+    });
+
+    document.querySelectorAll('.stories-filter-btn[data-story-mine-filter]').forEach(button => {
+      button.addEventListener('click', () => {
+        this.storyMineFilter = button.dataset.storyMineFilter;
+        this.syncStoryControls();
+        this.renderStoriesFeed();
       });
     });
   };
@@ -638,7 +1042,7 @@
   App.switchView = function (view) {
     baseSwitchView(view);
     if (view === 'stories') {
-      this.syncStoryFilters();
+      this.syncStoryControls();
       this.loadStories();
     }
   };
