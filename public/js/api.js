@@ -344,6 +344,57 @@ const API = {
     return this.request('/documents/analytics/sessions');
   },
 
+  async getStories(filter = 'recent') {
+    return this.request(`/stories?filter=${encodeURIComponent(filter)}`);
+  },
+
+  async getStory(id) {
+    return this.request(`/stories/${id}`);
+  },
+
+  async createStory(payload = {}) {
+    return this.request('/stories', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async createStoryFromDocument(documentId) {
+    return this.request(`/stories/from-document/${documentId}`, {
+      method: 'POST'
+    });
+  },
+
+  async updateStory(id, payload) {
+    return this.request(`/stories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async submitStory(id) {
+    return this.request(`/stories/${id}/submit`, {
+      method: 'POST'
+    });
+  },
+
+  async toggleStoryLike(id) {
+    return this.request(`/stories/${id}/like`, {
+      method: 'POST'
+    });
+  },
+
+  async getStoryComments(id, includePending = false) {
+    return this.request(`/stories/${id}/comments${includePending ? '?include_pending=1' : ''}`);
+  },
+
+  async addStoryComment(id, text) {
+    return this.request(`/stories/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text })
+    });
+  },
+
   logout() {
     this.clearToken();
     window.location.href = '/app';

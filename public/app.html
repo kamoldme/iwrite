@@ -69,6 +69,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
             Sessions
           </button>
+          <button class="sidebar-nav-item" data-view="stories">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
+            Stories
+          </button>
           <button class="sidebar-nav-item" data-view="leaderboard">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 21h8M12 17v4"/><path d="M7 4h10l-1 9H8L7 4z"/><path d="M7 8H4l1 4h2M17 8h3l-1 4h-2"/></svg>
             Leaderboard
@@ -253,6 +257,40 @@
           <div id="shared-docs-section" style="display:none;margin-top:32px">
             <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">&#x1F517; Shared With Me</h3>
             <div id="shared-docs"></div>
+          </div>
+        </div>
+
+        <!-- STORIES VIEW -->
+        <div id="view-stories" class="view stories-view stories-mode-feed" style="display:none">
+          <div class="dashboard-header stories-header">
+            <div>
+              <h1>&#x1F4DA; Stories</h1>
+              <p>Read the community feed, shape your sessions into articles, and publish untimed stories after moderation.</p>
+            </div>
+            <div class="stories-header-actions">
+              <button class="btn btn-ghost" id="story-refresh-btn">Refresh</button>
+              <button class="btn btn-primary" id="new-story-btn">+ New Story</button>
+            </div>
+          </div>
+
+          <div class="stories-toolbar">
+            <div class="stories-filter-row">
+              <button class="stories-filter-btn active" data-story-filter="recent">Most Recent</button>
+              <button class="stories-filter-btn" data-story-filter="popular">Most Popular</button>
+              <button class="stories-filter-btn" data-story-filter="drafts">My Drafts</button>
+              <button class="stories-filter-btn" data-story-filter="review">Under Review</button>
+              <button class="stories-filter-btn" data-story-filter="published">My Published</button>
+            </div>
+            <div class="stories-toolbar-note" id="stories-toolbar-note">Tip: you can also publish an existing session from the session card menu.</div>
+          </div>
+
+          <div class="stories-layout">
+            <section class="stories-feed-panel">
+              <div id="stories-feed"></div>
+            </section>
+            <section class="stories-detail-panel">
+              <div id="story-detail"></div>
+            </section>
           </div>
         </div>
 
@@ -1112,5 +1150,6 @@
   <script src="/js/monsters.js?v=18"></script>
   <script src="/js/editor.js?v=18"></script>
   <script src="/js/app.js?v=18"></script>
+  <script src="/js/stories.js?v=1"></script>
 </body>
 </html>

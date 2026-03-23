@@ -382,4 +382,259 @@ router.get('/comments', async (req, res) => {
   res.json(comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
 });
 
+// ===== STORIES =====
+router.get('/stories', async (req, res) => {
+  const stories = await findMany('stories.json');
+  const users = await findMany('users.json');
+  const likes = await findMany('story-likes.json');
+  const comments = await findMany('story-comments.json');
+  const userMap = new Map(users.map(u => [u.id, u]));
+
+  const enriched = stories.map(story => {
+    const author = userMap.get(story.userId);
+    const likeCount = likes.filter(l => l.storyId === story.id).length;
+    const commentCount = comments.filter(c => c.storyId === story.id && c.status === 'approved').length;
+    const pendingComments = comments.filter(c => c.storyId === story.id && c.status === 'pending').length;
+
+    return {
+      ...story,
+      authorName: author ? author.name : 'Unknown',
+      authorUsername: author ? (author.username || null) : null,
+      likeCount,
+      commentCount,
+      pendingComments
+    };
+  }).sort((a, b) => new Date(b.submittedAt || b.updatedAt || b.createdAt) - new Date(a.submittedAt || a.updatedAt || a.createdAt));
+
+  res.json(enriched);
+});
+
+router.patch('/stories/:id', async (req, res) => {
+  const story = await findOne('stories.json', s => s.id === req.params.id);
+  if (!story) return res.status(404).json({ error: 'Story not found' });
+
+  const updates = {
+    reviewedAt: new Date().toISOString()
+  };
+
+  if (req.body.status !== undefined) {
+    const allowed = ['draft', 'pending_review', 'changes_requested', 'rejected', 'published', 'hidden'];
+    if (!allowed.includes(req.body.status)) {
+      return res.status(400).json({ error: 'Invalid story status' });
+    }
+    updates.status = req.body.status;
+    if (req.body.status === 'published' && !story.publishedAt) {
+      updates.publishedAt = new Date().toISOString();
+    }
+    if (req.body.status !== 'published' && req.body.status !== 'hidden') {
+      updates.publishedAt = null;
+    }
+  }
+
+  if (req.body.moderationNote !== undefined) updates.moderationNote = req.body.moderationNote;
+  if (req.body.commentsLocked !== undefined) {
+    updates.commentsLocked = !!req.body.commentsLocked;
+    if (!req.body.commentsLocked && req.body.allowComments === undefined && story.allowComments === false) {
+      updates.allowComments = true;
+    }
+  }
+  if (req.body.allowComments !== undefined) updates.allowComments = !!req.body.allowComments;
+
+  const updated = await updateOne('stories.json', s => s.id === req.params.id, updates);
+  res.json(updated);
+});
+
+router.delete('/stories/:id', async (req, res) => {
+  const deleted = await deleteOne('stories.json', s => s.id === req.params.id);
+  if (!deleted) return res.status(404).json({ error: 'Story not found' });
+
+  const storyComments = await findMany('story-comments.json', c => c.storyId === req.params.id);
+  const storyLikes = await findMany('story-likes.json', l => l.storyId === req.params.id);
+  for (const comment of storyComments) {
+    await deleteOne('story-comments.json', c => c.id === comment.id);
+  }
+  for (const like of storyLikes) {
+    await deleteOne('story-likes.json', l => l.id === like.id);
+  }
+
+  res.json({ success: true });
+});
+
+router.get('/story-comments', async (req, res) => {
+  const storyComments = await findMany('story-comments.json');
+  const stories = await findMany('stories.json');
+  const users = await findMany('users.json');
+  const storyMap = new Map(stories.map(s => [s.id, s]));
+  const userMap = new Map(users.map(u => [u.id, u]));
+
+  res.json(storyComments.map(comment => {
+    const story = storyMap.get(comment.storyId);
+    const author = userMap.get(comment.userId);
+    return {
+      ...comment,
+      storyTitle: story ? story.title : 'Unknown story',
+      storyStatus: story ? story.status : null,
+      authorName: author ? author.name : comment.authorName || 'Unknown'
+    };
+  }).sort((a, b) => {
+    if (a.status === 'pending' && b.status !== 'pending') return -1;
+    if (a.status !== 'pending' && b.status === 'pending') return 1;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  }));
+});
+
+router.patch('/story-comments/:id', async (req, res) => {
+  const status = req.body.status;
+  if (!['approved', 'rejected', 'hidden', 'pending'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid comment status' });
+  }
+
+  const updated = await updateOne('story-comments.json', c => c.id === req.params.id, {
+    status,
+    moderatedAt: new Date().toISOString(),
+    moderatedBy: req.user.id
+  });
+  if (!updated) return res.status(404).json({ error: 'Story comment not found' });
+
+  res.json(updated);
+});
+
+// ===== STRIPE: SUBSCRIBER LIST =====
+router.get('/subscribers', async (req, res) => {
+  try {
+    const users = await findMany('users.json');
+    const subscribers = users
+      .filter(u => u.plan === 'premium' || u.planPaymentFailed)
+      .map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        username: u.username || null,
+        planSource: u.planSource || null,
+        planDuration: u.planDuration || null,
+        planStartedAt: u.planStartedAt || null,
+        planExpiresAt: u.planExpiresAt || null,
+        planPaymentFailed: u.planPaymentFailed || false,
+        trialUsed: u.trialUsed || false,
+        stripeCustomerId: u.stripeCustomerId || null,
+        stripeSubscriptionId: u.stripeSubscriptionId || null,
+        createdAt: u.createdAt
+      }))
+      .sort((a, b) => new Date(b.planStartedAt || b.createdAt) - new Date(a.planStartedAt || a.createdAt));
+
+    res.json(subscribers);
+  } catch (err) {
+    console.error('Subscribers list error:', err);
+    res.status(500).json({ error: 'Failed to load subscribers' });
+  }
+});
+
+// ===== STRIPE: PROMO CODE MANAGEMENT =====
+// All promo codes live in Stripe — we're a thin wrapper around the Stripe API
+
+router.get('/promo-codes', async (req, res) => {
+  try {
+    const Stripe = require('stripe');
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+    const promotionCodes = await stripe.promotionCodes.list({
+      limit: 50,
+      expand: ['data.coupon']
+    });
+
+    const codes = promotionCodes.data.map(pc => ({
+      id: pc.id,
+      code: pc.code,
+      active: pc.active,
+      couponId: pc.coupon.id,
+      percentOff: pc.coupon.percent_off,
+      amountOff: pc.coupon.amount_off,
+      currency: pc.coupon.currency,
+      duration: pc.coupon.duration,
+      durationInMonths: pc.coupon.duration_in_months,
+      timesRedeemed: pc.times_redeemed,
+      maxRedemptions: pc.max_redemptions,
+      expiresAt: pc.expires_at ? new Date(pc.expires_at * 1000).toISOString() : null,
+      created: new Date(pc.created * 1000).toISOString()
+    }));
+
+    res.json(codes);
+  } catch (err) {
+    console.error('Promo codes list error:', err);
+    res.status(500).json({ error: 'Failed to load promo codes' });
+  }
+});
+
+router.post('/promo-codes', async (req, res) => {
+  try {
+    const Stripe = require('stripe');
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+    const { code, percentOff, duration, durationInMonths, maxRedemptions } = req.body;
+
+    if (!code || !percentOff) {
+      return res.status(400).json({ error: 'Code and percentOff are required' });
+    }
+
+    // Create a coupon first
+    const couponConfig = {
+      percent_off: parseFloat(percentOff),
+      duration: duration || 'once'
+    };
+    if (duration === 'repeating' && durationInMonths) {
+      couponConfig.duration_in_months = parseInt(durationInMonths);
+    }
+
+    const coupon = await stripe.coupons.create(couponConfig);
+
+    // Then create a promotion code with the specified code string
+    const promoConfig = {
+      coupon: coupon.id,
+      code: code.toUpperCase()
+    };
+    if (maxRedemptions) {
+      promoConfig.max_redemptions = parseInt(maxRedemptions);
+    }
+
+    const promotionCode = await stripe.promotionCodes.create(promoConfig);
+
+    logAction('promo_code_created', {
+      code: promotionCode.code,
+      percentOff,
+      duration
+    }, req.user.id);
+
+    res.json({
+      id: promotionCode.id,
+      code: promotionCode.code,
+      active: promotionCode.active,
+      percentOff: coupon.percent_off
+    });
+  } catch (err) {
+    console.error('Promo code create error:', err);
+    res.status(500).json({ error: err.message || 'Failed to create promo code' });
+  }
+});
+
+router.post('/promo-codes/:id/deactivate', async (req, res) => {
+  try {
+    const Stripe = require('stripe');
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+    const promotionCode = await stripe.promotionCodes.update(req.params.id, {
+      active: false
+    });
+
+    logAction('promo_code_deactivated', {
+      promoId: req.params.id,
+      code: promotionCode.code
+    }, req.user.id);
+
+    res.json({ success: true, active: false });
+  } catch (err) {
+    console.error('Promo code deactivate error:', err);
+    res.status(500).json({ error: 'Failed to deactivate promo code' });
+  }
+});
+
 module.exports = router;

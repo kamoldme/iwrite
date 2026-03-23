@@ -54,6 +54,12 @@ const App = {
       window.history.replaceState({}, document.title, '/app');
     }
 
+    // Check for Stripe session_id (returning from checkout)
+    const stripeSessionId = params.get('session_id');
+    if (stripeSessionId) {
+      localStorage.setItem('iwrite_stripe_session', stripeSessionId);
+    }
+
     const token = API.getToken();
     if (!token) {
       this.showAuth();
@@ -70,6 +76,13 @@ const App = {
       this.showApp();
       if (this.user.needsProfile) {
         this.showProfileCompleteModal();
+      }
+
+      // Handle Stripe return — verify payment and celebrate
+      const pendingSession = localStorage.getItem('iwrite_stripe_session');
+      if (pendingSession) {
+        localStorage.removeItem('iwrite_stripe_session');
+        this._verifyStripeSession(pendingSession);
       }
     } catch {
       API.clearToken();
@@ -193,6 +206,34 @@ const App = {
     this._applyProLocks();
     this._startMaintenancePolling();
     this._checkInviteParam();
+    this._updatePaymentFailedBanner();
+  },
+
+  _updatePaymentFailedBanner() {
+    // Remove existing banner if any
+    const existing = document.getElementById('payment-failed-banner');
+    if (existing) existing.remove();
+
+    if (!this.user || !this.user.planPaymentFailed) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'payment-failed-banner';
+    banner.className = 'payment-failed-banner';
+    banner.innerHTML = '&#x26A0;&#xFE0F; Payment failed. <a href="#" id="update-payment-link">Update your payment method &rarr;</a>';
+
+    // Insert at top of app content
+    const appView = document.getElementById('app-view');
+    if (appView) {
+      appView.insertBefore(banner, appView.firstChild);
+    }
+
+    const link = document.getElementById('update-payment-link');
+    if (link) {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        this._openBillingPortal();
+      });
+    }
   },
 
   _checkInviteParam() {
@@ -2296,10 +2337,19 @@ const App = {
     }
   },
 
+  // Stripe pricing data
+  _stripePricing: {
+    '1m': { price: '1.99', period: '/mo', uzs: '~25,000 UZS', savings: null },
+    '3m': { price: '4.99', period: '/3 months', uzs: '~62,000 UZS', savings: 'Save 17% vs monthly' },
+    '6m': { price: '8.99', period: '/6 months', uzs: '~112,000 UZS', savings: 'Save 25% vs monthly' }
+  },
+  _selectedDuration: '1m',
+
   loadUpgrade() {
     const el = document.getElementById('upgrade-plan-cards');
     if (!el) return;
     const isPro = this.user && this.user.plan === 'premium';
+    const isStripe = this.user && (this.user.planSource === 'stripe' || this.user.planSource === 'trial');
 
     const freeFeatures = [
       'Timed sessions (30, 45 & 60 min)',
@@ -2327,6 +2377,9 @@ const App = {
       ? ` · expires ${new Date(this.user.planExpiresAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}`
       : (isPro && this.user.planExpiresAt === 'infinite' ? ' · Lifetime' : '');
 
+    const canTrial = !isPro && !this.user.trialUsed;
+    const dur = this._stripePricing[this._selectedDuration];
+
     el.innerHTML = `
       <div class="upgrade-card${!isPro ? ' upgrade-card-current' : ''}" style="animation-delay:0.1s">
         <div class="upgrade-card-head">
@@ -2351,13 +2404,26 @@ const App = {
         <div class="upgrade-card-head">
           <h3 class="upgrade-card-name">Pro</h3>
           <p class="upgrade-card-desc">Enhanced features for serious, dedicated writers.</p>
-          <div class="upgrade-card-price">
-            <span class="upgrade-price-dollar">$</span><span class="upgrade-price-amount">1.99</span><span class="upgrade-price-period">/mo</span><span class="upgrade-price-original">$4</span>
+          ${!isPro ? `
+          <div class="upgrade-duration-tabs">
+            <button class="upgrade-duration-pill${this._selectedDuration === '1m' ? ' active' : ''}" data-duration="1m">1 Mo</button>
+            <button class="upgrade-duration-pill${this._selectedDuration === '3m' ? ' active' : ''}" data-duration="3m">3 Mo<span class="upgrade-popular-label">Popular</span></button>
+            <button class="upgrade-duration-pill${this._selectedDuration === '6m' ? ' active' : ''}" data-duration="6m">6 Mo</button>
           </div>
-          <div class="upgrade-price-uzs">~25,000 UZS</div>
+          ` : ''}
+          <div class="upgrade-card-price" id="upgrade-price-display">
+            <span class="upgrade-price-dollar">$</span><span class="upgrade-price-amount">${dur.price}</span><span class="upgrade-price-period">${dur.period}</span>
+          </div>
+          ${dur.savings ? `<div class="upgrade-price-savings">${dur.savings}</div>` : ''}
+          <div class="upgrade-price-uzs">${dur.uzs}</div>
         </div>
         <div class="upgrade-card-btn-wrap">
-          ${isPro ? `<button class="upgrade-card-btn upgrade-card-btn-primary" disabled>Current plan${expiryInfo}</button>` : '<button class="upgrade-card-btn upgrade-card-btn-primary">Purchase plan</button>'}
+          ${isPro
+            ? `<button class="upgrade-card-btn upgrade-card-btn-primary" disabled>Current plan${expiryInfo}</button>
+               ${isStripe ? '<button class="upgrade-card-btn upgrade-manage-billing-btn" id="manage-billing-btn" style="margin-top:8px">Manage Billing</button>' : ''}`
+            : `<button class="upgrade-card-btn upgrade-card-btn-primary" id="purchase-plan-btn">Purchase plan</button>
+               ${canTrial ? '<div class="upgrade-trial-link" id="start-trial-link">or Start 7-day free trial</div>' : ''}`
+          }
         </div>
         <div class="upgrade-card-divider"></div>
         <div class="upgrade-card-features">
@@ -2366,6 +2432,151 @@ const App = {
         </div>
       </div>
     `;
+
+    // Bind duration tab clicks
+    el.querySelectorAll('.upgrade-duration-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        this._selectedDuration = pill.dataset.duration;
+        this.loadUpgrade();
+      });
+    });
+
+    // Bind purchase button
+    const purchaseBtn = document.getElementById('purchase-plan-btn');
+    if (purchaseBtn) {
+      purchaseBtn.addEventListener('click', () => this._startCheckout(false));
+    }
+
+    // Bind trial link
+    const trialLink = document.getElementById('start-trial-link');
+    if (trialLink) {
+      trialLink.addEventListener('click', () => this._startCheckout(true));
+    }
+
+    // Bind manage billing button
+    const billingBtn = document.getElementById('manage-billing-btn');
+    if (billingBtn) {
+      billingBtn.addEventListener('click', () => this._openBillingPortal());
+    }
+  },
+
+  async _startCheckout(isTrial) {
+    try {
+      const btn = document.getElementById('purchase-plan-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Redirecting...'; }
+
+      const res = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API.getToken()}`
+        },
+        body: JSON.stringify({
+          duration: this._selectedDuration,
+          trial: isTrial
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        this.toast(data.error || 'Failed to start checkout', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Purchase plan'; }
+        return;
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (err) {
+      this.toast('Failed to start checkout. Please try again.', 'error');
+      const btn = document.getElementById('purchase-plan-btn');
+      if (btn) { btn.disabled = false; btn.textContent = 'Purchase plan'; }
+    }
+  },
+
+  async _openBillingPortal() {
+    try {
+      const btn = document.getElementById('manage-billing-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Opening...'; }
+
+      const res = await fetch('/api/stripe/create-portal-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API.getToken()}`
+        }
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        this.toast(data.error || 'Failed to open billing', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Manage Billing'; }
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      this.toast('Failed to open billing portal.', 'error');
+      const btn = document.getElementById('manage-billing-btn');
+      if (btn) { btn.disabled = false; btn.textContent = 'Manage Billing'; }
+    }
+  },
+
+  async _verifyStripeSession(sessionId) {
+    try {
+      const res = await fetch(`/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`, {
+        headers: { 'Authorization': `Bearer ${API.getToken()}` }
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        // Refresh user data
+        this.user = await API.getMe();
+        this.updateUserUI();
+        this._applyProLocks();
+
+        // Show celebration overlay
+        this._showProCelebration();
+      }
+    } catch (err) {
+      console.error('Session verification failed:', err);
+    }
+    // Clean URL
+    window.history.replaceState({}, document.title, '/app.html#upgrade');
+  },
+
+  _showProCelebration() {
+    this.launchConfetti();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'levelup-overlay pro-celebration-overlay';
+    overlay.innerHTML = `
+      <div class="levelup-modal">
+        <div class="levelup-glow"></div>
+        <div class="levelup-badge pro-celebration-badge">&#x2B50; PRO</div>
+        <h2 class="levelup-title">Welcome to Pro!</h2>
+        <p class="levelup-sub">You just unlocked the full writing experience.</p>
+        <button class="btn btn-primary levelup-btn">Start Writing</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('active'));
+
+    const dismiss = () => {
+      overlay.classList.remove('active');
+      setTimeout(() => overlay.remove(), 400);
+      this.switchView('dashboard');
+    };
+
+    overlay.querySelector('.levelup-btn').onclick = dismiss;
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) dismiss();
+    });
+    document.addEventListener('keydown', function escHandler(e) {
+      if (e.key === 'Escape') {
+        dismiss();
+        document.removeEventListener('keydown', escHandler);
+      }
+    });
   },
 
   getAchievements() {
@@ -2739,6 +2950,7 @@ const App = {
     menu.className = 'folder-context-menu';
     menu.innerHTML = `
       ${isFailed ? '' : `<button data-action="move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Move to folder</button>`}
+      ${isFailed ? '' : `<button data-action="publish"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/><path d="M5 19h14"/></svg> Publish to Stories</button>`}
       ${isFailed ? '' : `<button data-action="pin">${doc.pinned ? '&#x1F4CC; Unpin' : '&#x1F4CC; Pin to top'}${!isPro ? ' <span style="color:#f59e0b;font-size:10px">PRO</span>' : ''}</button>`}
       ${isFailed ? '' : `<button data-action="export">&#x1F4C4; Export PDF${!isPro ? ' <span style="color:#f59e0b;font-size:10px">PRO</span>' : ''}</button>`}
       ${isFailed ? '' : `<button data-action="share"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Share</button>`}
@@ -2757,6 +2969,7 @@ const App = {
 
     if (!isFailed) {
       menu.querySelector('[data-action="move"]').onclick = (e) => { e.stopPropagation(); close(); this.moveDocToFolder(doc.id); };
+      menu.querySelector('[data-action="publish"]').onclick = (e) => { e.stopPropagation(); close(); this.createStoryFromDocument(doc.id); };
       menu.querySelector('[data-action="share"]').onclick = (e) => { e.stopPropagation(); close(); this.shareDoc(doc.id); };
       menu.querySelector('[data-action="pin"]').onclick = async (e) => {
         e.stopPropagation(); close();

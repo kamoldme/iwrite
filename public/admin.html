@@ -291,6 +291,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
             Documents
           </button>
+          <button class="admin-nav-item" data-tab="stories">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
+            Stories
+          </button>
           <button class="admin-nav-item" data-tab="lostfiles">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
             Lost Files
@@ -312,6 +316,10 @@
           <button class="admin-nav-item" data-tab="maintenance">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
             Maintenance
+          </button>
+          <button class="admin-nav-item" data-tab="subscriptions">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            Subscriptions
           </button>
         </nav>
         <div class="admin-sidebar-footer">
@@ -393,6 +401,25 @@
             <tbody></tbody>
           </table>
           <div id="docs-pager" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px"></div>
+        </div>
+
+        <!-- STORIES -->
+        <div id="tab-stories" style="display:none">
+          <div class="admin-page-title">Stories</div>
+          <div class="admin-card" style="padding:20px;margin-bottom:20px">
+            <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">Story Moderation Queue</h3>
+            <table class="admin-table">
+              <thead><tr><th>Title</th><th>Author</th><th>Status</th><th>Published</th><th>Engagement</th><th>Actions</th></tr></thead>
+              <tbody id="stories-admin-tbody"></tbody>
+            </table>
+          </div>
+          <div class="admin-card" style="padding:20px">
+            <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">Story Comment Moderation</h3>
+            <table class="admin-table">
+              <thead><tr><th>Story</th><th>Author</th><th>Status</th><th>Comment</th><th>Created</th><th>Actions</th></tr></thead>
+              <tbody id="story-comments-admin-tbody"></tbody>
+            </table>
+          </div>
         </div>
 
         <!-- LOST FILES -->
@@ -504,6 +531,87 @@
             </div>
           </div>
         </div>
+
+        <!-- SUBSCRIPTIONS -->
+        <div id="tab-subscriptions" style="display:none">
+          <div class="admin-page-title">Subscriptions</div>
+
+          <!-- Sub-page toggle -->
+          <div style="display:flex;gap:8px;margin-bottom:20px">
+            <button class="admin-btn admin-btn-primary" id="sub-tab-subscribers" onclick="switchSubTab('subscribers')">Subscribers</button>
+            <button class="admin-btn admin-btn-ghost" id="sub-tab-promos" onclick="switchSubTab('promos')">Promo Codes</button>
+          </div>
+
+          <!-- Subscribers sub-page -->
+          <div id="sub-page-subscribers">
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+              <button class="admin-btn admin-btn-primary sub-filter-btn" data-filter="all" onclick="filterSubscribers('all')">All</button>
+              <button class="admin-btn admin-btn-ghost sub-filter-btn" data-filter="stripe" onclick="filterSubscribers('stripe')">Stripe</button>
+              <button class="admin-btn admin-btn-ghost sub-filter-btn" data-filter="admin" onclick="filterSubscribers('admin')">Admin</button>
+              <button class="admin-btn admin-btn-ghost sub-filter-btn" data-filter="trial" onclick="filterSubscribers('trial')">Trial</button>
+              <button class="admin-btn admin-btn-ghost sub-filter-btn" data-filter="referral" onclick="filterSubscribers('referral')">Referral</button>
+              <button class="admin-btn admin-btn-ghost sub-filter-btn" data-filter="failed" onclick="filterSubscribers('failed')">Payment Failed</button>
+            </div>
+            <div id="subscribers-count" style="font-size:12px;color:var(--text-muted);margin-bottom:8px"></div>
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Source</th>
+                  <th>Duration</th>
+                  <th>Expires</th>
+                  <th>Payment</th>
+                </tr>
+              </thead>
+              <tbody id="subscribers-tbody"></tbody>
+            </table>
+          </div>
+
+          <!-- Promo Codes sub-page -->
+          <div id="sub-page-promos" style="display:none">
+            <div class="admin-card" style="padding:20px;margin-bottom:20px">
+              <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">Create Promo Code</h3>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+                <div>
+                  <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Code</label>
+                  <input id="promo-code-input" placeholder="e.g. WELCOME20" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:13px;text-transform:uppercase;width:140px">
+                </div>
+                <div>
+                  <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">% Off</label>
+                  <input id="promo-percent-input" type="number" min="1" max="100" placeholder="20" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:13px;width:70px">
+                </div>
+                <div>
+                  <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Duration</label>
+                  <select id="promo-duration-select" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:13px">
+                    <option value="once">Once</option>
+                    <option value="forever">Forever</option>
+                    <option value="repeating">Repeating</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Max Uses</label>
+                  <input id="promo-max-input" type="number" min="1" placeholder="∞" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:13px;width:70px">
+                </div>
+                <button class="admin-btn admin-btn-primary" onclick="createPromoCode()" style="padding:8px 16px">Create</button>
+              </div>
+            </div>
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Discount</th>
+                  <th>Duration</th>
+                  <th>Redeemed</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="promos-tbody"></tbody>
+            </table>
+          </div>
+        </div>
       </main>
     </div>
   </div>
@@ -572,6 +680,7 @@
     let adminToken = localStorage.getItem('iwrite_admin_token');
     let allUsers = [];
     let allDocs = [];
+    let allStories = [];
     let _docsPage = 1;
     let _docsTotalPages = 1;
     let _docsTotal = 0;
@@ -706,6 +815,7 @@
       const tabEl = document.getElementById(`tab-${tabName}`);
       if (tabEl) tabEl.style.display = 'block';
       localStorage.setItem('iwrite_admin_tab', tabName);
+      if (tabName === 'stories') loadStoriesAdmin();
     }
 
     document.querySelectorAll('[data-tab]').forEach(btn => {
@@ -1339,6 +1449,131 @@
       } catch { toast('Failed to load document', 'error'); }
     }
 
+    // ===== STORIES =====
+    function storyStatusBadge(status) {
+      const map = {
+        draft: ['badge-free', 'Draft'],
+        pending_review: ['badge-suggestion', 'Under Review'],
+        changes_requested: ['badge-feedback', 'Changes Requested'],
+        rejected: ['badge-bug', 'Rejected'],
+        published: ['badge-open', 'Published'],
+        hidden: ['badge-closed', 'Hidden']
+      };
+      const [klass, label] = map[status] || ['badge-free', status || 'Unknown'];
+      return `<span class="badge ${klass}">${label}</span>`;
+    }
+
+    async function loadStoriesAdmin() {
+      try {
+        const [stories, comments] = await Promise.all([
+          adminRequest('/admin/stories'),
+          adminRequest('/admin/story-comments')
+        ]);
+        allStories = stories;
+        renderStoriesAdmin(stories);
+        renderStoryCommentsAdmin(comments);
+      } catch {
+        toast('Failed to load stories', 'error');
+      }
+    }
+
+    function renderStoriesAdmin(stories) {
+      const tbody = document.getElementById('stories-admin-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = stories.map(story => `
+        <tr>
+          <td><strong>${esc(story.title)}</strong><div style="font-size:11px;color:var(--text-muted)">${story.sourceDocumentId ? 'From session' : 'Standalone story'}</div></td>
+          <td>${esc(story.authorName || 'Unknown')}${story.authorUsername ? `<div style="font-size:11px;color:var(--text-muted)">@${esc(story.authorUsername)}</div>` : ''}</td>
+          <td>${storyStatusBadge(story.status)}${story.moderationNote ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">${esc(story.moderationNote)}</div>` : ''}${story.allowComments === false ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Author disabled comments</div>` : ''}</td>
+          <td style="font-size:12px;color:var(--text-muted)">${story.publishedAt ? new Date(story.publishedAt).toLocaleString() : '—'}</td>
+          <td style="font-size:12px">${story.likeCount || 0} likes · ${story.commentCount || 0} comments${story.pendingComments ? ` · ${story.pendingComments} pending` : ''}</td>
+          <td class="actions">
+            ${story.status !== 'published' ? `<button class="admin-btn admin-btn-success" onclick="setStoryStatus('${story.id}','published')">Approve</button>` : `<button class="admin-btn admin-btn-ghost" onclick="setStoryStatus('${story.id}','hidden')">Hide</button>`}
+            <button class="admin-btn admin-btn-ghost" onclick="setStoryStatus('${story.id}','changes_requested')">Request Changes</button>
+            <button class="admin-btn admin-btn-danger" onclick="setStoryStatus('${story.id}','rejected')">Reject</button>
+            <button class="admin-btn admin-btn-ghost" onclick="toggleStoryCommentsLock('${story.id}', ${story.commentsLocked || story.allowComments === false ? 'true' : 'false'})">${story.commentsLocked || story.allowComments === false ? 'Enable Comments' : 'Disable Comments'}</button>
+            <button class="admin-btn admin-btn-danger" onclick="deleteStoryAdmin('${story.id}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderStoryCommentsAdmin(comments) {
+      const tbody = document.getElementById('story-comments-admin-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = comments.map(comment => `
+        <tr>
+          <td><strong>${esc(comment.storyTitle || 'Unknown story')}</strong><div style="font-size:11px;color:var(--text-muted)">${comment.storyStatus ? esc(comment.storyStatus) : ''}</div></td>
+          <td>${esc(comment.authorName || 'Unknown')}</td>
+          <td>${storyStatusBadge(comment.status)}</td>
+          <td style="max-width:340px;white-space:normal;line-height:1.5">${esc(comment.text)}</td>
+          <td style="font-size:12px;color:var(--text-muted)">${comment.createdAt ? new Date(comment.createdAt).toLocaleString() : '—'}</td>
+          <td class="actions">
+            ${comment.status !== 'approved' ? `<button class="admin-btn admin-btn-success" onclick="moderateStoryComment('${comment.id}','approved')">Approve</button>` : `<button class="admin-btn admin-btn-ghost" onclick="moderateStoryComment('${comment.id}','hidden')">Hide</button>`}
+            <button class="admin-btn admin-btn-danger" onclick="moderateStoryComment('${comment.id}','rejected')">Reject</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function setStoryStatus(id, status) {
+      try {
+        let moderationNote = '';
+        if (status === 'changes_requested' || status === 'rejected') {
+          moderationNote = window.prompt('Optional moderation note for the writer:') || '';
+        }
+        await adminRequest(`/admin/stories/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status, moderationNote })
+        });
+        toast('Story updated', 'success');
+        loadStoriesAdmin();
+      } catch (err) {
+        toast(err.message || 'Failed to update story', 'error');
+      }
+    }
+
+    async function toggleStoryCommentsLock(id, enableComments) {
+      try {
+        await adminRequest(`/admin/stories/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            commentsLocked: !enableComments,
+            allowComments: !!enableComments
+          })
+        });
+        toast(enableComments ? 'Comments enabled' : 'Comments disabled', 'success');
+        loadStoriesAdmin();
+      } catch (err) {
+        toast(err.message || 'Failed to update comments setting', 'error');
+      }
+    }
+
+    async function deleteStoryAdmin(id) {
+      const ok = await adminConfirm('Delete this story and all of its likes/comments?');
+      if (!ok) return;
+      try {
+        await adminRequest(`/admin/stories/${id}`, { method: 'DELETE' });
+        toast('Story deleted', 'success');
+        loadStoriesAdmin();
+      } catch (err) {
+        toast(err.message || 'Failed to delete story', 'error');
+      }
+    }
+
+    async function moderateStoryComment(id, status) {
+      try {
+        await adminRequest(`/admin/story-comments/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status })
+        });
+        toast('Comment updated', 'success');
+        loadStoriesAdmin();
+      } catch (err) {
+        toast(err.message || 'Failed to update comment', 'error');
+      }
+    }
+
     async function restoreDoc(id) {
       try {
         await adminRequest(`/admin/documents/${id}/restore`, { method: 'POST' });
@@ -1842,6 +2077,140 @@
       if (maintInterval) clearInterval(maintInterval);
       maintInterval = setInterval(pollMaintenanceStatus, 5000);
     }
+
+    // ===== SUBSCRIPTIONS TAB =====
+    let allSubscribers = [];
+    let currentSubFilter = 'all';
+
+    function switchSubTab(tab) {
+      document.getElementById('sub-page-subscribers').style.display = tab === 'subscribers' ? 'block' : 'none';
+      document.getElementById('sub-page-promos').style.display = tab === 'promos' ? 'block' : 'none';
+      document.getElementById('sub-tab-subscribers').className = `admin-btn ${tab === 'subscribers' ? 'admin-btn-primary' : 'admin-btn-ghost'}`;
+      document.getElementById('sub-tab-promos').className = `admin-btn ${tab === 'promos' ? 'admin-btn-primary' : 'admin-btn-ghost'}`;
+      if (tab === 'subscribers') loadSubscribers();
+      if (tab === 'promos') loadPromoCodes();
+    }
+
+    async function loadSubscribers() {
+      try {
+        allSubscribers = await adminRequest('/admin/subscribers');
+        filterSubscribers(currentSubFilter);
+      } catch (e) { toast('Failed to load subscribers: ' + e.message, 'error'); }
+    }
+
+    function filterSubscribers(filter) {
+      currentSubFilter = filter;
+      document.querySelectorAll('.sub-filter-btn').forEach(b => {
+        b.className = `admin-btn ${b.dataset.filter === filter ? 'admin-btn-primary' : 'admin-btn-ghost'} sub-filter-btn`;
+      });
+
+      let filtered = allSubscribers;
+      if (filter === 'stripe') filtered = allSubscribers.filter(s => s.planSource === 'stripe');
+      else if (filter === 'admin') filtered = allSubscribers.filter(s => !s.planSource || s.planSource === 'admin');
+      else if (filter === 'trial') filtered = allSubscribers.filter(s => s.planSource === 'trial');
+      else if (filter === 'referral') filtered = allSubscribers.filter(s => s.planSource === 'referral');
+      else if (filter === 'failed') filtered = allSubscribers.filter(s => s.planPaymentFailed);
+
+      document.getElementById('subscribers-count').textContent = `${filtered.length} subscriber${filtered.length !== 1 ? 's' : ''}`;
+
+      const tbody = document.getElementById('subscribers-tbody');
+      if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No subscribers found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(s => {
+        const source = s.planSource || 'admin';
+        const sourceColors = { stripe: '#6366f1', admin: '#8b5cf6', trial: '#f59e0b', referral: '#10b981' };
+        const sourceColor = sourceColors[source] || '#6b7280';
+        const expires = s.planExpiresAt === 'infinite' ? '∞ Never'
+          : s.planExpiresAt ? new Date(s.planExpiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+        const paymentStatus = s.planPaymentFailed
+          ? '<span style="color:var(--danger);font-weight:600">Failed</span>'
+          : (s.planSource === 'stripe' ? '<span style="color:var(--success)">Active</span>' : '—');
+
+        return `<tr>
+          <td>${esc(s.name)}</td>
+          <td style="font-size:12px">${esc(s.email)}</td>
+          <td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${sourceColor}22;color:${sourceColor}">${source}</span></td>
+          <td>${s.planDuration || '—'}</td>
+          <td style="font-size:12px">${expires}</td>
+          <td>${paymentStatus}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function loadPromoCodes() {
+      try {
+        const codes = await adminRequest('/admin/promo-codes');
+        const tbody = document.getElementById('promos-tbody');
+
+        if (!codes.length) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No promo codes yet. Create one above.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = codes.map(c => {
+          const discount = c.percentOff ? `${c.percentOff}% off` : (c.amountOff ? `$${(c.amountOff / 100).toFixed(2)} off` : '—');
+          const dur = c.duration === 'once' ? 'Once' : c.duration === 'forever' ? 'Forever' : `${c.durationInMonths}mo`;
+          const status = c.active
+            ? '<span style="color:var(--success);font-weight:600">Active</span>'
+            : '<span style="color:var(--text-muted)">Inactive</span>';
+          const created = new Date(c.created).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const maxUses = c.maxRedemptions ? `${c.timesRedeemed}/${c.maxRedemptions}` : c.timesRedeemed;
+
+          return `<tr>
+            <td style="font-weight:600;font-family:var(--font-mono);letter-spacing:0.5px">${esc(c.code)}</td>
+            <td>${discount}</td>
+            <td>${dur}</td>
+            <td>${maxUses}</td>
+            <td>${status}</td>
+            <td style="font-size:12px">${created}</td>
+            <td>${c.active ? `<button class="admin-btn admin-btn-ghost" style="font-size:11px;padding:4px 10px" onclick="deactivatePromo('${c.id}')">Deactivate</button>` : ''}</td>
+          </tr>`;
+        }).join('');
+      } catch (e) { toast('Failed to load promo codes: ' + e.message, 'error'); }
+    }
+
+    async function createPromoCode() {
+      const code = document.getElementById('promo-code-input').value.trim();
+      const percentOff = document.getElementById('promo-percent-input').value;
+      const duration = document.getElementById('promo-duration-select').value;
+      const maxRedemptions = document.getElementById('promo-max-input').value;
+
+      if (!code || !percentOff) { toast('Code and % off are required', 'error'); return; }
+
+      try {
+        await adminRequest('/admin/promo-codes', {
+          method: 'POST',
+          body: JSON.stringify({ code, percentOff, duration, maxRedemptions: maxRedemptions || null })
+        });
+        toast(`Promo code ${code.toUpperCase()} created!`, 'success');
+        document.getElementById('promo-code-input').value = '';
+        document.getElementById('promo-percent-input').value = '';
+        document.getElementById('promo-max-input').value = '';
+        loadPromoCodes();
+      } catch (e) { toast('Failed: ' + e.message, 'error'); }
+    }
+
+    async function deactivatePromo(id) {
+      const confirmed = await adminConfirm('Deactivate this promo code? Users will no longer be able to use it.');
+      if (!confirmed) return;
+      try {
+        await adminRequest(`/admin/promo-codes/${id}/deactivate`, { method: 'POST' });
+        toast('Promo code deactivated', 'success');
+        loadPromoCodes();
+      } catch (e) { toast('Failed: ' + e.message, 'error'); }
+    }
+
+    // Load subscribers when switching to subscriptions tab
+    const origSwitchTab = switchAdminTab;
+    switchAdminTab = function(tabName) {
+      origSwitchTab(tabName);
+      if (tabName === 'subscriptions') {
+        loadSubscribers();
+      }
+    };
 
     // ===== INIT =====
     if (adminToken) {
