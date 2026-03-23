@@ -60,6 +60,14 @@ const apiLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// CRITICAL: Stripe webhook must be registered BEFORE apiLimiter and express.json()
+// It needs raw body for signature verification and must not be rate-limited
+const { stripeWebhookHandler } = require('./routes/stripe');
+app.post('/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  stripeWebhookHandler
+);
+
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/google', authLimiter);
@@ -255,6 +263,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/share', require('./routes/share'));
 app.use('/api/support', require('./routes/support'));
 app.use('/api/duels', require('./routes/duels'));
+app.use('/api/stripe', require('./routes/stripe').router);
 
 const { findOne, findMany, insertOne, updateOne } = require('./utils/storage');
 const bcrypt = require('bcryptjs');
