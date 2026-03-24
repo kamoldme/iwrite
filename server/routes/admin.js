@@ -629,19 +629,21 @@ router.get('/referrals', async (req, res) => {
   try {
     const users = await findMany('users.json');
 
-    // Build a map of referralCode → user for fast lookup
-    const codeToUser = {};
+    // Build referred-by index: referralCode → [users who used that code]
+    const codeToReferred = {};
     users.forEach(u => {
-      if (u.referralCode) codeToUser[u.referralCode] = u;
+      if (u.referredBy) {
+        if (!codeToReferred[u.referredBy]) codeToReferred[u.referredBy] = [];
+        codeToReferred[u.referredBy].push(u);
+      }
     });
 
-    // Find all users who have at least 1 referral
+    // Find all users who have a referral code and at least 1 person used it
+    // Also include users whose referralCount > 0 (even if we can't find the referred users)
     const referrers = users
-      .filter(u => (u.referralCount || 0) > 0)
+      .filter(u => u.referralCode && ((codeToReferred[u.referralCode] || []).length > 0 || (u.referralCount || 0) > 0))
       .map(u => {
-        // Find all users referred by this person
-        const referred = users
-          .filter(r => r.referredBy === u.referralCode)
+        const referred = (codeToReferred[u.referralCode] || [])
           .map(r => ({
             id: r.id,
             name: r.name,
@@ -655,6 +657,9 @@ router.get('/referrals', async (req, res) => {
           }))
           .sort((a, b) => new Date(b.joinedAt) - new Date(a.joinedAt));
 
+        // Use actual count from referred users (source of truth), fallback to stored count
+        const actualCount = Math.max(referred.length, u.referralCount || 0);
+
         return {
           id: u.id,
           name: u.name,
@@ -662,14 +667,13 @@ router.get('/referrals', async (req, res) => {
           email: u.email,
           plan: u.plan || 'free',
           referralCode: u.referralCode,
-          referralCount: u.referralCount || 0,
-          proRewardsEarned: Math.floor((u.referralCount || 0) / 5),
+          referralCount: actualCount,
+          proRewardsEarned: Math.floor(actualCount / 5),
           referred
         };
       })
       .sort((a, b) => b.referralCount - a.referralCount);
 
-    // Also get users who joined via referral but whose referrer has 0 count (edge case)
     const totalReferred = users.filter(u => u.referredBy).length;
 
     res.json({ referrers, totalReferred, totalReferrers: referrers.length });
