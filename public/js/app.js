@@ -3684,11 +3684,37 @@ const App = {
     try {
       const res = await fetch('/api/maintenance-status');
       const data = await res.json();
+      const wasActive = this._maintActive;
       this._maintActive = data.active;
       this._maintShutdown = data.shutdownReady;
       if (data.remaining !== undefined) this._maintRemaining = data.remaining;
       this._renderMaintenanceBanner();
+      // Refresh copy & complete buttons when maintenance state changes
+      if (wasActive !== data.active) this._refreshSessionButtons();
     } catch {}
+  },
+
+  // Refresh copy + complete button states based on maintenance
+  _refreshSessionButtons() {
+    if (typeof Editor === 'undefined' || !Editor.active) return;
+    const copyBtn = document.getElementById('editor-copy-btn');
+    const saveBtn = document.getElementById('editor-save-btn');
+    if (this._maintActive) {
+      // Maintenance ON — enable copy, enable complete
+      if (copyBtn) { copyBtn.classList.remove('btn-disabled'); copyBtn.style.opacity = ''; copyBtn.style.cursor = ''; }
+      if (saveBtn) { saveBtn.classList.remove('btn-disabled'); saveBtn.style.opacity = ''; }
+    } else {
+      // Maintenance OFF — disable copy, re-check complete limit
+      if (copyBtn) { copyBtn.classList.add('btn-disabled'); copyBtn.style.opacity = '0.4'; copyBtn.style.cursor = 'not-allowed'; }
+      if (saveBtn) {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const earlyUsed = (this.user && this.user.earlyCompletesMonth === currentMonth) ? (this.user.earlyCompletes || 0) : 0;
+        const earlyLimit = (this.user && this.user.plan === 'premium') ? 15 : 3;
+        if (earlyUsed >= earlyLimit) {
+          saveBtn.classList.add('btn-disabled'); saveBtn.style.opacity = '0.4';
+        }
+      }
+    }
   },
 
   _tickMaintenanceBanner() {
