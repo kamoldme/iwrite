@@ -419,13 +419,10 @@
             </table>
           </div>
           <div class="admin-card" style="padding:20px">
-            <div class="admin-toolbar" style="margin-bottom:12px">
-              <div>
-                <h3 style="font-size:14px;font-weight:600;margin-bottom:4px">Published Stories</h3>
-                <div style="font-size:12px;color:var(--text-muted)">Search by title or owner, then sort by views or likes.</div>
-              </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <input class="admin-search" id="published-stories-search" placeholder="Search title or owner..." style="max-width:240px;margin-bottom:0">
+            <div class="admin-toolbar" style="margin-bottom:12px;align-items:center">
+              <h3 style="font-size:14px;font-weight:600;margin:0;white-space:nowrap">Published Stories</h3>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto">
+                <input class="admin-search" id="published-stories-search" placeholder="Search title or owner..." style="max-width:220px;margin-bottom:0">
                 <select id="published-stories-sort" class="admin-search" style="width:auto;max-width:180px;padding:6px 10px;margin-bottom:0">
                   <option value="views">Most Views</option>
                   <option value="likes">Most Likes</option>
@@ -1533,8 +1530,13 @@
           <td><strong>${esc(story.title)}</strong><div style="font-size:11px;color:var(--text-muted)">${story.sourceDocumentId ? 'From session' : 'Standalone story'}</div></td>
           <td>${esc(story.authorName || 'Unknown')}${story.authorUsername ? `<div style="font-size:11px;color:var(--text-muted)">@${esc(story.authorUsername)}</div>` : ''}</td>
           <td style="font-size:12px;color:var(--text-muted)">${story.submittedAt ? new Date(story.submittedAt).toLocaleString() : '—'}</td>
-          <td style="font-size:12px">${story.viewCount || 0} views · ${story.likeCount || 0} likes · ${story.commentCount || 0} comments</td>
+          <td style="font-size:12px;white-space:nowrap">
+            <span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ${story.viewCount || 0}</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg> ${story.likeCount || 0}</span>
+            <span style="display:inline-flex;align-items:center;gap:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> ${story.commentCount || 0}</span>
+          </td>
           <td class="actions">
+            <button class="admin-btn admin-btn-ghost" onclick="viewStoryAdmin('${story.id}')">View</button>
             <button class="admin-btn admin-btn-success" onclick="setStoryStatus('${story.id}','published')">Approve</button>
             <button class="admin-btn admin-btn-ghost" onclick="setStoryStatus('${story.id}','changes_requested')">Request Changes</button>
             <button class="admin-btn admin-btn-danger" onclick="setStoryStatus('${story.id}','rejected')">Reject</button>
@@ -1574,6 +1576,10 @@
       } catch (err) {
         toast(err.message || 'Failed to update story', 'error');
       }
+    }
+
+    function viewStoryAdmin(id) {
+      window.open(`/story/${id}`, '_blank');
     }
 
     async function deleteStoryAdmin(id) {

@@ -3719,7 +3719,7 @@ html.light .logo-img-light { display: inline; }
 .stories-filter-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
 .stories-filter-btn {
@@ -4007,6 +4007,7 @@ html.light .logo-img-light { display: inline; }
 .story-meta-divider {
   color: var(--text-muted);
   font-size: 10px;
+  margin: 0 4px;
 }
 
 .story-author {
@@ -4624,7 +4625,7 @@ html.light .logo-img-light { display: inline; }
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 24px;
   flex-wrap: wrap;
 }
 
@@ -4641,6 +4642,8 @@ html.light .logo-img-light { display: inline; }
 
 .stories-topbar-quick-actions {
   margin-left: auto;
+  padding-left: 12px;
+  border-left: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .stories-primary-tabs .stories-filter-btn {
@@ -4759,7 +4762,6 @@ html.light .logo-img-light { display: inline; }
   flex-wrap: wrap;
   padding-bottom: 14px;
   margin: 18px 0 0;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .story-reader-author-meta {
@@ -4772,9 +4774,8 @@ html.light .logo-img-light { display: inline; }
   align-items: center;
   gap: 18px;
   flex-wrap: wrap;
-  padding: 16px 0 18px;
+  padding: 14px 0 16px;
   border-top: 1px solid rgba(15, 23, 42, 0.08);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
   margin-bottom: 26px;
 }
 
@@ -4837,6 +4838,18 @@ html.light .logo-img-light { display: inline; }
   border-top: none;
 }
 
+.story-comments-panel .story-comment-list {
+  gap: 0;
+}
+
+.story-comments-panel .story-comment-card {
+  padding: 18px 0;
+}
+
+.story-comments-panel .story-comment-card p {
+  margin: 10px 0 0;
+}
+
 .story-comments-head {
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
   padding-bottom: 12px;
@@ -4845,17 +4858,25 @@ html.light .logo-img-light { display: inline; }
 
 .story-comment-form textarea {
   min-height: 86px;
-  border: none;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 0;
-  background: transparent;
-  padding: 0 0 14px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 14px 16px;
   box-shadow: none;
 }
 
 .story-comment-form textarea:focus {
-  border-bottom-color: rgba(74, 222, 128, 0.45);
-  box-shadow: none;
+  border-color: rgba(74, 222, 128, 0.4);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.08);
+}
+
+.dark .story-comment-form textarea {
+  background: rgba(17, 24, 39, 0.4);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .story-comment-form textarea:focus {
+  border-color: rgba(74, 222, 128, 0.45);
 }
 
 .story-comment-form-actions {
@@ -5356,6 +5377,195 @@ html.light .logo-img-light { display: inline; }
   .story-bottom-action-bar {
     max-width: 640px;
   }
+}
+
+/* ===== STORIES THEME OVERRIDES ===== */
+
+/* Dark theme */
+.dark .story-feed-item,
+.dark .story-hero-card,
+.dark .story-skeleton-card {
+  border-bottom-color: var(--border);
+}
+
+.dark .story-reader-author-row {
+  border-bottom-color: var(--border);
+}
+
+.dark .story-reader-action-row {
+  border-top-color: var(--border);
+}
+
+.dark .story-bottom-action-bar {
+  border-top-color: var(--border);
+}
+
+.dark .story-comments-head {
+  border-bottom-color: var(--border);
+}
+
+.dark .story-comment-card {
+  border-bottom-color: var(--border);
+}
+
+.dark .story-skeleton-line {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark .stories-lead {
+  border-bottom-color: var(--border);
+}
+
+.dark .stories-filter-btn {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .stories-filter-btn:hover,
+.dark .stories-filter-btn.active {
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.dark .story-composer-formatbar {
+  border-top-color: var(--border);
+  border-bottom-color: var(--border);
+}
+
+.dark .story-composer-footer {
+  border-top-color: var(--border);
+}
+
+.dark .story-detail-content blockquote,
+.dark .story-editor blockquote {
+  border-left-color: rgba(255, 255, 255, 0.14);
+}
+
+.dark .stories-topbar-quick-actions {
+  border-left-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Sepia theme */
+.sepia .story-feed-item,
+.sepia .story-hero-card,
+.sepia .story-skeleton-card {
+  border-bottom-color: var(--border);
+}
+
+.sepia .story-reader-author-row {
+  border-bottom-color: var(--border);
+}
+
+.sepia .story-reader-action-row {
+  border-top-color: var(--border);
+}
+
+.sepia .story-bottom-action-bar {
+  border-top-color: var(--border);
+}
+
+.sepia .story-comments-head {
+  border-bottom-color: var(--border);
+}
+
+.sepia .story-comment-card {
+  border-bottom-color: var(--border);
+}
+
+.sepia .story-skeleton-line {
+  background: rgba(44, 31, 14, 0.08);
+}
+
+.sepia .stories-lead {
+  border-bottom-color: var(--border);
+}
+
+.sepia .stories-filter-btn {
+  border-color: rgba(195, 126, 63, 0.2);
+}
+
+.sepia .stories-filter-btn:hover,
+.sepia .stories-filter-btn.active {
+  border-color: rgba(195, 126, 63, 0.4);
+  color: var(--text-primary);
+  background: rgba(195, 126, 63, 0.08);
+}
+
+.sepia .story-action-btn.liked {
+  color: #c0392b;
+}
+
+.sepia .story-comment-switch {
+  background: rgba(240, 230, 212, 0.72);
+  border-color: rgba(195, 126, 63, 0.2);
+}
+
+.sepia .story-comment-switch.active {
+  border-color: rgba(195, 126, 63, 0.4);
+  background: rgba(195, 126, 63, 0.08);
+}
+
+.sepia .story-comment-form textarea {
+  background: rgba(240, 230, 212, 0.5);
+  border-color: rgba(44, 31, 14, 0.12);
+}
+
+.sepia .story-comment-form textarea:focus {
+  border-color: rgba(195, 126, 63, 0.45);
+  box-shadow: 0 0 0 3px rgba(195, 126, 63, 0.08);
+}
+
+.sepia .story-composer-formatbar {
+  border-top-color: var(--border);
+  border-bottom-color: var(--border);
+}
+
+.sepia .story-composer-footer {
+  border-top-color: var(--border);
+}
+
+.sepia .story-detail-content blockquote,
+.sepia .story-editor blockquote {
+  border-left-color: rgba(195, 126, 63, 0.3);
+}
+
+.sepia .stories-topbar-quick-actions {
+  border-left-color: rgba(44, 31, 14, 0.08);
+}
+
+.sepia .story-status-badge.success {
+  background: rgba(195, 126, 63, 0.16);
+  color: #8B5E34;
+}
+
+.sepia .story-status-badge.warning {
+  background: rgba(195, 126, 63, 0.16);
+  color: #8B5E34;
+}
+
+.sepia .stories-icon-btn {
+  border-color: rgba(195, 126, 63, 0.2);
+}
+
+.sepia .stories-icon-btn:hover {
+  border-color: rgba(195, 126, 63, 0.4);
+}
+
+.sepia .stories-inline-btn {
+  border-color: rgba(195, 126, 63, 0.2);
+}
+
+.sepia .stories-inline-btn:hover {
+  border-color: rgba(195, 126, 63, 0.4);
+  background: rgba(195, 126, 63, 0.08);
+}
+
+.sepia .story-comment-delete:hover {
+  color: #c0392b;
+}
+
+.sepia .pro-nav-badge {
+  background: linear-gradient(135deg, #C37E3F, #8B5E34);
+  color: #F0E6D4;
 }
 
 /* ===== DUELS ===== */

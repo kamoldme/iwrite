@@ -194,7 +194,7 @@
     },
 
     renderMyStoryCard(story) {
-      const canDelete = this.storyMineFilter === 'drafts';
+      const canDelete = story.userId === this.user.id;
       const canEdit = ['draft', 'changes_requested', 'rejected'].includes(story.status);
       const canShare = ['published', 'hidden'].includes(story.status);
       return `
@@ -437,22 +437,22 @@
               </div>
             </div>
 
-            <div class="story-reader-action-row">
-              ${story.status === 'published' ? `<button class="story-action-btn ${story.likedByMe ? 'liked' : ''}" id="story-like-btn">${renderIcon('heart', { filled: story.likedByMe })}<span>${story.likeCount || 0}</span></button>` : ''}
+            ${story.status === 'published' ? `<div class="story-reader-action-row">
+              <button class="story-action-btn ${story.likedByMe ? 'liked' : ''}" id="story-like-btn">${renderIcon('heart', { filled: story.likedByMe })}<span>${story.likeCount || 0}</span></button>
               <button class="story-action-btn" id="story-comments-btn">${renderIcon('comment')}<span>${story.commentCount || 0}</span></button>
-              ${story.status === 'published' ? `<button class="story-action-btn" id="story-share-btn">${renderIcon('share')}<span>Share Link</span></button>` : ''}
-              ${ownerOrAdmin && story.status === 'published' ? `<button class="story-comment-switch ${commentsOpen ? 'active' : ''}" id="story-toggle-comments-btn">${renderIcon('comment')}<span>${commentsOpen ? 'Comments On' : 'Comments Off'}</span></button>` : ''}
-            </div>
+              <button class="story-action-btn" id="story-share-btn">${renderIcon('share')}<span>Share Link</span></button>
+              ${ownerOrAdmin ? `<button class="story-comment-switch ${commentsOpen ? 'active' : ''}" id="story-toggle-comments-btn">${renderIcon('comment')}<span>${commentsOpen ? 'Comments On' : 'Comments Off'}</span></button>` : ''}
+            </div>` : ''}
 
             ${ownerOrAdmin && story.moderationNote ? `<div class="story-card-note story-reader-note">${esc(story.moderationNote)}</div>` : ''}
             <div class="story-detail-content shared-content">${story.content || '<p style="color:var(--text-muted)">No content yet.</p>'}</div>
           </article>
 
-          <div class="story-bottom-action-bar">
-            ${story.status === 'published' ? `<button class="story-action-btn ${story.likedByMe ? 'liked' : ''}" id="story-bottom-like-btn">${renderIcon('heart', { filled: story.likedByMe })}<span>${story.likeCount || 0}</span></button>` : ''}
+          ${story.status === 'published' ? `<div class="story-bottom-action-bar">
+            <button class="story-action-btn ${story.likedByMe ? 'liked' : ''}" id="story-bottom-like-btn">${renderIcon('heart', { filled: story.likedByMe })}<span>${story.likeCount || 0}</span></button>
             <button class="story-action-btn" id="story-bottom-comments-btn">${renderIcon('comment')}<span>${story.commentCount || 0}</span></button>
-            ${story.status === 'published' ? `<button class="story-action-btn" id="story-bottom-share-btn">${renderIcon('share')}<span>Share Link</span></button>` : ''}
-          </div>
+            <button class="story-action-btn" id="story-bottom-share-btn">${renderIcon('share')}<span>Share Link</span></button>
+          </div>` : ''}
 
           <section class="story-comments-panel" id="story-comments-anchor">
             <div class="story-comments-head">
@@ -954,17 +954,80 @@
       }
     },
 
-    async deleteStoryDraft(storyId) {
-      const ok = await this.showConfirm('Delete this draft?');
+    showStoryDeleteConfirm(story) {
+      return new Promise((resolve) => {
+        const overlay = document.getElementById('confirm-overlay');
+        const dialog = overlay.querySelector('.confirm-dialog');
+        const isDraft = ['draft', 'changes_requested', 'rejected'].includes(story.status);
+
+        if (isDraft) {
+          document.getElementById('confirm-message').textContent = 'Delete this draft?';
+          overlay.classList.add('active');
+          document.getElementById('confirm-ok').onclick = () => { overlay.classList.remove('active'); resolve(true); };
+          document.getElementById('confirm-cancel').onclick = () => { overlay.classList.remove('active'); resolve(false); };
+          return;
+        }
+
+        const title = story.title || 'Untitled';
+        dialog.innerHTML = `
+          <p class="confirm-message" style="margin-bottom:12px">To permanently delete <strong>"${esc(title)}"</strong>, type the full title below, then type <strong>delete</strong> to confirm.</p>
+          <input type="text" id="delete-title-input" placeholder="Type story title..." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-primary);font:inherit;font-size:13px;margin-bottom:8px;box-sizing:border-box">
+          <input type="text" id="delete-confirm-input" placeholder='Type "delete" to confirm' style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-primary);font:inherit;font-size:13px;margin-bottom:14px;box-sizing:border-box">
+          <div class="confirm-actions">
+            <button class="btn btn-ghost btn-small" id="confirm-cancel">Cancel</button>
+            <button class="btn btn-small" id="confirm-ok" style="background:var(--danger);color:#fff;opacity:0.4;pointer-events:none">Delete Story</button>
+          </div>
+        `;
+        overlay.classList.add('active');
+
+        const titleInput = document.getElementById('delete-title-input');
+        const confirmInput = document.getElementById('delete-confirm-input');
+        const okBtn = document.getElementById('confirm-ok');
+
+        const checkInputs = () => {
+          const titleMatch = titleInput.value.trim() === title;
+          const confirmMatch = confirmInput.value.trim().toLowerCase() === 'delete';
+          if (titleMatch && confirmMatch) {
+            okBtn.style.opacity = '1';
+            okBtn.style.pointerEvents = 'auto';
+          } else {
+            okBtn.style.opacity = '0.4';
+            okBtn.style.pointerEvents = 'none';
+          }
+        };
+        titleInput.addEventListener('input', checkInputs);
+        confirmInput.addEventListener('input', checkInputs);
+
+        okBtn.onclick = () => {
+          overlay.classList.remove('active');
+          dialog.innerHTML = '<p class="confirm-message" id="confirm-message"></p><div class="confirm-actions"><button class="btn btn-ghost btn-small" id="confirm-cancel">Cancel</button><button class="btn btn-primary btn-small" id="confirm-ok">OK</button></div>';
+          resolve(true);
+        };
+        document.getElementById('confirm-cancel').onclick = () => {
+          overlay.classList.remove('active');
+          dialog.innerHTML = '<p class="confirm-message" id="confirm-message"></p><div class="confirm-actions"><button class="btn btn-ghost btn-small" id="confirm-cancel">Cancel</button><button class="btn btn-primary btn-small" id="confirm-ok">OK</button></div>';
+          resolve(false);
+        };
+      });
+    },
+
+    async deleteStory(storyId) {
+      const story = this.storyList.find(s => s.id === storyId) || this.storyDetail;
+      if (!story) return;
+      const ok = await this.showStoryDeleteConfirm(story);
       if (!ok) return;
       try {
         await API.deleteStory(storyId);
         if (this.storySelectedId === storyId) this.openStoriesFeed();
         await this.loadStories();
-        App.toast('Draft deleted', 'success');
+        App.toast('Story deleted', 'success');
       } catch (err) {
-        App.toast(err.message || 'Failed to delete draft', 'error');
+        App.toast(err.message || 'Failed to delete story', 'error');
       }
+    },
+
+    async deleteStoryDraft(storyId) {
+      await this.deleteStory(storyId);
     },
 
     async toggleStoryLike(storyId) {
