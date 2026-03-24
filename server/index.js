@@ -25,14 +25,19 @@ const allowedOrigins = [
   'https://iwrite4.me',
   'https://www.iwrite4.me',
   'https://write4.me',
-  'https://www.write4.me'
+  'https://www.write4.me',
+  'https://iwrite.up.railway.app'
 ];
 if (process.env.NODE_ENV !== 'production') {
   allowedOrigins.push('http://localhost:3000', 'http://localhost:5173');
 }
-// Add Railway staging domain
+// Add Railway staging/public domain
 if (process.env.RAILWAY_PUBLIC_DOMAIN) {
   allowedOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+}
+// Add any Railway-provided URLs
+if (process.env.RAILWAY_STATIC_URL) {
+  allowedOrigins.push(`https://${process.env.RAILWAY_STATIC_URL}`);
 }
 app.use(cors({
   origin(origin, callback) {
