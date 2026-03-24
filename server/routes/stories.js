@@ -407,9 +407,9 @@ router.delete('/:id', async (req, res) => {
     if (!story) return res.status(404).json({ error: 'Story not found' });
 
     const isAdmin = req.user.role === 'admin';
-    const canDelete = isAdmin || (story.userId === req.user.id && ['draft', 'changes_requested', 'rejected', 'pending_review'].includes(story.status));
-    if (!canDelete) {
-      return res.status(403).json({ error: 'This story cannot be deleted right now' });
+    const isOwner = story.userId === req.user.id;
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ error: 'You do not have permission to delete this story' });
     }
 
     await deleteOne('stories.json', s => s.id === req.params.id);

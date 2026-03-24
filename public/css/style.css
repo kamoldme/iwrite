@@ -242,9 +242,9 @@
   border-color: rgba(0, 0, 0, 0.18);
 }
 
-/* Stories: hero card */
+/* Stories: hero card — no background override, inherits page bg */
 .light .story-hero-card {
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.02), var(--bg-card));
+  border-bottom-color: rgba(0, 0, 0, 0.08);
 }
 
 /* Stories: feature card */
@@ -4831,6 +4831,13 @@ html.light .logo-img-light { display: inline; }
   flex-wrap: wrap;
 }
 
+.story-card-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
 .story-card-actions {
   display: flex;
   align-items: center;
@@ -4903,8 +4910,6 @@ html.light .logo-img-light { display: inline; }
   align-items: center;
   gap: 18px;
   flex-wrap: wrap;
-  padding: 14px 0 16px;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
   margin-bottom: 26px;
 }
 
@@ -5521,10 +5526,6 @@ html.light .logo-img-light { display: inline; }
   border-bottom-color: var(--border);
 }
 
-.dark .story-reader-action-row {
-  border-top-color: var(--border);
-}
-
 .dark .story-bottom-action-bar {
   border-top-color: var(--border);
 }
@@ -5582,10 +5583,6 @@ html.light .logo-img-light { display: inline; }
 
 .sepia .story-reader-author-row {
   border-bottom-color: var(--border);
-}
-
-.sepia .story-reader-action-row {
-  border-top-color: var(--border);
 }
 
 .sepia .story-bottom-action-bar {

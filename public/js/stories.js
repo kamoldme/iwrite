@@ -204,7 +204,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             </div>
             <div class="doc-card-text">
-              <h4>${esc(story.title)} ${this.renderStoryStatus(story)}</h4>
+              <h4>${esc(story.title)}</h4>
               <div class="doc-card-meta">
                 <span>${story.readTimeMinutes || 1} min read</span>
                 <span>${formatStoryDate(story.publishedAt || story.updatedAt || story.createdAt)}</span>
@@ -214,10 +214,13 @@
               ${story.moderationNote ? `<div class="story-card-note">${esc(story.moderationNote)}</div>` : ''}
             </div>
           </div>
-          <div class="doc-card-actions story-card-actions">
-            ${canEdit ? `<button class="doc-action-btn" data-story-action="edit" data-story-id="${story.id}" title="Edit">${renderIcon('edit')}</button>` : `<button class="doc-action-btn" data-story-action="open" data-story-id="${story.id}" title="Open">${renderIcon('view')}</button>`}
-            ${canShare ? `<button class="doc-action-btn" data-story-action="share" data-story-id="${story.id}" title="Copy story link">${renderIcon('share')}</button>` : ''}
-            ${canDelete ? `<button class="doc-action-btn delete" data-story-action="delete" data-story-id="${story.id}" title="Delete draft">${renderIcon('delete')}</button>` : ''}
+          <div class="story-card-right">
+            ${this.renderStoryStatus(story)}
+            <div class="doc-card-actions story-card-actions">
+              ${canEdit ? `<button class="doc-action-btn" data-story-action="edit" data-story-id="${story.id}" title="Edit">${renderIcon('edit')}</button>` : `<button class="doc-action-btn" data-story-action="open" data-story-id="${story.id}" title="Open">${renderIcon('view')}</button>`}
+              ${canShare ? `<button class="doc-action-btn" data-story-action="share" data-story-id="${story.id}" title="Copy story link">${renderIcon('share')}</button>` : ''}
+              ${canDelete ? `<button class="doc-action-btn delete" data-story-action="delete" data-story-id="${story.id}" title="Delete draft">${renderIcon('delete')}</button>` : ''}
+            </div>
           </div>
         </div>
       `;
