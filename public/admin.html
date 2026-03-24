@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.24</span>
+            <span class="version-tag" style="margin-top:0">v2.3.25</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -704,6 +704,16 @@
     <div class="user-detail-body" id="user-docs-body" style="max-height:calc(100vh - 80px);overflow-y:auto"></div>
   </div>
 
+  <!-- STORY VIEW SIDEBAR -->
+  <div class="user-detail-overlay" id="story-view-overlay" style="display:none"></div>
+  <div class="user-detail-panel" id="story-view-panel" style="display:none;width:620px">
+    <div class="user-detail-header">
+      <h3 id="story-view-title" style="font-size:18px;font-weight:700">Story</h3>
+      <button class="admin-btn admin-btn-ghost" id="story-view-close">&times; Close</button>
+    </div>
+    <div class="user-detail-body" id="story-view-body" style="max-height:calc(100vh - 80px);overflow-y:auto"></div>
+  </div>
+
   <!-- IN-APP CONFIRM DIALOG -->
   <div class="admin-confirm-overlay" id="admin-confirm-overlay">
     <div class="admin-confirm-dialog">
@@ -912,6 +922,8 @@
     document.getElementById('doc-view-overlay').addEventListener('click', closeDocView);
     document.getElementById('user-docs-close').addEventListener('click', closeUserDocs);
     document.getElementById('user-docs-overlay').addEventListener('click', closeUserDocs);
+    document.getElementById('story-view-close').addEventListener('click', closeStoryView);
+    document.getElementById('story-view-overlay').addEventListener('click', closeStoryView);
 
     function closeUserDetail() {
       document.getElementById('user-detail-panel').style.display = 'none';
@@ -1484,14 +1496,21 @@
     function getDocStatus(d) {
       if (d.deletedBySystem) return 'lost';
       if (d.deleted) return 'deleted';
-      if (!d.duration || d.duration === 0) return 'ongoing';
+      // Ongoing = no duration yet AND updated within the last 5 minutes (actively being written)
+      if ((!d.duration || d.duration === 0) && d.updatedAt) {
+        const ago = Date.now() - new Date(d.updatedAt).getTime();
+        if (ago < 5 * 60 * 1000) return 'ongoing';
+      }
       return 'active';
     }
 
     function getDocStatusLabel(d) {
       if (d.deletedBySystem) return 'Lost';
       if (d.deleted) return 'Deleted';
-      if (!d.duration || d.duration === 0) return 'Ongoing';
+      if ((!d.duration || d.duration === 0) && d.updatedAt) {
+        const ago = Date.now() - new Date(d.updatedAt).getTime();
+        if (ago < 5 * 60 * 1000) return 'Ongoing';
+      }
       return 'Active';
     }
 
@@ -1689,8 +1708,56 @@
       }
     }
 
-    function viewStoryAdmin(id) {
-      window.open(`/story/${id}`, '_blank');
+    function closeStoryView() {
+      document.getElementById('story-view-panel').style.display = 'none';
+      document.getElementById('story-view-overlay').style.display = 'none';
+    }
+
+    async function viewStoryAdmin(id) {
+      try {
+        const story = await adminRequest(`/admin/stories/${id}`);
+        document.getElementById('story-view-title').textContent = story.title || '(untitled)';
+        const statusColors = { published: '#22c55e', draft: '#a3a3a3', pending_review: '#f59e0b', changes_requested: '#f97316', rejected: '#ef4444', hidden: '#6b7280' };
+        const statusLabel = (story.status || 'draft').replace(/_/g, ' ');
+        const color = statusColors[story.status] || '#a3a3a3';
+
+        const body = document.getElementById('story-view-body');
+        body.innerHTML = `
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+            <span style="color:${color};font-weight:700;font-size:12px;text-transform:capitalize;padding:4px 10px;border:1px solid ${color};border-radius:6px">${statusLabel}</span>
+            <span style="font-size:12px;color:var(--text-muted)">by <strong>${esc(story.authorName)}</strong>${story.authorUsername ? ' @' + esc(story.authorUsername) : ''}</span>
+            <span style="font-size:12px;color:var(--text-muted)">${story.format || 'post'}</span>
+          </div>
+          ${story.excerpt ? `<div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;font-style:italic;border-left:3px solid var(--border);padding-left:12px">${esc(story.excerpt)}</div>` : ''}
+          <div style="border:1px solid var(--border);border-radius:var(--radius);padding:20px;background:var(--bg-card);line-height:1.8;font-size:14px;max-height:50vh;overflow-y:auto">
+            ${story.body || '<em style="color:var(--text-muted)">No content</em>'}
+          </div>
+          <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:var(--text-muted)">
+            <span>👁 ${story.viewCount || 0} views</span>
+            <span>❤ ${story.likeCount || 0} likes</span>
+            <span>💬 ${story.commentCount || 0} comments</span>
+            <span>Created: ${new Date(story.createdAt).toLocaleString()}</span>
+          </div>
+          ${story.moderationNote ? `<div style="margin-top:12px;padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:12px"><strong>Moderation note:</strong> ${esc(story.moderationNote)}</div>` : ''}
+          ${story.comments && story.comments.length > 0 ? `
+            <div style="margin-top:20px">
+              <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:12px">Comments (${story.comments.length})</h4>
+              ${story.comments.map(c => `
+                <div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <strong>${esc(c.authorName || 'Unknown')}</strong>
+                    <span style="font-size:11px;color:var(--text-muted)">${new Date(c.createdAt).toLocaleString()}</span>
+                  </div>
+                  <p style="margin:6px 0 0;color:var(--text-secondary);line-height:1.6">${esc(c.body || '')}</p>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        `;
+        openPanel('story-view-panel', 'story-view-overlay');
+      } catch (err) {
+        toast(err.message || 'Failed to load story', 'error');
+      }
     }
 
     async function deleteStoryAdmin(id) {

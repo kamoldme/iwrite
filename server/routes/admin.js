@@ -234,7 +234,8 @@ router.get('/documents', async (req, res) => {
           const val = m[3].trim().toLowerCase();
           docs = docs.filter(d => {
             if (col === 'status') {
-              const s = d.deletedBySystem ? 'lost' : d.deleted ? 'deleted' : (!d.duration || d.duration === 0) ? 'ongoing' : 'active';
+              const recentlyUpdated = d.updatedAt && (Date.now() - new Date(d.updatedAt).getTime() < 5 * 60 * 1000);
+              const s = d.deletedBySystem ? 'lost' : d.deleted ? 'deleted' : ((!d.duration || d.duration === 0) && recentlyUpdated) ? 'ongoing' : 'active';
               return s === val || s.includes(val);
             }
             if (col === 'mode') return (d.mode || 'normal').toLowerCase() === val;
@@ -459,6 +460,24 @@ router.get('/stories', async (req, res) => {
   }).sort((a, b) => new Date(b.submittedAt || b.updatedAt || b.createdAt) - new Date(a.submittedAt || a.updatedAt || a.createdAt));
 
   res.json(enriched);
+});
+
+// Get a single story by ID (admin — works for drafts, pending, published, all statuses)
+router.get('/stories/:id', async (req, res) => {
+  const story = await findOne('stories.json', s => s.id === req.params.id);
+  if (!story) return res.status(404).json({ error: 'Story not found' });
+  const user = await findOne('users.json', u => u.id === story.userId);
+  const likes = await findMany('story-likes.json', l => l.storyId === story.id);
+  const comments = await findMany('story-comments.json', c => c.storyId === story.id);
+  res.json({
+    ...story,
+    authorName: user ? user.name : 'Unknown',
+    authorUsername: user ? (user.username || null) : null,
+    authorEmail: user ? user.email : null,
+    likeCount: likes.length,
+    commentCount: comments.filter(c => c.status === 'approved').length,
+    comments: comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  });
 });
 
 router.patch('/stories/:id', async (req, res) => {
