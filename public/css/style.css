@@ -1,4 +1,5 @@
 :root {
+  --maint-banner-h: 0px;
   --bg-primary: #0a0a0a;
   --bg-secondary: #111111;
   --bg-card: #161616;
@@ -2084,7 +2085,7 @@ a {
 /* ===== NAV ===== */
 .nav {
   position: fixed;
-  top: 0;
+  top: var(--maint-banner-h);
   left: 0;
   right: 0;
   z-index: 1000;
@@ -3296,7 +3297,7 @@ html.light .logo-img-light { display: inline; }
   display: flex;
   flex-direction: column;
   position: fixed;
-  top: 0;
+  top: var(--maint-banner-h);
   left: 0;
   bottom: 0;
   z-index: 100;
@@ -4587,9 +4588,12 @@ html.light .logo-img-light { display: inline; }
 }
 
 .story-comment-locked {
-  padding: 12px 0 18px;
+  padding: 18px 18px 18px;
   color: var(--text-muted);
   font-size: 13px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: transparent;
 }
 
 .story-composer-topbar-left {
@@ -5051,7 +5055,7 @@ html.light .logo-img-light { display: inline; }
 }
 
 .story-comments-panel .story-comment-list {
-  gap: 0;
+  gap: 10px;
 }
 
 .story-comments-panel .story-comment-card {
@@ -5097,6 +5101,10 @@ html.light .logo-img-light { display: inline; }
 
 .story-comment-card {
   padding: 16px 0;
+}
+
+.story-comment-card + .story-comment-card {
+  margin-top: 12px;
 }
 
 .story-comment-card-head {
@@ -6344,7 +6352,10 @@ html.light .logo-img-light { display: inline; }
 /* ===== EDITOR ===== */
 .editor-container {
   position: fixed;
-  inset: 0;
+  top: var(--maint-banner-h);
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: var(--bg-primary);
   z-index: 2000;
   display: flex;

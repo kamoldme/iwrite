@@ -216,7 +216,7 @@
                   </div>
                 </div>
               ` : `
-                <div class="story-comment-locked">
+                <div class="story-comment-locked" style="margin-inline-start:20px">
                   <a href="/app?story=${encodeURIComponent(storyId)}" style="color:var(--accent);font-weight:700;text-decoration:none">Sign in to like or comment</a>
                 </div>
               `}
@@ -257,6 +257,24 @@
     }
 
     loadStory();
+
+    // Scroll-to-top button
+    const goUpBtn = document.createElement('button');
+    goUpBtn.id = 'go-up-btn';
+    goUpBtn.innerHTML = '↑';
+    goUpBtn.title = 'Back to top';
+    Object.assign(goUpBtn.style, {
+      position: 'fixed', bottom: '28px', right: '28px', width: '42px', height: '42px',
+      borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--bg-elevated)',
+      color: 'var(--text-primary)', fontSize: '18px', cursor: 'pointer', display: 'none',
+      alignItems: 'center', justifyContent: 'center', zIndex: '50',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.15)', transition: 'opacity 0.2s'
+    });
+    goUpBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    document.body.appendChild(goUpBtn);
+    window.addEventListener('scroll', () => {
+      goUpBtn.style.display = window.scrollY > 400 ? 'flex' : 'none';
+    });
   </script>
 </body>
 </html>

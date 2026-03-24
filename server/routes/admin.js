@@ -27,6 +27,25 @@ router.get('/stats', async (req, res) => {
   const activeUsersMap = req.app.get('activeUsers');
   const activeNow = activeUsersMap ? activeUsersMap.size : 0;
 
+  // Session outcomes (all-time)
+  const completed = docs.filter(d => !d.deletedBySystem && !d.deleted && (d.wordCount || 0) > 0).length;
+  const failed = docs.filter(d => d.deletedBySystem).length;
+  const empty = docs.length - completed - failed;
+
+  // Weekly writing activity (last 7 days)
+  const now = Date.now();
+  const weekActivity = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayEnd = dayStart + 86400000;
+    weekActivity.push({
+      day: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()],
+      count: docs.filter(doc => { const t = new Date(doc.createdAt).getTime(); return t >= dayStart && t < dayEnd; }).length
+    });
+  }
+
   res.json({
     activeNow,
     totalUsers: users.filter(u => u.role !== 'admin').length,
@@ -36,7 +55,9 @@ router.get('/stats', async (req, res) => {
     totalWords: users.reduce((sum, u) => sum + (u.totalWords || 0), 0),
     premiumUsers: users.filter(u => u.plan === 'premium').length,
     openTickets: support.filter(t => t.status === 'open').length,
-    totalLogs: logs.length
+    totalLogs: logs.length,
+    sessionOutcomes: { completed, failed, empty, total: docs.length },
+    weekActivity
   });
 });
 
@@ -70,6 +91,24 @@ router.get('/users/:id', async (req, res) => {
     activeDocuments: docs.filter(d => !d.deleted).length,
     abandonedDocuments: docs.filter(d => d.deletedBySystem).length
   });
+});
+
+// Get a user's community posts (stories) — drafts + published
+router.get('/users/:id/stories', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const stories = await findMany('stories.json', s => s.userId === user.id);
+  const likes = await findMany('story-likes.json');
+  const comments = await findMany('story-comments.json');
+
+  const enriched = stories.map(story => {
+    const likeCount = likes.filter(l => l.storyId === story.id).length;
+    const commentCount = comments.filter(c => c.storyId === story.id && c.status === 'approved').length;
+    return { ...story, likeCount, commentCount };
+  }).sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+
+  res.json(enriched);
 });
 
 router.patch('/users/:id', async (req, res) => {
@@ -203,12 +242,47 @@ router.get('/documents', async (req, res) => {
     ownerName: userMap[d.userId] || 'Unknown'
   })).sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
 
-  // Server-side filtering
+  // Server-side filtering — supports structured filters (status=active, mode=dangerous, words>100) and plain text
   if (search) {
-    docs = docs.filter(d =>
-      (d.title || '').toLowerCase().includes(search) ||
-      (d.ownerName || '').toLowerCase().includes(search)
-    );
+    const isStructured = /\w+\s*[=><!]+\s*\w+/.test(search);
+    if (isStructured) {
+      const parts = search.split(',').map(s => s.trim()).filter(Boolean);
+      for (const part of parts) {
+        const m = part.match(/^(\w+)\s*([=><!]+)\s*(.+)$/);
+        if (m) {
+          const col = m[1].toLowerCase();
+          const op = m[2];
+          const val = m[3].trim().toLowerCase();
+          docs = docs.filter(d => {
+            if (col === 'status') {
+              const recentlyUpdated = d.updatedAt && (Date.now() - new Date(d.updatedAt).getTime() < 5 * 60 * 1000);
+              const s = d.deletedBySystem ? 'lost' : d.deleted ? 'deleted' : ((!d.duration || d.duration === 0) && recentlyUpdated) ? 'ongoing' : 'active';
+              return s === val || s.includes(val);
+            }
+            if (col === 'mode') return (d.mode || 'normal').toLowerCase() === val;
+            if (col === 'owner') return (d.ownerName || '').toLowerCase().includes(val);
+            if (col === 'title') return (d.title || '').toLowerCase().includes(val);
+            if (col === 'words' || col === 'wordcount') {
+              const w = d.wordCount || 0;
+              const n = parseInt(val);
+              if (isNaN(n)) return true;
+              if (op === '>') return w > n;
+              if (op === '<') return w < n;
+              if (op === '>=' || op === '=>') return w >= n;
+              if (op === '<=' || op === '=<') return w <= n;
+              return w === n;
+            }
+            if (col === 'date') return (d.updatedAt || '').toLowerCase().includes(val);
+            return true;
+          });
+        }
+      }
+    } else {
+      docs = docs.filter(d =>
+        (d.title || '').toLowerCase().includes(search) ||
+        (d.ownerName || '').toLowerCase().includes(search)
+      );
+    }
   }
 
   const total = docs.length;
@@ -409,6 +483,24 @@ router.get('/stories', async (req, res) => {
   res.json(enriched);
 });
 
+// Get a single story by ID (admin — works for drafts, pending, published, all statuses)
+router.get('/stories/:id', async (req, res) => {
+  const story = await findOne('stories.json', s => s.id === req.params.id);
+  if (!story) return res.status(404).json({ error: 'Story not found' });
+  const user = await findOne('users.json', u => u.id === story.userId);
+  const likes = await findMany('story-likes.json', l => l.storyId === story.id);
+  const comments = await findMany('story-comments.json', c => c.storyId === story.id);
+  res.json({
+    ...story,
+    authorName: user ? user.name : 'Unknown',
+    authorUsername: user ? (user.username || null) : null,
+    authorEmail: user ? user.email : null,
+    likeCount: likes.length,
+    commentCount: comments.filter(c => c.status === 'approved').length,
+    comments: comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  });
+});
+
 router.patch('/stories/:id', async (req, res) => {
   const story = await findOne('stories.json', s => s.id === req.params.id);
   if (!story) return res.status(404).json({ error: 'Story not found' });
@@ -550,6 +642,65 @@ router.get('/subscribers', async (req, res) => {
   } catch (err) {
     console.error('Subscribers list error:', err);
     res.status(500).json({ error: 'Failed to load subscribers' });
+  }
+});
+
+// ===== REFERRAL TRACTION =====
+router.get('/referrals', async (req, res) => {
+  try {
+    const users = await findMany('users.json');
+
+    // Build referred-by index: referralCode → [users who used that code]
+    const codeToReferred = {};
+    users.forEach(u => {
+      if (u.referredBy) {
+        if (!codeToReferred[u.referredBy]) codeToReferred[u.referredBy] = [];
+        codeToReferred[u.referredBy].push(u);
+      }
+    });
+
+    // Find all users who have a referral code and at least 1 person used it
+    // Also include users whose referralCount > 0 (even if we can't find the referred users)
+    const referrers = users
+      .filter(u => u.referralCode && ((codeToReferred[u.referralCode] || []).length > 0 || (u.referralCount || 0) > 0))
+      .map(u => {
+        const referred = (codeToReferred[u.referralCode] || [])
+          .map(r => ({
+            id: r.id,
+            name: r.name,
+            username: r.username || null,
+            email: r.email,
+            plan: r.plan || 'free',
+            joinedAt: r.createdAt,
+            totalWords: r.totalWords || 0,
+            totalSessions: r.totalSessions || 0,
+            streak: r.streak || 0
+          }))
+          .sort((a, b) => new Date(b.joinedAt) - new Date(a.joinedAt));
+
+        // Use actual count from referred users (source of truth), fallback to stored count
+        const actualCount = Math.max(referred.length, u.referralCount || 0);
+
+        return {
+          id: u.id,
+          name: u.name,
+          username: u.username || null,
+          email: u.email,
+          plan: u.plan || 'free',
+          referralCode: u.referralCode,
+          referralCount: actualCount,
+          proRewardsEarned: Math.floor(actualCount / 5),
+          referred
+        };
+      })
+      .sort((a, b) => b.referralCount - a.referralCount);
+
+    const totalReferred = users.filter(u => u.referredBy).length;
+
+    res.json({ referrers, totalReferred, totalReferrers: referrers.length });
+  } catch (err) {
+    console.error('Referrals error:', err);
+    res.status(500).json({ error: 'Failed to load referral data' });
   }
 });
 

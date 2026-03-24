@@ -95,16 +95,17 @@ const Editor = {
       return;
     }
 
-    // Enter fullscreen before countdown for dangerous mode
+    // Enter fullscreen for both normal and dangerous modes
     this._fullscreenActive = false;
+    try {
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (req) {
+        await req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
+      }
+    } catch(e) {}
+
     if (mode === 'dangerous') {
-      try {
-        const el = document.documentElement;
-        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-        if (req) {
-          await req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
-        }
-      } catch(e) {}
       await this.runCountdown();
     }
 
@@ -123,16 +124,28 @@ const Editor = {
     const isDuel = !!sessionStorage.getItem('activeDuel');
     const saveBtn = document.getElementById('editor-save-btn');
     saveBtn.style.display = (mode === 'dangerous' || isDuel) ? 'none' : 'inline-flex';
-    // Gray out Complete button if early complete limit reached
+    // Gray out Complete button if early complete limit reached (skip during maintenance)
     const currentMonth = new Date().toISOString().slice(0, 7);
+    const maintenanceActive = App._maintActive;
     const earlyUsed = (App.user.earlyCompletesMonth === currentMonth) ? (App.user.earlyCompletes || 0) : 0;
     const earlyLimit = App.user.plan === 'premium' ? 15 : 3;
-    if (earlyUsed >= earlyLimit) {
+    if (earlyUsed >= earlyLimit && !maintenanceActive) {
       saveBtn.classList.add('btn-disabled');
       saveBtn.style.opacity = '0.4';
     } else {
       saveBtn.classList.remove('btn-disabled');
       saveBtn.style.opacity = '';
+    }
+    // Disable Copy button during sessions (allowed only during maintenance)
+    const copyBtn = document.getElementById('editor-copy-btn');
+    if (!maintenanceActive) {
+      copyBtn.classList.add('btn-disabled');
+      copyBtn.style.opacity = '0.4';
+      copyBtn.style.cursor = 'not-allowed';
+    } else {
+      copyBtn.classList.remove('btn-disabled');
+      copyBtn.style.opacity = '';
+      copyBtn.style.cursor = '';
     }
     document.getElementById('editor-edit-btn').style.display = 'none';
     document.getElementById('editor-save-edit-btn').style.display = 'none';
@@ -308,6 +321,29 @@ const Editor = {
 
   onInput: () => {
     Editor.lastKeystroke = Date.now();
+
+    // Auto-replace shortcuts (-- → em dash, * → bullet)
+    Editor._handleAutoReplace();
+
+    // Hard enforce word limit (catches dictation, drag-drop, extensions, IME)
+    if ((Editor.active || Editor.isEditing) && App.user) {
+      const limit = Editor.getWordLimit();
+      const words = Editor.getWordCount();
+      if (words > limit) {
+        const sel = window.getSelection();
+        const text = Editor.textarea.innerText || '';
+        const wordArr = text.trim().split(/\s+/);
+        const trimmed = wordArr.slice(0, limit).join(' ');
+        Editor.textarea.innerText = trimmed;
+        // Move cursor to end
+        const range = document.createRange();
+        range.selectNodeContents(Editor.textarea);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+
     Editor.updateWordCount();
     Editor._updateWordsRemaining();
     Editor._checkMotivation();
@@ -356,6 +392,48 @@ const Editor = {
           document.execCommand('underline', false, null);
           Editor.updateFormatButtons();
           break;
+      }
+    }
+  },
+
+  _handleAutoReplace() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) return;
+
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return;
+    const text = node.textContent;
+    const offset = range.startOffset;
+
+    // "-- " → "— " (em dash)
+    if (offset >= 3 && text.slice(offset - 3, offset) === '-- ') {
+      node.textContent = text.slice(0, offset - 3) + '\u2014 ' + text.slice(offset);
+      const newRange = document.createRange();
+      newRange.setStart(node, offset - 3 + 2); // after "— "
+      newRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      return;
+    }
+
+    // "* " at start of line → bullet list item
+    if (offset >= 2 && text.slice(offset - 2, offset) === '* ') {
+      // Only trigger at the start of a line (nothing before, or newline before)
+      const before = text.slice(0, offset - 2);
+      if (before === '' || before.endsWith('\n')) {
+        // Remove the "* " text
+        node.textContent = text.slice(0, offset - 2) + text.slice(offset);
+        // Place cursor
+        const newRange = document.createRange();
+        newRange.setStart(node, offset - 2);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        // Insert an unordered list
+        document.execCommand('insertUnorderedList', false, null);
+        return;
       }
     }
   },
@@ -1027,8 +1105,10 @@ const Editor = {
     if (!this.active || this.abandoned) return;
 
     // Check early complete limit (only when user clicks Complete, not when timer expires)
+    // Bypass during maintenance — unlimited saves/copies
+    const maintenanceActive = App._maintActive;
     const isEarly = !timerExpired && !this._isTimerExpired();
-    if (isEarly) {
+    if (isEarly && !maintenanceActive) {
       const user = App.user;
       const currentMonth = new Date().toISOString().slice(0, 7); // "2026-03"
       const usedThisMonth = (user.earlyCompletesMonth === currentMonth) ? (user.earlyCompletes || 0) : 0;
@@ -1101,10 +1181,14 @@ const Editor = {
 
     // Toast early complete usage
     if (this._earlyComplete && result.user) {
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const used = (result.user.earlyCompletesMonth === currentMonth) ? (result.user.earlyCompletes || 0) : 0;
-      const elim = (result.user.plan === 'premium') ? 15 : 3;
-      App.toast(`Early finish used (${used}/${elim} this month)`, 'info');
+      if (App._maintActive) {
+        App.toast('Unlimited early finish', 'info');
+      } else {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const used = (result.user.earlyCompletesMonth === currentMonth) ? (result.user.earlyCompletes || 0) : 0;
+        const elim = (result.user.plan === 'premium') ? 15 : 3;
+        App.toast(`Early finish used (${used}/${elim} this month)`, 'info');
+      }
     }
 
     App._docsCacheDirty = true;
@@ -1660,6 +1744,13 @@ const Editor = {
     this.stopAudio();
     // Unblock copying when session ends
     this._unblockCopy();
+    // Reset copy button state (un-gray)
+    const copyBtn = document.getElementById('editor-copy-btn');
+    if (copyBtn) {
+      copyBtn.classList.remove('btn-disabled');
+      copyBtn.style.opacity = '';
+      copyBtn.style.cursor = '';
+    }
     // Exit fullscreen when session ends
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       try {

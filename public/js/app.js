@@ -611,20 +611,14 @@ const App = {
     document.getElementById('editor-copy-btn').addEventListener('click', async () => {
       const textarea = document.getElementById('editor-textarea');
 
-      // During active sessions: enforce monthly copy limit (free: 3/month, pro: 15/month)
+      // During active sessions: no copying unless maintenance is active
       if (Editor.active) {
-        try {
-          const result = await API.useCopy();
-          if (!result.allowed) {
-            const lim = this.user && this.user.plan === 'premium' ? 15 : 3;
-            this.toast(`Monthly copy limit reached (${lim}/month)`, 'error');
-            return;
-          }
-          await this._doCopy(textarea);
-          this.toast(`Copied! ${result.remaining} copies left this month`, 'success');
-        } catch {
-          this.toast('Copy failed', 'error');
+        if (!this._maintActive) {
+          this.toast('Copying is disabled during sessions', 'error');
+          return;
         }
+        await this._doCopy(textarea);
+        this.toast('Copied! Unlimited during maintenance', 'success');
         return;
       }
 
@@ -3673,25 +3667,66 @@ const App = {
 
   // ===== MAINTENANCE MODE POLLING =====
   _maintInterval: null,
+  _maintTickInterval: null,
   _maintShutdownShown: false,
+  _maintRemaining: 0,
+  _maintShutdown: false,
+  _maintActive: false,
 
   _startMaintenancePolling() {
     this._pollMaintenance();
     this._maintInterval = setInterval(() => this._pollMaintenance(), 10000);
+    // Tick the countdown every second
+    this._maintTickInterval = setInterval(() => this._tickMaintenanceBanner(), 1000);
   },
 
   async _pollMaintenance() {
     try {
       const res = await fetch('/api/maintenance-status');
       const data = await res.json();
-      this._updateMaintenanceBanner(data);
+      const wasActive = this._maintActive;
+      this._maintActive = data.active;
+      this._maintShutdown = data.shutdownReady;
+      if (data.remaining !== undefined) this._maintRemaining = data.remaining;
+      this._renderMaintenanceBanner();
+      // Refresh copy & complete buttons when maintenance state changes
+      if (wasActive !== data.active) this._refreshSessionButtons();
     } catch {}
   },
 
-  _updateMaintenanceBanner(data) {
+  // Refresh copy + complete button states based on maintenance
+  _refreshSessionButtons() {
+    if (typeof Editor === 'undefined' || !Editor.active) return;
+    const copyBtn = document.getElementById('editor-copy-btn');
+    const saveBtn = document.getElementById('editor-save-btn');
+    if (this._maintActive) {
+      // Maintenance ON — enable copy, enable complete
+      if (copyBtn) { copyBtn.classList.remove('btn-disabled'); copyBtn.style.opacity = ''; copyBtn.style.cursor = ''; }
+      if (saveBtn) { saveBtn.classList.remove('btn-disabled'); saveBtn.style.opacity = ''; }
+    } else {
+      // Maintenance OFF — disable copy, re-check complete limit
+      if (copyBtn) { copyBtn.classList.add('btn-disabled'); copyBtn.style.opacity = '0.4'; copyBtn.style.cursor = 'not-allowed'; }
+      if (saveBtn) {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const earlyUsed = (this.user && this.user.earlyCompletesMonth === currentMonth) ? (this.user.earlyCompletes || 0) : 0;
+        const earlyLimit = (this.user && this.user.plan === 'premium') ? 15 : 3;
+        if (earlyUsed >= earlyLimit) {
+          saveBtn.classList.add('btn-disabled'); saveBtn.style.opacity = '0.4';
+        }
+      }
+    }
+  },
+
+  _tickMaintenanceBanner() {
+    if (!this._maintActive || this._maintShutdown) return;
+    if (this._maintRemaining > 0) this._maintRemaining--;
+    this._renderMaintenanceBanner();
+  },
+
+  _renderMaintenanceBanner() {
     let banner = document.getElementById('maintenance-banner');
-    if (!data.active) {
-      if (banner) banner.remove();
+    if (!this._maintActive) {
+      if (banner) { banner.remove(); document.body.style.paddingTop = ''; document.documentElement.style.setProperty('--maint-banner-h', '0px'); }
       this._maintShutdownShown = false;
       return;
     }
@@ -3699,26 +3734,32 @@ const App = {
     if (!banner) {
       banner = document.createElement('div');
       banner.id = 'maintenance-banner';
-      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:20000;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:10px 16px;text-align:center;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,0.2)';
-      document.body.appendChild(banner);
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:12px 16px;text-align:center;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,0.2)';
+      document.body.prepend(banner);
     }
 
-    if (data.shutdownReady) {
+    if (this._maintShutdown) {
       banner.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
       banner.style.color = '#fff';
       banner.innerHTML = '<span>Shutting down for maintenance. Please save your work now.</span>';
-      // Auto-save if editor is active
       if (!this._maintShutdownShown && typeof Editor !== 'undefined' && Editor.documentId) {
         Editor.autoSave && Editor.autoSave();
         this._maintShutdownShown = true;
       }
     } else {
-      const mins = Math.floor(data.remaining / 60);
-      const secs = data.remaining % 60;
+      const mins = Math.floor(this._maintRemaining / 60);
+      const secs = this._maintRemaining % 60;
       banner.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
       banner.style.color = '#000';
       banner.innerHTML = `<span>Maintenance in <strong>${mins}:${secs.toString().padStart(2, '0')}</strong> — save your work. Unlimited saves/copies enabled.</span>`;
     }
+
+    // Re-measure after content and push everything down
+    requestAnimationFrame(() => {
+      const h = banner.offsetHeight;
+      document.documentElement.style.setProperty('--maint-banner-h', h + 'px');
+      document.body.style.paddingTop = h + 'px';
+    });
   },
 
   _applyTheme(theme) {
