@@ -156,6 +156,7 @@
     .badge-free { background: var(--hover-bg); color: var(--text-secondary); }
     .badge-premium { background: var(--gradient-accent); color: #0a0a0a; }
     .badge-active { background: var(--success-soft); color: var(--success); }
+    .badge-ongoing { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
     .badge-deleted { background: var(--danger-soft); color: var(--danger); }
     .badge-lost { background: rgba(245, 158, 11, 0.12); color: var(--warning); }
     .badge-open { background: var(--success-soft); color: var(--success); }
@@ -281,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.19</span>
+            <span class="version-tag" style="margin-top:0">v2.3.20</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -401,7 +402,7 @@
           <div class="admin-page-title">Documents</div>
           <div class="admin-toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
             <input class="admin-search" id="docs-search" placeholder="Search: title or owner, or filter e.g. status=active, mode=dangerous, owner=John" style="max-width:100%">
-            <div style="font-size:11px;color:var(--text-muted);margin-top:-4px">Filters: <code>status=active|deleted|lost</code> <code>mode=normal|dangerous</code> <code>owner=name</code> <code>words&gt;100</code> — combine multiple filters separated by commas</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:-4px">Filters: <code>status=active|ongoing|deleted|lost</code> <code>mode=normal|dangerous</code> <code>owner=name</code> <code>words&gt;100</code> — combine multiple filters separated by commas</div>
           </div>
           <div style="margin-bottom:8px;font-size:12px;color:var(--text-muted)" id="docs-result-count"></div>
           <table class="admin-table" id="docs-table">
@@ -982,6 +983,7 @@
               <select id="ud-filter-status" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:12px;font-family:var(--font-sans)">
                 <option value="all">All statuses</option>
                 <option value="active">Active</option>
+                <option value="ongoing">Ongoing</option>
                 <option value="deleted">Deleted</option>
                 <option value="lost">Lost (abandoned)</option>
               </select>
@@ -1482,12 +1484,14 @@
     function getDocStatus(d) {
       if (d.deletedBySystem) return 'lost';
       if (d.deleted) return 'deleted';
+      if (!d.duration || d.duration === 0) return 'ongoing';
       return 'active';
     }
 
     function getDocStatusLabel(d) {
       if (d.deletedBySystem) return 'Lost';
       if (d.deleted) return 'Deleted';
+      if (!d.duration || d.duration === 0) return 'Ongoing';
       return 'Active';
     }
 

@@ -234,7 +234,7 @@ router.get('/documents', async (req, res) => {
           const val = m[3].trim().toLowerCase();
           docs = docs.filter(d => {
             if (col === 'status') {
-              const s = d.deletedBySystem ? 'lost' : d.deleted ? 'deleted' : 'active';
+              const s = d.deletedBySystem ? 'lost' : d.deleted ? 'deleted' : (!d.duration || d.duration === 0) ? 'ongoing' : 'active';
               return s === val || s.includes(val);
             }
             if (col === 'mode') return (d.mode || 'normal').toLowerCase() === val;
