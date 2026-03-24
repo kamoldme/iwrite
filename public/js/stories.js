@@ -703,6 +703,7 @@
                 <button type="button" data-float-block="h1">Heading 1</button>
                 <button type="button" data-float-block="h2">Heading 2</button>
                 <button type="button" data-float-block="h3">Heading 3</button>
+                <button type="button" data-float-block="h4">Subheader</button>
                 <button type="button" data-float-block="blockquote">Blockquote</button>
                 <button type="button" data-float-block="ul">Bulleted list</button>
                 <button type="button" data-float-block="ol">Numbered list</button>
@@ -865,7 +866,7 @@
         formatDropdown.classList.toggle('open');
       });
 
-      const blockLabels = { p: 'Normal', h1: 'Heading 1', h2: 'Heading 2', h3: 'Heading 3', blockquote: 'Quote', ul: 'Bullets', ol: 'Numbers' };
+      const blockLabels = { p: 'Normal', h1: 'Heading 1', h2: 'Heading 2', h3: 'Heading 3', h4: 'Subheader', blockquote: 'Quote', ul: 'Bullets', ol: 'Numbers' };
 
       formatDropdown.querySelectorAll('[data-float-block]').forEach(btn => {
         btn.addEventListener('mousedown', (e) => {
