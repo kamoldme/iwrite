@@ -1092,9 +1092,12 @@
         document.getElementById('admin-stats').innerHTML = `
           <div class="admin-stat-card admin-stat-card-hero">
             <div class="label">Active Now</div>
-            <div class="value" style="color:#22c55e">${stats.activeNow || 0}</div>
+            <div class="value" style="color:#22c55e" id="active-now-count">${stats.activeNow || 0}</div>
             <div class="admin-online-dot"></div>
-            <button class="admin-btn admin-btn-ghost" style="position:absolute;bottom:16px;right:16px;font-size:11px;padding:4px 12px" onclick="toggleActiveUsersList()">View</button>
+            <div style="position:absolute;bottom:16px;right:16px;display:flex;gap:6px">
+              <button class="admin-btn admin-btn-ghost" style="font-size:11px;padding:4px 12px" onclick="refreshActiveCount()" id="refresh-active-btn" title="Refresh">↻</button>
+              <button class="admin-btn admin-btn-ghost" style="font-size:11px;padding:4px 12px" onclick="toggleActiveUsersList()">View</button>
+            </div>
             <div id="active-users-list" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;max-height:200px;overflow-y:auto"></div>
           </div>
           <div class="admin-stat-card"><div class="label">Users</div><div class="value">${stats.totalUsers}</div></div>
@@ -1124,6 +1127,25 @@
           `).join('');
         }
       } catch { toast('Failed to load stats', 'error'); }
+    }
+
+    async function refreshActiveCount() {
+      const btn = document.getElementById('refresh-active-btn');
+      const el = document.getElementById('active-now-count');
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.textContent = '⟳';
+      try {
+        const stats = await adminRequest('/admin/stats');
+        el.textContent = stats.activeNow || 0;
+        // Brief green flash to confirm update
+        el.style.transition = 'color 0.2s';
+        el.style.color = '#4ade80';
+        setTimeout(() => { el.style.color = '#22c55e'; }, 400);
+      } catch { toast('Failed to refresh', 'error'); }
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.textContent = '↻';
     }
 
     async function toggleActiveUsersList() {
