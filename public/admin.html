@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.26</span>
+            <span class="version-tag" style="margin-top:0">v2.3.27</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -400,16 +400,45 @@
         <!-- DOCUMENTS (merged with lost files) -->
         <div id="tab-documents" style="display:none">
           <div class="admin-page-title">Documents</div>
-          <div class="admin-toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
-            <input class="admin-search" id="docs-search" placeholder="Search: title or owner, or filter e.g. status=active, mode=dangerous, owner=John" style="max-width:100%">
-            <div style="font-size:11px;color:var(--text-muted);margin-top:-4px">Filters: <code>status=active|ongoing|deleted|lost</code> <code>mode=normal|dangerous</code> <code>owner=name</code> <code>words&gt;100</code> — combine multiple filters separated by commas</div>
+
+          <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px">
+            <button class="user-detail-tab active" id="docs-subtab-sessions" onclick="switchDocsSubTab('sessions')">Sessions</button>
+            <button class="user-detail-tab" id="docs-subtab-drafts" onclick="switchDocsSubTab('drafts')">Community Drafts</button>
           </div>
-          <div style="margin-bottom:8px;font-size:12px;color:var(--text-muted)" id="docs-result-count"></div>
-          <table class="admin-table" id="docs-table">
-            <thead><tr><th>Title</th><th>Owner</th><th>Words</th><th>Mode</th><th>Status</th><th>Reason</th><th>Last Updated</th><th>Actions</th></tr></thead>
-            <tbody></tbody>
-          </table>
-          <div id="docs-pager" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px"></div>
+
+          <!-- Sessions sub-tab -->
+          <div id="docs-subtab-sessions-content">
+            <div class="admin-toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
+              <input class="admin-search" id="docs-search" placeholder="Search: title or owner, or filter e.g. status=active, mode=dangerous, owner=John" style="max-width:100%">
+              <div style="font-size:11px;color:var(--text-muted);margin-top:-4px">Filters: <code>status=active|ongoing|deleted|lost</code> <code>mode=normal|dangerous</code> <code>owner=name</code> <code>words&gt;100</code> — combine multiple filters separated by commas</div>
+            </div>
+            <div style="margin-bottom:8px;font-size:12px;color:var(--text-muted)" id="docs-result-count"></div>
+            <table class="admin-table" id="docs-table">
+              <thead><tr><th>Title</th><th>Owner</th><th>Words</th><th>Mode</th><th>Status</th><th>Reason</th><th>Last Updated</th><th>Actions</th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <div id="docs-pager" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px"></div>
+          </div>
+
+          <!-- Community Drafts sub-tab -->
+          <div id="docs-subtab-drafts-content" style="display:none">
+            <div class="admin-toolbar" style="margin-bottom:12px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="admin-btn admin-btn-primary draft-filter-btn" data-filter="all" onclick="filterDrafts('all')">All</button>
+                <button class="admin-btn admin-btn-ghost draft-filter-btn" data-filter="draft" onclick="filterDrafts('draft')">Draft</button>
+                <button class="admin-btn admin-btn-ghost draft-filter-btn" data-filter="pending_review" onclick="filterDrafts('pending_review')">Pending</button>
+                <button class="admin-btn admin-btn-ghost draft-filter-btn" data-filter="changes_requested" onclick="filterDrafts('changes_requested')">Changes Req.</button>
+                <button class="admin-btn admin-btn-ghost draft-filter-btn" data-filter="rejected" onclick="filterDrafts('rejected')">Rejected</button>
+                <button class="admin-btn admin-btn-ghost draft-filter-btn" data-filter="published" onclick="filterDrafts('published')">Published</button>
+                <button class="admin-btn admin-btn-ghost draft-filter-btn" data-filter="hidden" onclick="filterDrafts('hidden')">Hidden</button>
+              </div>
+            </div>
+            <div style="margin-bottom:8px;font-size:12px;color:var(--text-muted)" id="drafts-result-count"></div>
+            <table class="admin-table" id="drafts-table">
+              <thead><tr><th>Title</th><th>Author</th><th>Status</th><th>Format</th><th>Likes</th><th>Comments</th><th>Updated</th><th>Actions</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
 
         <!-- STORIES -->
@@ -1518,6 +1547,62 @@
       const status = getDocStatus(d);
       const label = getDocStatusLabel(d);
       return `<button class="status-badge-btn" onclick="event.stopPropagation();showStatusInfo('${status}')"><span class="badge badge-${status}">${label}</span></button>`;
+    }
+
+    let _allDrafts = [];
+    let _draftsFilter = 'all';
+    let _draftsLoaded = false;
+
+    function switchDocsSubTab(tab) {
+      document.getElementById('docs-subtab-sessions').className = `user-detail-tab ${tab === 'sessions' ? 'active' : ''}`;
+      document.getElementById('docs-subtab-drafts').className = `user-detail-tab ${tab === 'drafts' ? 'active' : ''}`;
+      document.getElementById('docs-subtab-sessions-content').style.display = tab === 'sessions' ? 'block' : 'none';
+      document.getElementById('docs-subtab-drafts-content').style.display = tab === 'drafts' ? 'block' : 'none';
+      if (tab === 'drafts' && !_draftsLoaded) loadCommunityDrafts();
+    }
+
+    async function loadCommunityDrafts() {
+      try {
+        _allDrafts = await adminRequest('/admin/stories');
+        _draftsLoaded = true;
+        renderDraftsTable();
+      } catch { toast('Failed to load community drafts', 'error'); }
+    }
+
+    function filterDrafts(filter) {
+      _draftsFilter = filter;
+      document.querySelectorAll('.draft-filter-btn').forEach(b => {
+        b.className = `admin-btn ${b.dataset.filter === filter ? 'admin-btn-primary' : 'admin-btn-ghost'} draft-filter-btn`;
+      });
+      renderDraftsTable();
+    }
+
+    function renderDraftsTable() {
+      const filtered = _draftsFilter === 'all' ? _allDrafts : _allDrafts.filter(s => s.status === _draftsFilter);
+      const countEl = document.getElementById('drafts-result-count');
+      if (countEl) countEl.textContent = `Showing ${filtered.length} of ${_allDrafts.length} community posts`;
+
+      const statusColors = { published: '#22c55e', draft: '#a3a3a3', pending_review: '#f59e0b', changes_requested: '#f97316', rejected: '#ef4444', hidden: '#6b7280' };
+      const tbody = document.querySelector('#drafts-table tbody');
+      tbody.innerHTML = filtered.length ? filtered.map(s => {
+        const status = (s.status || 'draft').replace(/_/g, ' ');
+        const color = statusColors[s.status] || '#a3a3a3';
+        return `
+        <tr>
+          <td><strong>${esc(s.title || '(untitled)')}</strong></td>
+          <td>${esc(s.authorName || 'Unknown')}${s.authorUsername ? `<div style="font-size:11px;color:var(--text-muted)">@${esc(s.authorUsername)}</div>` : ''}</td>
+          <td><span style="color:${color};font-weight:600;font-size:11px;text-transform:capitalize">${status}</span></td>
+          <td style="font-size:12px;color:var(--text-muted)">${s.format || 'post'}</td>
+          <td>${s.likeCount || 0}</td>
+          <td>${s.commentCount || 0}${s.pendingComments ? ` <span style="color:var(--warning);font-size:10px">(+${s.pendingComments})</span>` : ''}</td>
+          <td style="font-size:12px">${new Date(s.updatedAt || s.createdAt).toLocaleString()}</td>
+          <td class="actions">
+            <button class="admin-btn admin-btn-ghost" onclick="viewStoryAdmin('${s.id}')">View</button>
+            ${s.status === 'pending_review' ? `<button class="admin-btn admin-btn-success" onclick="setStoryStatus('${s.id}','published')">Approve</button>` : ''}
+            ${s.status === 'published' ? `<button class="admin-btn admin-btn-ghost" onclick="setStoryStatus('${s.id}','hidden')">Hide</button>` : ''}
+          </td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="8" class="admin-empty">No community posts match this filter.</td></tr>';
     }
 
     async function loadDocs(page) {
