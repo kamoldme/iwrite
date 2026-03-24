@@ -2483,36 +2483,7 @@ const App = {
   },
 
   async _startCheckout(isTrial) {
-    try {
-      const btn = document.getElementById('purchase-plan-btn');
-      if (btn) { btn.disabled = true; btn.textContent = 'Redirecting...'; }
-
-      const res = await fetch('/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API.getToken()}`
-        },
-        body: JSON.stringify({
-          duration: this._selectedDuration,
-          trial: isTrial
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        this.toast(data.error || 'Failed to start checkout', 'error');
-        if (btn) { btn.disabled = false; btn.textContent = 'Purchase plan'; }
-        return;
-      }
-
-      // Redirect to Stripe Checkout
-      window.location.href = data.url;
-    } catch (err) {
-      this.toast('Failed to start checkout. Please try again.', 'error');
-      const btn = document.getElementById('purchase-plan-btn');
-      if (btn) { btn.disabled = false; btn.textContent = 'Purchase plan'; }
-    }
+    this.toast('Payment method is coming soon!', 'info');
   },
 
   async _openBillingPortal() {
