@@ -95,16 +95,17 @@ const Editor = {
       return;
     }
 
-    // Enter fullscreen before countdown for dangerous mode
+    // Enter fullscreen for both normal and dangerous modes
     this._fullscreenActive = false;
+    try {
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (req) {
+        await req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
+      }
+    } catch(e) {}
+
     if (mode === 'dangerous') {
-      try {
-        const el = document.documentElement;
-        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-        if (req) {
-          await req.call(el).then(() => { this._fullscreenActive = true; }).catch(() => {});
-        }
-      } catch(e) {}
       await this.runCountdown();
     }
 
