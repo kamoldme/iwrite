@@ -553,61 +553,6 @@ router.get('/subscribers', async (req, res) => {
   }
 });
 
-// ===== REFERRAL TRACTION =====
-router.get('/referrals', async (req, res) => {
-  try {
-    const users = await findMany('users.json');
-
-    // Build a map of referralCode → user for fast lookup
-    const codeToUser = {};
-    users.forEach(u => {
-      if (u.referralCode) codeToUser[u.referralCode] = u;
-    });
-
-    // Find all users who have at least 1 referral
-    const referrers = users
-      .filter(u => (u.referralCount || 0) > 0)
-      .map(u => {
-        // Find all users referred by this person
-        const referred = users
-          .filter(r => r.referredBy === u.referralCode)
-          .map(r => ({
-            id: r.id,
-            name: r.name,
-            username: r.username || null,
-            email: r.email,
-            plan: r.plan || 'free',
-            joinedAt: r.createdAt,
-            totalWords: r.totalWords || 0,
-            totalSessions: r.totalSessions || 0,
-            streak: r.streak || 0
-          }))
-          .sort((a, b) => new Date(b.joinedAt) - new Date(a.joinedAt));
-
-        return {
-          id: u.id,
-          name: u.name,
-          username: u.username || null,
-          email: u.email,
-          plan: u.plan || 'free',
-          referralCode: u.referralCode,
-          referralCount: u.referralCount || 0,
-          proRewardsEarned: Math.floor((u.referralCount || 0) / 5),
-          referred
-        };
-      })
-      .sort((a, b) => b.referralCount - a.referralCount);
-
-    // Also get users who joined via referral but whose referrer has 0 count (edge case)
-    const totalReferred = users.filter(u => u.referredBy).length;
-
-    res.json({ referrers, totalReferred, totalReferrers: referrers.length });
-  } catch (err) {
-    console.error('Referrals error:', err);
-    res.status(500).json({ error: 'Failed to load referral data' });
-  }
-});
-
 // ===== STRIPE: PROMO CODE MANAGEMENT =====
 // All promo codes live in Stripe — we're a thin wrapper around the Stripe API
 
