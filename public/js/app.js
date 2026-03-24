@@ -3673,24 +3673,39 @@ const App = {
 
   // ===== MAINTENANCE MODE POLLING =====
   _maintInterval: null,
+  _maintTickInterval: null,
   _maintShutdownShown: false,
+  _maintRemaining: 0,
+  _maintShutdown: false,
+  _maintActive: false,
 
   _startMaintenancePolling() {
     this._pollMaintenance();
     this._maintInterval = setInterval(() => this._pollMaintenance(), 10000);
+    // Tick the countdown every second
+    this._maintTickInterval = setInterval(() => this._tickMaintenanceBanner(), 1000);
   },
 
   async _pollMaintenance() {
     try {
       const res = await fetch('/api/maintenance-status');
       const data = await res.json();
-      this._updateMaintenanceBanner(data);
+      this._maintActive = data.active;
+      this._maintShutdown = data.shutdownReady;
+      if (data.remaining !== undefined) this._maintRemaining = data.remaining;
+      this._renderMaintenanceBanner();
     } catch {}
   },
 
-  _updateMaintenanceBanner(data) {
+  _tickMaintenanceBanner() {
+    if (!this._maintActive || this._maintShutdown) return;
+    if (this._maintRemaining > 0) this._maintRemaining--;
+    this._renderMaintenanceBanner();
+  },
+
+  _renderMaintenanceBanner() {
     let banner = document.getElementById('maintenance-banner');
-    if (!data.active) {
+    if (!this._maintActive) {
       if (banner) banner.remove();
       this._maintShutdownShown = false;
       return;
@@ -3699,22 +3714,21 @@ const App = {
     if (!banner) {
       banner = document.createElement('div');
       banner.id = 'maintenance-banner';
-      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:20000;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:10px 16px;text-align:center;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,0.2)';
-      document.body.appendChild(banner);
+      banner.style.cssText = 'position:relative;width:100%;z-index:20000;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:10px 16px;text-align:center;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,0.2)';
+      document.body.prepend(banner);
     }
 
-    if (data.shutdownReady) {
+    if (this._maintShutdown) {
       banner.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
       banner.style.color = '#fff';
       banner.innerHTML = '<span>Shutting down for maintenance. Please save your work now.</span>';
-      // Auto-save if editor is active
       if (!this._maintShutdownShown && typeof Editor !== 'undefined' && Editor.documentId) {
         Editor.autoSave && Editor.autoSave();
         this._maintShutdownShown = true;
       }
     } else {
-      const mins = Math.floor(data.remaining / 60);
-      const secs = data.remaining % 60;
+      const mins = Math.floor(this._maintRemaining / 60);
+      const secs = this._maintRemaining % 60;
       banner.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
       banner.style.color = '#000';
       banner.innerHTML = `<span>Maintenance in <strong>${mins}:${secs.toString().padStart(2, '0')}</strong> — save your work. Unlimited saves/copies enabled.</span>`;
