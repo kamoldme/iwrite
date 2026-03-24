@@ -41,7 +41,9 @@ if (process.env.RAILWAY_STATIC_URL) {
 app.use(cors({
   origin(origin, callback) {
     // Allow requests with no origin (mobile apps, curl, server-to-server)
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin) return callback(null, true);
+    // Allow any Railway-assigned domain
+    if (allowedOrigins.includes(origin) || /\.up\.railway\.app$/.test(origin)) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true
@@ -465,9 +467,10 @@ async function start() {
   // Seed admin account
   try {
     await initDB();
+    const adminPass = process.env.ADMIN_PASSWORD || 'Admin1234';
     const admin = await findOne('users.json', u => u.email === 'admin@iwrite4.me');
     if (!admin) {
-      const hash = await bcrypt.hash('Admin1234', 12);
+      const hash = await bcrypt.hash(adminPass, 12);
       await insertOne('users.json', {
         id: uuid(),
         name: 'Admin',
@@ -481,6 +484,11 @@ async function start() {
         createdAt: new Date().toISOString()
       });
       console.log('Admin account seeded');
+    } else {
+      // Always sync admin password with env/default on startup
+      const hash = await bcrypt.hash(adminPass, 12);
+      await updateOne('users.json', u => u.email === 'admin@iwrite4.me', { password: hash, role: 'admin' });
+      console.log('Admin password synced');
     }
 
     // Migrate: assign random usernames to existing users without one
