@@ -27,6 +27,25 @@ router.get('/stats', async (req, res) => {
   const activeUsersMap = req.app.get('activeUsers');
   const activeNow = activeUsersMap ? activeUsersMap.size : 0;
 
+  // Session outcomes (all-time)
+  const completed = docs.filter(d => !d.deletedBySystem && !d.deleted && (d.wordCount || 0) > 0).length;
+  const failed = docs.filter(d => d.deletedBySystem).length;
+  const empty = docs.length - completed - failed;
+
+  // Weekly writing activity (last 7 days)
+  const now = Date.now();
+  const weekActivity = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayEnd = dayStart + 86400000;
+    weekActivity.push({
+      day: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()],
+      count: docs.filter(doc => { const t = new Date(doc.createdAt).getTime(); return t >= dayStart && t < dayEnd; }).length
+    });
+  }
+
   res.json({
     activeNow,
     totalUsers: users.filter(u => u.role !== 'admin').length,
@@ -36,7 +55,9 @@ router.get('/stats', async (req, res) => {
     totalWords: users.reduce((sum, u) => sum + (u.totalWords || 0), 0),
     premiumUsers: users.filter(u => u.plan === 'premium').length,
     openTickets: support.filter(t => t.status === 'open').length,
-    totalLogs: logs.length
+    totalLogs: logs.length,
+    sessionOutcomes: { completed, failed, empty, total: docs.length },
+    weekActivity
   });
 });
 

@@ -5054,7 +5054,7 @@ html.light .logo-img-light { display: inline; }
 }
 
 .story-comments-panel .story-comment-list {
-  gap: 0;
+  gap: 10px;
 }
 
 .story-comments-panel .story-comment-card {
