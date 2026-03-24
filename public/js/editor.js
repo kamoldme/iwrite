@@ -124,16 +124,32 @@ const Editor = {
     const isDuel = !!sessionStorage.getItem('activeDuel');
     const saveBtn = document.getElementById('editor-save-btn');
     saveBtn.style.display = (mode === 'dangerous' || isDuel) ? 'none' : 'inline-flex';
-    // Gray out Complete button if early complete limit reached
+    // Gray out Complete button if early complete limit reached (skip during maintenance)
     const currentMonth = new Date().toISOString().slice(0, 7);
+    const maintenanceActive = App._maintActive;
     const earlyUsed = (App.user.earlyCompletesMonth === currentMonth) ? (App.user.earlyCompletes || 0) : 0;
     const earlyLimit = App.user.plan === 'premium' ? 15 : 3;
-    if (earlyUsed >= earlyLimit) {
+    if (earlyUsed >= earlyLimit && !maintenanceActive) {
       saveBtn.classList.add('btn-disabled');
       saveBtn.style.opacity = '0.4';
     } else {
       saveBtn.classList.remove('btn-disabled');
       saveBtn.style.opacity = '';
+    }
+    // Gray out Copy button if copy limit reached (skip during maintenance)
+    const copyBtn = document.getElementById('editor-copy-btn');
+    const now = new Date();
+    const copyMonth = `${now.getFullYear()}-${now.getMonth()}`;
+    const copyUsed = (App.user.copyCountResetAt === copyMonth) ? (App.user.copyCount || 0) : 0;
+    const copyLimit = App.user.plan === 'premium' ? 15 : 3;
+    if (copyUsed >= copyLimit && !maintenanceActive) {
+      copyBtn.classList.add('btn-disabled');
+      copyBtn.style.opacity = '0.4';
+      copyBtn.style.cursor = 'not-allowed';
+    } else {
+      copyBtn.classList.remove('btn-disabled');
+      copyBtn.style.opacity = '';
+      copyBtn.style.cursor = '';
     }
     document.getElementById('editor-edit-btn').style.display = 'none';
     document.getElementById('editor-save-edit-btn').style.display = 'none';
@@ -1728,6 +1744,13 @@ const Editor = {
     this.stopAudio();
     // Unblock copying when session ends
     this._unblockCopy();
+    // Reset copy button state (un-gray)
+    const copyBtn = document.getElementById('editor-copy-btn');
+    if (copyBtn) {
+      copyBtn.classList.remove('btn-disabled');
+      copyBtn.style.opacity = '';
+      copyBtn.style.cursor = '';
+    }
     // Exit fullscreen when session ends
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       try {

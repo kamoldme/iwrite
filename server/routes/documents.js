@@ -86,17 +86,22 @@ router.post('/', async (req, res) => {
   // Monthly session limit (invisible): free 200/month, pro 300/month
   const user = await findOne('users.json', u => u.id === req.user.id);
   if (user) {
+    const ms = req.app.get('maintenanceState');
+    const maintenanceBypass = ms && ms.active;
     const isPro = user.plan === 'premium';
     const monthLimit = isPro ? 300 : 200;
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const sessionsThisMonth = (user.monthlySessionsMonth === currentMonth) ? (user.monthlySessions || 0) : 0;
-    if (sessionsThisMonth >= monthLimit) {
+    if (sessionsThisMonth >= monthLimit && !maintenanceBypass) {
       return res.status(429).json({ error: 'Monthly session limit reached. Please try again next month.' });
     }
-    await updateOne('users.json', u => u.id === req.user.id, {
-      monthlySessions: sessionsThisMonth + 1,
-      monthlySessionsMonth: currentMonth
-    });
+    // Don't count against limit during maintenance
+    if (!maintenanceBypass) {
+      await updateOne('users.json', u => u.id === req.user.id, {
+        monthlySessions: sessionsThisMonth + 1,
+        monthlySessionsMonth: currentMonth
+      });
+    }
   }
 
   const doc = {
@@ -395,13 +400,16 @@ router.post('/copy', authenticate, async (req, res) => {
     return res.json({ allowed: false, remaining: 0, limit });
   }
 
-  copyCount++;
-  await updateOne('users.json', u => u.id === req.user.id, {
-    copyCount,
-    copyCountResetAt: currentMonth
-  });
+  // Don't count against limit during maintenance
+  if (!maintenanceBypass) {
+    copyCount++;
+    await updateOne('users.json', u => u.id === req.user.id, {
+      copyCount,
+      copyCountResetAt: currentMonth
+    });
+  }
 
-  res.json({ allowed: true, remaining: Math.max(0, limit - copyCount), limit });
+  res.json({ allowed: true, remaining: maintenanceBypass ? limit : Math.max(0, limit - copyCount), limit });
 });
 
 // Pin/unpin document (Pro only)
