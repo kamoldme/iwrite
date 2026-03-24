@@ -394,6 +394,9 @@ app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'app.html'));
 });
 app.get('/manual-login', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
 });
 app.get('/shared/:token', (req, res) => {
