@@ -104,6 +104,14 @@
     .user-detail-stat .label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
     .user-detail-stat .value { font-size: 18px; font-weight: 700; margin-top: 2px; }
 
+    /* User detail tabs */
+    .user-detail-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin: 0 -24px; padding: 0 24px; }
+    .user-detail-tab { padding: 10px 18px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; transition: all 0.15s; }
+    .user-detail-tab:hover { color: var(--text-primary); }
+    .user-detail-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .user-detail-tab-content { display: none; padding-top: 20px; }
+    .user-detail-tab-content.active { display: block; }
+
     /* Edit form fields */
     .admin-field { margin-bottom: 12px; }
     .admin-field label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
@@ -273,7 +281,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.18</span>
+            <span class="version-tag" style="margin-top:0">v2.3.19</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -1273,18 +1281,23 @@
               </div>
             ` : '<div style="color:var(--text-muted);font-size:13px">No friends yet</div>'}
           </div>
-          <div class="user-detail-section">
-            <h4>Recent Documents</h4>
+
+          <div class="user-detail-tabs">
+            <button class="user-detail-tab active" onclick="switchUserTab(this, 'sessions-tab-${u.id}')">Sessions / Docs</button>
+            <button class="user-detail-tab" onclick="switchUserTab(this, 'community-tab-${u.id}'); loadUserStories('${u.id}')">Community Posts</button>
+          </div>
+
+          <div class="user-detail-tab-content active" id="sessions-tab-${u.id}">
             ${u.documents && u.documents.length > 0 ? `
               <table class="admin-table" style="font-size:12px">
                 <thead><tr><th>Title</th><th>Words</th><th>Mode</th><th>Status</th></tr></thead>
                 <tbody>
-                  ${u.documents.sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 15).map(d => {
+                  ${u.documents.sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 30).map(d => {
                     const preview = (d.content || '').replace(/<[^>]*>/g, '').slice(0, 120) || '(no content)';
                     const title = d.title || '(untitled)';
                     return `
                     <tr>
-                      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;cursor:default" title="${esc(title)}&#10;&#10;${esc(preview)}${(d.content||'').length > 120 ? '...' : ''}&#10;Words: ${d.wordCount || 0}">${esc(title)}</td>
+                      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default" title="${esc(title)}&#10;&#10;${esc(preview)}${(d.content||'').length > 120 ? '...' : ''}&#10;Words: ${d.wordCount || 0}">${esc(title)}</td>
                       <td>${d.wordCount || 0}</td>
                       <td>${d.mode || 'normal'}</td>
                       <td>${renderStatusBadge(d)}</td>
@@ -1294,9 +1307,58 @@
               </table>
             ` : '<div style="color:var(--text-muted);font-size:13px">No documents</div>'}
           </div>
+
+          <div class="user-detail-tab-content" id="community-tab-${u.id}">
+            <div style="color:var(--text-muted);font-size:13px">Loading...</div>
+          </div>
         `;
         openPanel('user-detail-panel', 'user-detail-overlay');
       } catch { toast('Failed to load user details', 'error'); }
+    }
+
+    function switchUserTab(btn, tabId) {
+      const tabs = btn.parentElement;
+      tabs.querySelectorAll('.user-detail-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      const panel = tabs.parentElement;
+      panel.querySelectorAll('.user-detail-tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    async function loadUserStories(userId) {
+      const container = document.getElementById('community-tab-' + userId);
+      if (container.dataset.loaded) return;
+      try {
+        const stories = await adminRequest(`/admin/users/${userId}/stories`);
+        container.dataset.loaded = '1';
+        if (!stories.length) {
+          container.innerHTML = '<div style="color:var(--text-muted);font-size:13px">No community posts</div>';
+          return;
+        }
+        const statusColors = { published: '#22c55e', draft: '#a3a3a3', pending_review: '#f59e0b', changes_requested: '#f97316', rejected: '#ef4444', hidden: '#6b7280' };
+        container.innerHTML = `
+          <table class="admin-table" style="font-size:12px">
+            <thead><tr><th>Title</th><th>Status</th><th>Format</th><th style="text-align:right">Likes</th><th style="text-align:right">Comments</th><th>Updated</th></tr></thead>
+            <tbody>
+              ${stories.map(s => {
+                const title = s.title || '(untitled)';
+                const status = (s.status || 'draft').replace(/_/g, ' ');
+                const color = statusColors[s.status] || '#a3a3a3';
+                const excerpt = (s.body || '').replace(/<[^>]*>/g, '').slice(0, 100);
+                return `
+                <tr>
+                  <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default" title="${esc(title)}&#10;&#10;${esc(excerpt)}">${esc(title)}</td>
+                  <td><span style="color:${color};font-weight:600;font-size:11px;text-transform:capitalize">${status}</span></td>
+                  <td style="font-size:11px;color:var(--text-muted)">${s.format || 'post'}</td>
+                  <td style="text-align:right">${s.likeCount || 0}</td>
+                  <td style="text-align:right">${s.commentCount || 0}</td>
+                  <td style="font-size:11px;color:var(--text-muted)">${new Date(s.updatedAt || s.createdAt).toLocaleDateString()}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch { container.innerHTML = '<div style="color:var(--danger);font-size:13px">Failed to load stories</div>'; }
     }
 
     async function editUser(id) {

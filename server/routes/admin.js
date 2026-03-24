@@ -72,6 +72,24 @@ router.get('/users/:id', async (req, res) => {
   });
 });
 
+// Get a user's community posts (stories) — drafts + published
+router.get('/users/:id/stories', async (req, res) => {
+  const user = await findOne('users.json', u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const stories = await findMany('stories.json', s => s.userId === user.id);
+  const likes = await findMany('story-likes.json');
+  const comments = await findMany('story-comments.json');
+
+  const enriched = stories.map(story => {
+    const likeCount = likes.filter(l => l.storyId === story.id).length;
+    const commentCount = comments.filter(c => c.storyId === story.id && c.status === 'approved').length;
+    return { ...story, likeCount, commentCount };
+  }).sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+
+  res.json(enriched);
+});
+
 router.patch('/users/:id', async (req, res) => {
   const allowedFields = ['name', 'username', 'email', 'role', 'plan', 'xp', 'level', 'streak', 'longestStreak', 'treeStage', 'totalWords', 'totalSessions', 'planDuration', 'planStartedAt', 'planExpiresAt'];
   const updates = {};
