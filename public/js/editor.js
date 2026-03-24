@@ -310,6 +310,9 @@ const Editor = {
   onInput: () => {
     Editor.lastKeystroke = Date.now();
 
+    // Auto-replace shortcuts (-- → em dash, * → bullet)
+    Editor._handleAutoReplace();
+
     // Hard enforce word limit (catches dictation, drag-drop, extensions, IME)
     if ((Editor.active || Editor.isEditing) && App.user) {
       const limit = Editor.getWordLimit();
@@ -377,6 +380,48 @@ const Editor = {
           document.execCommand('underline', false, null);
           Editor.updateFormatButtons();
           break;
+      }
+    }
+  },
+
+  _handleAutoReplace() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) return;
+
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return;
+    const text = node.textContent;
+    const offset = range.startOffset;
+
+    // "-- " → "— " (em dash)
+    if (offset >= 3 && text.slice(offset - 3, offset) === '-- ') {
+      node.textContent = text.slice(0, offset - 3) + '\u2014 ' + text.slice(offset);
+      const newRange = document.createRange();
+      newRange.setStart(node, offset - 3 + 2); // after "— "
+      newRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      return;
+    }
+
+    // "* " at start of line → bullet list item
+    if (offset >= 2 && text.slice(offset - 2, offset) === '* ') {
+      // Only trigger at the start of a line (nothing before, or newline before)
+      const before = text.slice(0, offset - 2);
+      if (before === '' || before.endsWith('\n')) {
+        // Remove the "* " text
+        node.textContent = text.slice(0, offset - 2) + text.slice(offset);
+        // Place cursor
+        const newRange = document.createRange();
+        newRange.setStart(node, offset - 2);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        // Insert an unordered list
+        document.execCommand('insertUnorderedList', false, null);
+        return;
       }
     }
   },
