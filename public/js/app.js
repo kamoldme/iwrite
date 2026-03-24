@@ -4668,6 +4668,19 @@ const App = {
 
   // ===== HELP POPUP =====
   _helpTopics: {
+    'v2.3': {
+      title: 'v2.3 — Community & Themes',
+      html: `
+        <p style="color:var(--text-muted);margin-bottom:16px">March 2026</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Community (formerly Stories)</h4>
+        <p>Share your writing with the community. Featured hero cards, editorial reader layout, floating selection toolbar for composing, and a format dropdown with Heading, Subheader, Blockquote, and Lists.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Three Theme Modes</h4>
+        <p>Cycle between <strong>Dark</strong> (black + green), <strong>Light</strong> (white + green), and <strong>Sepia</strong> (warm parchment with paper texture) — now unlocked for all users, not just Pro.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">Friends Pagination & Sorting</h4>
+        <p>Friends list now loads in pages with sort options: newest, oldest, streak, and XP. Scales better for users with many friends.</p>
+        <h4 style="margin-top:16px;margin-bottom:8px">UI Improvements</h4>
+        <p>Challenge button visibility fix, PRO badge sepia styling, story title input cleanup, share progress button theming, and dozens of small polish fixes across all three themes.</p>`
+    },
     'v2.2': {
       title: 'v2.2 — Share & Analytics',
       html: `
