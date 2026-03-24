@@ -308,6 +308,26 @@ const Editor = {
 
   onInput: () => {
     Editor.lastKeystroke = Date.now();
+
+    // Hard enforce word limit (catches dictation, drag-drop, extensions, IME)
+    if ((Editor.active || Editor.isEditing) && App.user) {
+      const limit = Editor.getWordLimit();
+      const words = Editor.getWordCount();
+      if (words > limit) {
+        const sel = window.getSelection();
+        const text = Editor.textarea.innerText || '';
+        const wordArr = text.trim().split(/\s+/);
+        const trimmed = wordArr.slice(0, limit).join(' ');
+        Editor.textarea.innerText = trimmed;
+        // Move cursor to end
+        const range = document.createRange();
+        range.selectNodeContents(Editor.textarea);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+
     Editor.updateWordCount();
     Editor._updateWordsRemaining();
     Editor._checkMotivation();

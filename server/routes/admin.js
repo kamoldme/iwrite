@@ -203,12 +203,46 @@ router.get('/documents', async (req, res) => {
     ownerName: userMap[d.userId] || 'Unknown'
   })).sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
 
-  // Server-side filtering
+  // Server-side filtering — supports structured filters (status=active, mode=dangerous, words>100) and plain text
   if (search) {
-    docs = docs.filter(d =>
-      (d.title || '').toLowerCase().includes(search) ||
-      (d.ownerName || '').toLowerCase().includes(search)
-    );
+    const isStructured = /\w+\s*[=><!]+\s*\w+/.test(search);
+    if (isStructured) {
+      const parts = search.split(',').map(s => s.trim()).filter(Boolean);
+      for (const part of parts) {
+        const m = part.match(/^(\w+)\s*([=><!]+)\s*(.+)$/);
+        if (m) {
+          const col = m[1].toLowerCase();
+          const op = m[2];
+          const val = m[3].trim().toLowerCase();
+          docs = docs.filter(d => {
+            if (col === 'status') {
+              const s = d.deletedBySystem ? 'lost' : d.deleted ? 'deleted' : 'active';
+              return s === val || s.includes(val);
+            }
+            if (col === 'mode') return (d.mode || 'normal').toLowerCase() === val;
+            if (col === 'owner') return (d.ownerName || '').toLowerCase().includes(val);
+            if (col === 'title') return (d.title || '').toLowerCase().includes(val);
+            if (col === 'words' || col === 'wordcount') {
+              const w = d.wordCount || 0;
+              const n = parseInt(val);
+              if (isNaN(n)) return true;
+              if (op === '>') return w > n;
+              if (op === '<') return w < n;
+              if (op === '>=' || op === '=>') return w >= n;
+              if (op === '<=' || op === '=<') return w <= n;
+              return w === n;
+            }
+            if (col === 'date') return (d.updatedAt || '').toLowerCase().includes(val);
+            return true;
+          });
+        }
+      }
+    } else {
+      docs = docs.filter(d =>
+        (d.title || '').toLowerCase().includes(search) ||
+        (d.ownerName || '').toLowerCase().includes(search)
+      );
+    }
   }
 
   const total = docs.length;
