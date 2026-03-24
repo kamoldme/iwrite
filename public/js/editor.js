@@ -1185,10 +1185,14 @@ const Editor = {
 
     // Toast early complete usage
     if (this._earlyComplete && result.user) {
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const used = (result.user.earlyCompletesMonth === currentMonth) ? (result.user.earlyCompletes || 0) : 0;
-      const elim = (result.user.plan === 'premium') ? 15 : 3;
-      App.toast(`Early finish used (${used}/${elim} this month)`, 'info');
+      if (App._maintActive) {
+        App.toast('Unlimited early finish', 'info');
+      } else {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const used = (result.user.earlyCompletesMonth === currentMonth) ? (result.user.earlyCompletes || 0) : 0;
+        const elim = (result.user.plan === 'premium') ? 15 : 3;
+        App.toast(`Early finish used (${used}/${elim} this month)`, 'info');
+      }
     }
 
     App._docsCacheDirty = true;
