@@ -273,7 +273,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.14</span>
+            <span class="version-tag" style="margin-top:0">v2.3.16</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -556,6 +556,7 @@
           <div style="display:flex;gap:8px;margin-bottom:20px">
             <button class="admin-btn admin-btn-primary" id="sub-tab-subscribers" onclick="switchSubTab('subscribers')">Subscribers</button>
             <button class="admin-btn admin-btn-ghost" id="sub-tab-promos" onclick="switchSubTab('promos')">Promo Codes</button>
+            <button class="admin-btn admin-btn-ghost" id="sub-tab-referrals" onclick="switchSubTab('referrals')">Referrals</button>
           </div>
 
           <!-- Subscribers sub-page -->
@@ -626,6 +627,28 @@
               </thead>
               <tbody id="promos-tbody"></tbody>
             </table>
+          </div>
+
+          <!-- Referrals sub-page -->
+          <div id="sub-page-referrals" style="display:none">
+            <!-- Stats cards -->
+            <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+              <div class="admin-card" style="padding:16px 20px;flex:1;min-width:140px">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Total Referrers</div>
+                <div id="ref-stat-referrers" style="font-size:24px;font-weight:700">—</div>
+              </div>
+              <div class="admin-card" style="padding:16px 20px;flex:1;min-width:140px">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Total Referred</div>
+                <div id="ref-stat-referred" style="font-size:24px;font-weight:700">—</div>
+              </div>
+              <div class="admin-card" style="padding:16px 20px;flex:1;min-width:140px">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Pro Rewards Given</div>
+                <div id="ref-stat-rewards" style="font-size:24px;font-weight:700">—</div>
+              </div>
+            </div>
+
+            <!-- Referrer leaderboard -->
+            <div id="referrals-list"></div>
           </div>
         </div>
       </main>
@@ -2105,10 +2128,13 @@
     function switchSubTab(tab) {
       document.getElementById('sub-page-subscribers').style.display = tab === 'subscribers' ? 'block' : 'none';
       document.getElementById('sub-page-promos').style.display = tab === 'promos' ? 'block' : 'none';
+      document.getElementById('sub-page-referrals').style.display = tab === 'referrals' ? 'block' : 'none';
       document.getElementById('sub-tab-subscribers').className = `admin-btn ${tab === 'subscribers' ? 'admin-btn-primary' : 'admin-btn-ghost'}`;
       document.getElementById('sub-tab-promos').className = `admin-btn ${tab === 'promos' ? 'admin-btn-primary' : 'admin-btn-ghost'}`;
+      document.getElementById('sub-tab-referrals').className = `admin-btn ${tab === 'referrals' ? 'admin-btn-primary' : 'admin-btn-ghost'}`;
       if (tab === 'subscribers') loadSubscribers();
       if (tab === 'promos') loadPromoCodes();
+      if (tab === 'referrals') loadReferrals();
     }
 
     async function loadSubscribers() {
@@ -2221,6 +2247,73 @@
         toast('Promo code deactivated', 'success');
         loadPromoCodes();
       } catch (e) { toast('Failed: ' + e.message, 'error'); }
+    }
+
+    // ===== REFERRALS =====
+    async function loadReferrals() {
+      try {
+        const data = await adminRequest('/admin/referrals');
+        document.getElementById('ref-stat-referrers').textContent = data.totalReferrers;
+        document.getElementById('ref-stat-referred').textContent = data.totalReferred;
+        document.getElementById('ref-stat-rewards').textContent = data.referrers.reduce((s, r) => s + r.proRewardsEarned, 0);
+
+        const list = document.getElementById('referrals-list');
+        if (!data.referrers.length) {
+          list.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px">No referrals yet</div>';
+          return;
+        }
+
+        list.innerHTML = data.referrers.map((r, i) => {
+          const rank = i + 1;
+          const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+          const planBadge = r.plan === 'premium'
+            ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;margin-left:6px">PRO</span>'
+            : '';
+
+          const referredRows = r.referred.map(u => {
+            const uPlan = u.plan === 'premium'
+              ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000">PRO</span>'
+              : '<span style="color:var(--text-muted);font-size:11px">Free</span>';
+            const joined = new Date(u.joinedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const active = u.totalSessions > 0
+              ? `<span style="color:var(--success);font-size:11px">${u.totalSessions} sessions · ${(u.totalWords || 0).toLocaleString()} words</span>`
+              : '<span style="color:var(--text-muted);font-size:11px">No activity yet</span>';
+            return `<tr>
+              <td style="padding:6px 10px;font-size:13px">${esc(u.name)}${u.username ? ' <span style="color:var(--text-muted);font-size:11px">@' + esc(u.username) + '</span>' : ''}</td>
+              <td style="padding:6px 10px;font-size:12px">${esc(u.email)}</td>
+              <td style="padding:6px 10px">${uPlan}</td>
+              <td style="padding:6px 10px;font-size:12px">${joined}</td>
+              <td style="padding:6px 10px">${active}</td>
+            </tr>`;
+          }).join('');
+
+          return `<div class="admin-card" style="padding:16px 20px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${r.referred.length ? '12px' : '0'}">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:18px;min-width:32px">${medal}</span>
+                <div>
+                  <div style="font-weight:600;font-size:14px">${esc(r.name)}${planBadge}${r.username ? ' <span style="color:var(--text-muted);font-size:12px;font-weight:400">@' + esc(r.username) + '</span>' : ''}</div>
+                  <div style="font-size:12px;color:var(--text-muted)">${esc(r.email)} · Code: <span style="font-family:var(--font-mono);font-size:11px;background:var(--bg-secondary);padding:1px 6px;border-radius:4px">${esc(r.referralCode)}</span></div>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:22px;font-weight:700;color:var(--accent)">${r.referralCount}</div>
+                <div style="font-size:11px;color:var(--text-muted)">referral${r.referralCount !== 1 ? 's' : ''}${r.proRewardsEarned ? ' · ' + r.proRewardsEarned + ' Pro reward' + (r.proRewardsEarned !== 1 ? 's' : '') : ''}</div>
+              </div>
+            </div>
+            ${r.referred.length ? `<table style="width:100%;border-collapse:collapse">
+              <thead><tr style="border-bottom:1px solid var(--border)">
+                <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text-muted);font-weight:600">Referred User</th>
+                <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text-muted);font-weight:600">Email</th>
+                <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text-muted);font-weight:600">Plan</th>
+                <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text-muted);font-weight:600">Joined</th>
+                <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text-muted);font-weight:600">Activity</th>
+              </tr></thead>
+              <tbody>${referredRows}</tbody>
+            </table>` : ''}
+          </div>`;
+        }).join('');
+      } catch (e) { toast('Failed to load referrals: ' + e.message, 'error'); }
     }
 
     // Load subscribers when switching to subscriptions tab
