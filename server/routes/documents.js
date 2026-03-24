@@ -252,10 +252,13 @@ router.post('/:id/complete', async (req, res) => {
     if (usedThisMonth >= earlyLimit && !maintenanceBypass) {
       return res.status(429).json({ error: `Early complete limit reached (${earlyLimit}/month)` });
     }
-    await updateOne('users.json', u => u.id === req.user.id, {
-      earlyCompletes: usedThisMonth + 1,
-      earlyCompletesMonth: currentMonth
-    });
+    // Don't count against limit during maintenance
+    if (!maintenanceBypass) {
+      await updateOne('users.json', u => u.id === req.user.id, {
+        earlyCompletes: usedThisMonth + 1,
+        earlyCompletesMonth: currentMonth
+      });
+    }
   }
 
   await updateOne('documents.json', d => d.id === req.params.id, {

@@ -1093,8 +1093,10 @@ const Editor = {
     if (!this.active || this.abandoned) return;
 
     // Check early complete limit (only when user clicks Complete, not when timer expires)
+    // Bypass during maintenance — unlimited saves/copies
+    const maintenanceActive = App._maintActive;
     const isEarly = !timerExpired && !this._isTimerExpired();
-    if (isEarly) {
+    if (isEarly && !maintenanceActive) {
       const user = App.user;
       const currentMonth = new Date().toISOString().slice(0, 7); // "2026-03"
       const usedThisMonth = (user.earlyCompletesMonth === currentMonth) ? (user.earlyCompletes || 0) : 0;
