@@ -610,44 +610,15 @@ const App = {
     Editor.initAudio();
     document.getElementById('editor-copy-btn').addEventListener('click', async () => {
       const textarea = document.getElementById('editor-textarea');
-      const copyBtn = document.getElementById('editor-copy-btn');
 
-      // During active sessions: enforce monthly copy limit (free: 3/month, pro: 15/month)
+      // During active sessions: no copying unless maintenance is active
       if (Editor.active) {
-        // If button is already disabled, block
-        if (copyBtn.classList.contains('btn-disabled')) {
-          const lim = this.user && this.user.plan === 'premium' ? 15 : 3;
-          this.toast(`Monthly copy limit reached (${lim}/month)`, 'error');
+        if (!this._maintActive) {
+          this.toast('Copying is disabled during sessions', 'error');
           return;
         }
-        try {
-          // Skip limit check during maintenance
-          if (this._maintActive) {
-            await this._doCopy(textarea);
-            this.toast('Copied! Unlimited during maintenance', 'success');
-            return;
-          }
-          const result = await API.useCopy();
-          if (!result.allowed) {
-            const lim = this.user && this.user.plan === 'premium' ? 15 : 3;
-            this.toast(`Monthly copy limit reached (${lim}/month)`, 'error');
-            // Gray out the copy button
-            copyBtn.classList.add('btn-disabled');
-            copyBtn.style.opacity = '0.4';
-            copyBtn.style.cursor = 'not-allowed';
-            return;
-          }
-          await this._doCopy(textarea);
-          this.toast(`Copied! ${result.remaining} copies left this month`, 'success');
-          // Gray out if no copies remaining
-          if (result.remaining <= 0) {
-            copyBtn.classList.add('btn-disabled');
-            copyBtn.style.opacity = '0.4';
-            copyBtn.style.cursor = 'not-allowed';
-          }
-        } catch {
-          this.toast('Copy failed', 'error');
-        }
+        await this._doCopy(textarea);
+        this.toast('Copied! Unlimited during maintenance', 'success');
         return;
       }
 

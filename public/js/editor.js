@@ -136,13 +136,9 @@ const Editor = {
       saveBtn.classList.remove('btn-disabled');
       saveBtn.style.opacity = '';
     }
-    // Gray out Copy button if copy limit reached (skip during maintenance)
+    // Disable Copy button during sessions (allowed only during maintenance)
     const copyBtn = document.getElementById('editor-copy-btn');
-    const now = new Date();
-    const copyMonth = `${now.getFullYear()}-${now.getMonth()}`;
-    const copyUsed = (App.user.copyCountResetAt === copyMonth) ? (App.user.copyCount || 0) : 0;
-    const copyLimit = App.user.plan === 'premium' ? 15 : 3;
-    if (copyUsed >= copyLimit && !maintenanceActive) {
+    if (!maintenanceActive) {
       copyBtn.classList.add('btn-disabled');
       copyBtn.style.opacity = '0.4';
       copyBtn.style.cursor = 'not-allowed';
