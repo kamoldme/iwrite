@@ -4587,9 +4587,12 @@ html.light .logo-img-light { display: inline; }
 }
 
 .story-comment-locked {
-  padding: 12px 0 18px;
+  padding: 14px 18px;
   color: var(--text-muted);
   font-size: 13px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: transparent;
 }
 
 .story-composer-topbar-left {
@@ -5097,6 +5100,10 @@ html.light .logo-img-light { display: inline; }
 
 .story-comment-card {
   padding: 16px 0;
+}
+
+.story-comment-card + .story-comment-card {
+  margin-top: 12px;
 }
 
 .story-comment-card-head {
