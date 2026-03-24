@@ -3714,12 +3714,8 @@ const App = {
     if (!banner) {
       banner = document.createElement('div');
       banner.id = 'maintenance-banner';
-      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:10px 16px;text-align:center;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,0.2)';
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:12px 16px;text-align:center;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,0.2)';
       document.body.prepend(banner);
-      // Push all fixed/absolute content down via CSS variable
-      const h = banner.offsetHeight;
-      document.documentElement.style.setProperty('--maint-banner-h', h + 'px');
-      document.body.style.paddingTop = h + 'px';
     }
 
     if (this._maintShutdown) {
@@ -3737,6 +3733,13 @@ const App = {
       banner.style.color = '#000';
       banner.innerHTML = `<span>Maintenance in <strong>${mins}:${secs.toString().padStart(2, '0')}</strong> — save your work. Unlimited saves/copies enabled.</span>`;
     }
+
+    // Re-measure after content and push everything down
+    requestAnimationFrame(() => {
+      const h = banner.offsetHeight;
+      document.documentElement.style.setProperty('--maint-banner-h', h + 'px');
+      document.body.style.paddingTop = h + 'px';
+    });
   },
 
   _applyTheme(theme) {
