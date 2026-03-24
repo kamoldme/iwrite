@@ -227,7 +227,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const isDark = !document.documentElement.classList.contains('light') && !isSepia;
     const gridColor = isDark ? 'rgba(255,255,255,0.06)' : isSepia ? 'rgba(100,65,20,0.08)' : 'rgba(0,0,0,0.06)';
     const labelColor = isDark ? 'rgba(255,255,255,0.35)' : isSepia ? 'rgba(100,65,20,0.5)' : 'rgba(0,0,0,0.4)';
-    const accentColor = isSepia ? '#C37E3F' : '#4ade80';
+    const isLight = document.documentElement.classList.contains('light');
+    const accentColor = isSepia ? '#C37E3F' : isLight ? '#000000' : '#4ade80';
 
     const gridLines = 4;
 
