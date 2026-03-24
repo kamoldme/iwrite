@@ -321,6 +321,7 @@
     },
 
     openStoriesFeed() {
+      this.cleanupFloatingToolbar();
       this.storySelectedId = null;
       this.storyEditingId = null;
       this.storyDetail = null;
@@ -638,11 +639,23 @@
       }
     },
 
+    cleanupFloatingToolbar() {
+      if (this._floatToolbarCleanup) {
+        this._floatToolbarCleanup();
+        this._floatToolbarCleanup = null;
+      }
+      if (this._floatDropdownHandler) {
+        document.removeEventListener('mousedown', this._floatDropdownHandler);
+        this._floatDropdownHandler = null;
+      }
+    },
+
     renderStoryComposer() {
       const detailEl = document.getElementById('story-detail');
       const story = this.storyDetail;
       if (!detailEl || !story) return;
 
+      this.cleanupFloatingToolbar();
       this.closeStoryAudioDropdown();
       this.setStoriesMode('compose');
       detailEl.innerHTML = `
@@ -760,6 +773,10 @@
       let debounceTimer = null;
 
       const positionToolbar = () => {
+        if (!editor.isConnected) {
+          toolbar.classList.remove('visible');
+          return;
+        }
         const sel = window.getSelection();
         if (!sel || sel.isCollapsed || !sel.rangeCount) {
           toolbar.classList.remove('visible');
@@ -864,12 +881,13 @@
         });
       });
 
-      // Close dropdown on outside click
-      document.addEventListener('mousedown', (e) => {
+      // Close dropdown on outside click (stored for cleanup)
+      this._floatDropdownHandler = (e) => {
         if (!formatDropdown.contains(e.target) && !formatToggle.contains(e.target)) {
           formatDropdown.classList.remove('open');
         }
-      });
+      };
+      document.addEventListener('mousedown', this._floatDropdownHandler);
     },
 
     async saveStoryDraft(submitAfterSave) {
