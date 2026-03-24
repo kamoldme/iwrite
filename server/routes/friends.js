@@ -9,14 +9,37 @@ router.get('/', async (req, res) => {
   try {
     const user = await findOne('users.json', u => u.id === req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
+    const sort = req.query.sort || 'added'; // streak, xp, added_newest, added_oldest
+
+    const friendIds = user.friends || [];
+    const total = friendIds.length;
+
+    // Fetch all friends for sorting (friendIds order = added order)
     const friendsList = [];
-    for (const id of (user.friends || [])) {
-      const f = await findOne('users.json', u => u.id === id);
+    for (let i = 0; i < friendIds.length; i++) {
+      const f = await findOne('users.json', u => u.id === friendIds[i]);
       if (!f) continue;
       const { password: _, ...safe } = f;
+      safe._addedIndex = i; // preserve add-order
       friendsList.push(safe);
     }
-    res.json(friendsList);
+
+    // Sort
+    if (sort === 'streak') friendsList.sort((a, b) => (b.streak || 0) - (a.streak || 0));
+    else if (sort === 'xp') friendsList.sort((a, b) => (b.xp || 0) - (a.xp || 0));
+    else if (sort === 'added_oldest') friendsList.sort((a, b) => a._addedIndex - b._addedIndex);
+    else friendsList.sort((a, b) => b._addedIndex - a._addedIndex); // added_newest (default)
+
+    // Clean up internal field
+    friendsList.forEach(f => delete f._addedIndex);
+
+    // Paginate
+    const start = (page - 1) * limit;
+    const paginated = friendsList.slice(start, start + limit);
+
+    res.json({ friends: paginated, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch {
     res.status(500).json({ error: 'Server error' });
   }

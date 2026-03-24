@@ -123,8 +123,8 @@ const API = {
     return this.request(`/documents/${documentId}/comments/history`);
   },
 
-  async getFriends() {
-    return this.request('/friends');
+  async getFriends(page = 1, sort = 'added', limit = 10) {
+    return this.request(`/friends?page=${page}&sort=${sort}&limit=${limit}`);
   },
 
   async getFriendRequests() {

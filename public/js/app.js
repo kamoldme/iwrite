@@ -2605,6 +2605,10 @@ const App = {
     ];
   },
 
+  _friendsPage: 1,
+  _friendsSort: 'added',
+  _friendsTotalPages: 1,
+
   async loadFriends() {
     // Copy Invite Link button
     const copyInvBtn = document.getElementById('copy-invite-link-btn');
@@ -2615,17 +2619,25 @@ const App = {
       };
     }
 
-    const container = document.getElementById('friends-list');
+    // Bind sort buttons (once)
+    document.querySelectorAll('.friends-sort-btn').forEach(btn => {
+      btn.onclick = () => {
+        this._friendsSort = btn.dataset.sort;
+        this._friendsPage = 1;
+        document.querySelectorAll('.friends-sort-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this._loadFriendsPage();
+      };
+    });
+
     const reqSection = document.getElementById('friend-requests-section');
     const sugSection = document.getElementById('friend-suggestions-section');
 
     try {
-      const [friends, requests, suggestions] = await Promise.all([
-        API.getFriends(),
+      const [requests, suggestions] = await Promise.all([
         API.getFriendRequests(),
         API.getFriendSuggestions()
       ]);
-      this.friends = friends;
 
       // Friend requests
       if (requests.length > 0) {
@@ -2666,40 +2678,74 @@ const App = {
         sugSection.style.display = 'none';
       }
 
-      // Friends list
-      if (friends.length === 0) {
-        container.innerHTML = `<div class="empty-state"><p>Add friends by their email above to start challenging them to duels.</p></div>`;
-      } else {
-        container.innerHTML = friends.map(f => {
-          const fl = this.calcXPLevel(f.xp || 0);
-          const fPro = f.plan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
-          const fHandle = f.username ? ` <span class="friend-handle">@${this.escapeHtml(f.username)}</span>` : '';
-          return `
-          <div class="doc-card friend-card">
-            <div class="doc-card-info">
-              <h4>${this.escapeHtml(f.name)}${fHandle}${fPro}</h4>
-              <div class="friend-stats">
-                <span class="friend-stat" title="Total words"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>${(f.totalWords || 0).toLocaleString()}</span>
-                <span class="friend-stat" title="Streak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>${f.streak || 0}</span>
-                <span class="friend-stat" title="Level"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>Lv${fl.level} (${(f.xp || 0).toLocaleString()} XP)</span>
-              </div>
-            </div>
-            <div class="doc-card-actions">
-              <button class="doc-action-btn" onclick="App.challengeFriend('${f.id}')" title="Challenge to duel">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>
-              </button>
-              <button class="doc-action-btn delete" onclick="App.confirmRemoveFriend('${f.id}', '${this.escapeHtml(f.name)}')" title="Remove friend">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-              </button>
-            </div>
-          </div>`;
-        }).join('');
-      }
+      // Load first page of friends
+      await this._loadFriendsPage();
       // Load activity feed (non-blocking)
       this.loadActivityFeed();
     } catch {
+      document.getElementById('friends-list').innerHTML = `<div class="empty-state"><p>Failed to load friends.</p></div>`;
+    }
+  },
+
+  async _loadFriendsPage() {
+    const container = document.getElementById('friends-list');
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Loading...</div>';
+
+    try {
+      const data = await API.getFriends(this._friendsPage, this._friendsSort);
+      const friends = data.friends || [];
+      this.friends = friends;
+      this._friendsTotalPages = data.totalPages || 1;
+
+      if (data.total === 0) {
+        container.innerHTML = `<div class="empty-state"><p>Add friends by their email above to start challenging them to duels.</p></div>`;
+        return;
+      }
+
+      const cards = friends.map(f => {
+        const fl = this.calcXPLevel(f.xp || 0);
+        const fPro = f.plan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
+        const fHandle = f.username ? ` <span class="friend-handle">@${this.escapeHtml(f.username)}</span>` : '';
+        return `
+        <div class="doc-card friend-card">
+          <div class="doc-card-info">
+            <h4>${this.escapeHtml(f.name)}${fHandle}${fPro}</h4>
+            <div class="friend-stats">
+              <span class="friend-stat" title="Total words"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>${(f.totalWords || 0).toLocaleString()}</span>
+              <span class="friend-stat" title="Streak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>${f.streak || 0}</span>
+              <span class="friend-stat" title="Level"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>Lv${fl.level} (${(f.xp || 0).toLocaleString()} XP)</span>
+            </div>
+          </div>
+          <div class="doc-card-actions">
+            <button class="doc-action-btn" onclick="App.challengeFriend('${f.id}')" title="Challenge to duel">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>
+            </button>
+            <button class="doc-action-btn delete" onclick="App.confirmRemoveFriend('${f.id}', '${this.escapeHtml(f.name)}')" title="Remove friend">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+
+      // Pagination controls
+      let pager = '';
+      if (this._friendsTotalPages > 1) {
+        const pages = [];
+        for (let i = 1; i <= this._friendsTotalPages; i++) {
+          pages.push(`<button class="friends-page-btn${i === this._friendsPage ? ' active' : ''}" onclick="App._goFriendsPage(${i})">${i}</button>`);
+        }
+        pager = `<div class="friends-pager">${pages.join('')}</div>`;
+      }
+
+      container.innerHTML = cards + pager;
+    } catch {
       container.innerHTML = `<div class="empty-state"><p>Failed to load friends.</p></div>`;
     }
+  },
+
+  _goFriendsPage(page) {
+    this._friendsPage = page;
+    this._loadFriendsPage();
   },
 
   async addFriend() {

@@ -1255,9 +1255,13 @@
   box-shadow: 0 4px 16px rgba(34, 197, 94, 0.12);
 }
 
-/* ── Light: duel animations ── */
+/* ── Light: duel button — solid green, no gradient ── */
 .light .duel-big-btn {
+  background: var(--accent) !important;
   animation: duel-pulse-light 2.5s ease-in-out infinite;
+}
+.light .duel-big-btn:hover {
+  box-shadow: 0 8px 30px rgba(34, 197, 94, 0.3), var(--shadow-lg) !important;
 }
 @keyframes duel-pulse-light {
   0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.3), var(--shadow); }
@@ -1637,8 +1641,8 @@
   0%, 100% { box-shadow: 0 0 0 0 rgba(195, 126, 63, 0.4); }
   50% { box-shadow: 0 0 6px 2px rgba(195, 126, 63, 0.2); }
 }
-.sepia .duel-big-btn { animation-name: sepia-duel-pulse; }
-.sepia .duel-big-btn:hover { animation-name: sepia-duel-pulse; }
+.sepia .duel-big-btn { animation-name: sepia-duel-pulse; background: var(--accent) !important; color: #ffffff !important; }
+.sepia .duel-big-btn:hover { animation-name: sepia-duel-pulse; box-shadow: 0 8px 30px rgba(195, 126, 63, 0.4), var(--shadow-lg) !important; }
 .sepia .online-dot, .sepia .status-dot { animation-name: sepia-online-pulse; }
 
 /* ── Sepia: scrollbar ── */
@@ -3740,6 +3744,65 @@ html.light .logo-img-light { display: inline; }
 }
 
 /* ===== FRIEND CARDS ===== */
+/* Friends sort row */
+.friends-sort-row {
+  display: flex;
+  gap: 4px;
+}
+.friends-sort-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: var(--font-sans);
+}
+.friends-sort-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
+}
+.friends-sort-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Friends pager */
+.friends-pager {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+.friends-page-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: var(--font-sans);
+}
+.friends-page-btn:hover {
+  border-color: var(--border-hover);
+  background: var(--hover-bg);
+}
+.friends-page-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 .friend-card .doc-card-info {
   align-items: flex-start;
   gap: 1px;
@@ -5690,8 +5753,8 @@ html.light .logo-img-light { display: inline; }
 }
 
 .sepia .pro-nav-badge {
-  background: linear-gradient(135deg, #C37E3F, #8B5E34);
-  color: #F0E6D4;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #000;
 }
 
 /* ===== DUELS ===== */
