@@ -3691,16 +3691,9 @@ const App = {
   },
 
   _cycleTheme() {
-    const isPro = this.user && this.user.plan === 'premium';
     const current = localStorage.getItem('iwrite_theme') || 'dark';
-    let next;
-    if (isPro) {
-      // Pro: dark → light → sepia → dark
-      next = current === 'dark' ? 'light' : current === 'light' ? 'sepia' : 'dark';
-    } else {
-      // Free: dark → light → dark
-      next = current === 'dark' ? 'light' : 'dark';
-    }
+    // All users: dark → light → sepia → dark
+    const next = current === 'dark' ? 'light' : current === 'light' ? 'sepia' : 'dark';
     this._applyTheme(next);
   },
 

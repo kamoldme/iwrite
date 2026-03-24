@@ -1390,8 +1390,7 @@ const Editor = {
 
   // --- Theme toggle (in editor) ---
   toggleEditorTheme() {
-    const isLight = document.documentElement.classList.contains('light');
-    App._applyTheme(isLight ? 'dark' : 'light');
+    App._cycleTheme();
   },
 
   // --- Fullscreen toggle ---
