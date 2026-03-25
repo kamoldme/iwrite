@@ -53,6 +53,35 @@ router.get('/stats', async (req, res) => {
     });
   }
 
+  // Daily user visits (pageviews) over last 7 days — unique users per day
+  const visitsByDay = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayEnd = dayStart + 86400000;
+    const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    // Count pageview logs for this day
+    const pageviews = logs.filter(l => {
+      if (l.action !== 'pageview') return false;
+      const t = new Date(l.timestamp).getTime();
+      return t >= dayStart && t < dayEnd;
+    }).length;
+    // Count unique users active this day (from login/session logs)
+    const uniqueUserIds = new Set();
+    logs.forEach(l => {
+      if (!l.userId) return;
+      const t = new Date(l.timestamp).getTime();
+      if (t >= dayStart && t < dayEnd) uniqueUserIds.add(l.userId);
+    });
+    visitsByDay.push({
+      day: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()],
+      label: dayLabel,
+      pageviews,
+      uniqueUsers: uniqueUserIds.size
+    });
+  }
+
   res.json({
     activeNow,
     writingNow,
@@ -66,7 +95,8 @@ router.get('/stats', async (req, res) => {
     openTickets: support.filter(t => t.status === 'open').length,
     totalLogs: logs.length,
     sessionOutcomes: { completed, failed, empty, total: docs.length },
-    weekActivity
+    weekActivity,
+    visitsByDay
   });
 });
 
