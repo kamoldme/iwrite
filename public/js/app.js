@@ -365,6 +365,8 @@ const App = {
     };
 
     mobileSidebarToggle.addEventListener('click', () => {
+      // When in story-back-mode, the stories.js handler takes over via onclick
+      if (mobileSidebarToggle.classList.contains('story-back-mode')) return;
       sidebar.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar();
     });
     mobileSidebarOverlay.addEventListener('click', closeMobileSidebar);
@@ -733,6 +735,17 @@ const App = {
     document.querySelectorAll('.sidebar-nav-item[data-view]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.view === view);
     });
+
+    // Restore hamburger if leaving stories while in story-back-mode
+    if (view !== 'stories') {
+      const toggle = document.getElementById('mobile-sidebar-toggle');
+      if (toggle && toggle.classList.contains('story-back-mode')) {
+        toggle.classList.remove('story-back-mode');
+        toggle.innerHTML = '<span></span><span></span><span></span>';
+        toggle.onclick = null;
+        toggle._storyBackHandler = null;
+      }
+    }
 
     if (view === 'dashboard') this.loadDashboard();
     if (view === 'documents') this.loadDocuments();
@@ -1617,6 +1630,13 @@ const App = {
     const thead = document.getElementById('leaderboard-thead');
     const isTime = this._lbTab === 'time';
 
+    // Toggle tab class on leaderboard view for mobile column visibility
+    const lbView = document.getElementById('view-leaderboard');
+    if (lbView) {
+      lbView.classList.toggle('lb-tab-time', isTime);
+      lbView.classList.toggle('lb-tab-streaks', !isTime);
+    }
+
     // Sort based on active tab
     const data = [...rawData].sort((a, b) => {
       if (isTime) return (b.minutesWritten || 0) - (a.minutesWritten || 0) || (b.totalWords || 0) - (a.totalWords || 0);
@@ -1625,9 +1645,9 @@ const App = {
 
     // Update thead
     if (isTime) {
-      thead.innerHTML = `<tr><th>Rank</th><th class="lb-pro-col"></th><th>Writer</th><th class="lb-col-time">Writing Time</th><th class="lb-col-words">Words</th><th>Streak</th><th class="lb-col-sessions">Sessions</th><th class="lb-col-level">Level</th></tr>`;
+      thead.innerHTML = `<tr><th>Rank</th><th class="lb-pro-col"></th><th>Writer</th><th class="lb-col-time">Writing Time</th><th class="lb-col-words">Words</th><th class="lb-col-streak">Streak</th><th class="lb-col-sessions">Sessions</th><th class="lb-col-level">Level</th></tr>`;
     } else {
-      thead.innerHTML = `<tr><th>Rank</th><th class="lb-pro-col"></th><th>Writer</th><th>Streak</th><th class="lb-col-words">Words</th><th class="lb-col-sessions">Sessions</th><th class="lb-col-time">Time</th><th class="lb-col-level">Level</th></tr>`;
+      thead.innerHTML = `<tr><th>Rank</th><th class="lb-pro-col"></th><th>Writer</th><th class="lb-col-streak">Streak</th><th class="lb-col-words">Words</th><th class="lb-col-sessions">Sessions</th><th class="lb-col-time">Time</th><th class="lb-col-level">Level</th></tr>`;
     }
 
     // Podium for top 3
@@ -1674,7 +1694,7 @@ const App = {
             <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <span class="lb-username">@${this.escapeHtml(entry.username)}</span>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
             <td class="lb-col-time"><strong>${timeStr}</strong></td>
             <td class="lb-col-words">${(entry.totalWords || 0).toLocaleString()}</td>
-            <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
+            <td class="lb-col-streak">${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
             <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
             <td class="lb-col-level"><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
           </tr>`;
@@ -1684,7 +1704,7 @@ const App = {
           <td class="lb-rank">${rankEmoji}</td>
           <td class="lb-pro-col">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span>' : ''}</td>
           <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <span class="lb-username">@${this.escapeHtml(entry.username)}</span>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
-          <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
+          <td class="lb-col-streak">${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
           <td class="lb-col-words"><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
           <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
           <td class="lb-col-time">${timeStr}</td>

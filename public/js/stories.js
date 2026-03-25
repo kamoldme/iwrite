@@ -104,6 +104,25 @@
         viewEl.classList.remove('stories-mode-feed', 'stories-mode-read', 'stories-mode-compose');
         viewEl.classList.add(`stories-mode-${mode}`);
       }
+
+      // Swap mobile hamburger → back arrow when inside a story
+      const toggle = document.getElementById('mobile-sidebar-toggle');
+      if (toggle) {
+        if (mode === 'read' || mode === 'compose') {
+          toggle.classList.add('story-back-mode');
+          toggle.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>';
+          toggle._storyBackHandler = (e) => {
+            e.stopPropagation();
+            this.openStoriesFeed();
+          };
+          toggle.onclick = toggle._storyBackHandler;
+        } else {
+          toggle.classList.remove('story-back-mode');
+          toggle.innerHTML = '<span></span><span></span><span></span>';
+          toggle.onclick = null;
+          toggle._storyBackHandler = null;
+        }
+      }
     },
 
     syncStoryControls() {

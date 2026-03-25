@@ -3244,6 +3244,18 @@ html.light .logo-img-light { display: inline; }
   pointer-events: none;
 }
 
+/* Story back-arrow mode: replace hamburger lines with SVG arrow */
+.mobile-sidebar-toggle.story-back-mode {
+  gap: 0;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+.mobile-sidebar-toggle.story-back-mode svg {
+  display: block;
+  color: var(--text-primary);
+}
+
 /* Close button inside sidebar header (hidden on desktop) */
 .sidebar-close-btn {
   display: none;
@@ -5513,7 +5525,6 @@ html.light .logo-img-light { display: inline; }
 }
 
 @media (max-width: 720px) {
-  .stories-topbar,
   .story-reader-topbar,
   .story-composer-topbar,
   .story-composer-footer {
@@ -5522,20 +5533,22 @@ html.light .logo-img-light { display: inline; }
   }
 
   .stories-topbar {
+    flex-wrap: wrap;
     gap: 10px;
     padding-left: 56px;
   }
 
   .stories-primary-tabs {
-    width: 100%;
+    flex: 1;
     justify-content: flex-end;
+    min-width: 0;
   }
 
   .stories-topbar-actions {
     width: 100%;
     flex-direction: row;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
   }
 
@@ -5552,6 +5565,19 @@ html.light .logo-img-light { display: inline; }
     margin-left: 0;
     justify-content: flex-end;
     flex-shrink: 0;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .stories-primary-tabs .stories-filter-btn {
+    min-width: 0;
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .stories-topbar-filters .stories-filter-btn {
+    padding: 6px 10px;
+    font-size: 11px;
   }
 
   #new-story-btn {
@@ -9502,12 +9528,24 @@ body.editor-active .mobile-sidebar-toggle {
     border-radius: var(--radius);
   }
 
-  /* Hide Sessions, Time, Words, Level columns on mobile */
+  /* Hide Sessions, Words, Level columns on mobile */
   .lb-col-sessions,
-  .lb-col-time,
   .lb-col-words,
   .lb-col-level {
     display: none;
+  }
+
+  /* Streaks tab: show Streak, hide Time */
+  .lb-tab-streaks .lb-col-time {
+    display: none;
+  }
+
+  /* Time tab: show Writing Time, hide Streak */
+  .lb-tab-time .lb-col-streak {
+    display: none;
+  }
+  .lb-tab-time .lb-col-time {
+    display: table-cell;
   }
 
   .lb-pro-col {
