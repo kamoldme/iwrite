@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.38</span>
+            <span class="version-tag" style="margin-top:0">v2.3.39</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -1820,7 +1820,7 @@
           </div>
           ${story.excerpt ? `<div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;font-style:italic;border-left:3px solid var(--border);padding-left:12px">${esc(story.excerpt)}</div>` : ''}
           <div style="border:1px solid var(--border);border-radius:var(--radius);padding:20px;background:var(--bg-card);line-height:1.8;font-size:14px;max-height:50vh;overflow-y:auto">
-            ${story.body || '<em style="color:var(--text-muted)">No content</em>'}
+            ${story.content || '<em style="color:var(--text-muted)">No content</em>'}
           </div>
           <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:var(--text-muted)">
             <span>👁 ${story.viewCount || 0} views</span>
