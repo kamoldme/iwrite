@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.36</span>
+            <span class="version-tag" style="margin-top:0">v2.3.37</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -1154,6 +1154,7 @@
           <div class="admin-stat-card"><div class="label">Users</div><div class="value">${stats.totalUsers}</div></div>
           <div class="admin-stat-card"><div class="label">Documents</div><div class="value">${stats.totalDocuments}</div></div>
           <div class="admin-stat-card"><div class="label">Active Docs</div><div class="value" style="color:var(--success)">${stats.activeDocuments}</div></div>
+          <div class="admin-stat-card"><div class="label">Total Time</div><div class="value">${stats.totalTimeMinutes >= 60 ? Math.floor(stats.totalTimeMinutes / 60).toLocaleString() + 'h' : stats.totalTimeMinutes + 'm'}</div></div>
           <div class="admin-stat-card"><div class="label">Abandoned</div><div class="value" style="color:var(--danger)">${stats.abandonedDocuments}</div></div>
           <div class="admin-stat-card"><div class="label">Total Words</div><div class="value">${stats.totalWords.toLocaleString()}</div></div>
           <div class="admin-stat-card"><div class="label">Pro Users</div><div class="value" style="color:var(--xp-color)">${stats.premiumUsers}</div></div>
