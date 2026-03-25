@@ -309,11 +309,15 @@
             <h1>&#x1F3C6; Leaderboard</h1>
             <p>See who's writing the most. Climb the ranks!</p>
           </div>
+          <div class="lb-tabs" id="lb-tabs">
+            <button class="lb-tab active" data-lb-tab="streaks">Streaks</button>
+            <button class="lb-tab" data-lb-tab="time">Writing Time</button>
+          </div>
           <div class="leaderboard-container" id="leaderboard-container">
             <div class="leaderboard-podium" id="leaderboard-podium"></div>
             <div class="leaderboard-table-wrap">
               <table class="leaderboard-table" id="leaderboard-table">
-                <thead>
+                <thead id="leaderboard-thead">
                   <tr>
                     <th>Rank</th>
                     <th class="lb-pro-col"></th>
@@ -922,6 +926,9 @@
     <!-- DOCUMENT NAME MODAL -->
     <div class="modal-overlay" id="doc-name-modal">
       <div class="modal" style="max-width:400px">
+        <button class="modal-back-btn" id="doc-name-back" title="Go back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
         <h2>Name Your Document</h2>
         <p>Give your writing a title before you begin.</p>
         <div class="modal-field">

@@ -754,6 +754,23 @@
     <div class="user-detail-body" id="story-view-body" style="max-height:calc(100vh - 80px);overflow-y:auto"></div>
   </div>
 
+  <!-- Moderation Note Modal -->
+  <div class="user-detail-overlay" id="mod-note-overlay" style="display:none"></div>
+  <div class="user-detail-panel" id="mod-note-panel" style="display:none;width:480px">
+    <div class="user-detail-header">
+      <h3 id="mod-note-title" style="font-size:16px;font-weight:700">Request Changes</h3>
+      <button class="admin-btn admin-btn-ghost" onclick="closeModNote()">&times;</button>
+    </div>
+    <div class="user-detail-body" style="padding:20px">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Write a note to the author explaining what needs to change. They'll see this in their My Stories tab.</p>
+      <textarea id="mod-note-textarea" rows="5" style="width:100%;border:1px solid var(--border);border-radius:10px;background:var(--bg-elevated);color:var(--text-primary);padding:12px 14px;font-size:14px;resize:vertical;font-family:inherit" placeholder="Describe the changes needed..."></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button class="admin-btn admin-btn-ghost" onclick="closeModNote()">Cancel</button>
+        <button class="admin-btn admin-btn-success" id="mod-note-submit">Submit</button>
+      </div>
+    </div>
+  </div>
+
   <!-- IN-APP CONFIRM DIALOG -->
   <div class="admin-confirm-overlay" id="admin-confirm-overlay">
     <div class="admin-confirm-dialog">
@@ -1829,15 +1846,51 @@
       `).join('') : '<tr><td colspan="7" class="admin-empty">No published stories match this filter.</td></tr>';
     }
 
-    async function setStoryStatus(id, status) {
+    let _modNoteStoryId = null;
+    let _modNoteStatus = null;
+
+    function openModNote(storyId, status) {
+      _modNoteStoryId = storyId;
+      _modNoteStatus = status;
+      document.getElementById('mod-note-title').textContent = status === 'rejected' ? 'Reject Story' : 'Request Changes';
+      document.getElementById('mod-note-textarea').value = '';
+      openPanel('mod-note-panel', 'mod-note-overlay');
+      setTimeout(() => document.getElementById('mod-note-textarea').focus(), 100);
+    }
+
+    function closeModNote() {
+      document.getElementById('mod-note-panel').style.display = 'none';
+      document.getElementById('mod-note-overlay').style.display = 'none';
+      _modNoteStoryId = null;
+      _modNoteStatus = null;
+    }
+
+    document.getElementById('mod-note-overlay').addEventListener('click', closeModNote);
+    document.getElementById('mod-note-submit').addEventListener('click', async () => {
+      if (!_modNoteStoryId) return;
+      const note = document.getElementById('mod-note-textarea').value.trim();
       try {
-        let moderationNote = '';
-        if (status === 'changes_requested' || status === 'rejected') {
-          moderationNote = window.prompt('Optional moderation note for the writer:') || '';
-        }
+        await adminRequest(`/admin/stories/${_modNoteStoryId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: _modNoteStatus, moderationNote: note })
+        });
+        toast('Story updated', 'success');
+        closeModNote();
+        loadStoriesAdmin();
+      } catch (err) {
+        toast(err.message || 'Failed to update story', 'error');
+      }
+    });
+
+    async function setStoryStatus(id, status) {
+      if (status === 'changes_requested' || status === 'rejected') {
+        openModNote(id, status);
+        return;
+      }
+      try {
         await adminRequest(`/admin/stories/${id}`, {
           method: 'PATCH',
-          body: JSON.stringify({ status, moderationNote })
+          body: JSON.stringify({ status, moderationNote: '' })
         });
         toast('Story updated', 'success');
         loadStoriesAdmin();

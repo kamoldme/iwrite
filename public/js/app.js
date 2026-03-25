@@ -405,6 +405,9 @@ const App = {
       this._confirmDocName(name || 'Untitled');
     });
     document.getElementById('doc-name-skip').addEventListener('click', () => this._confirmDocName('Untitled'));
+    document.getElementById('doc-name-back').addEventListener('click', () => {
+      document.getElementById('doc-name-modal').classList.remove('active');
+    });
     document.getElementById('doc-name-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const name = document.getElementById('doc-name-input').value.trim();
@@ -1580,64 +1583,129 @@ const App = {
     } catch {}
   },
 
+  _lbData: null,
+  _lbTab: 'streaks',
+
   async loadLeaderboard() {
     const tbody = document.querySelector('#leaderboard-table tbody');
     const podium = document.getElementById('leaderboard-podium');
 
+    // Wire up tab buttons once
+    if (!this._lbTabsWired) {
+      this._lbTabsWired = true;
+      document.querySelectorAll('.lb-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          this._lbTab = btn.dataset.lbTab;
+          document.querySelectorAll('.lb-tab').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          if (this._lbData) this._renderLeaderboard(this._lbData);
+        });
+      });
+    }
+
     try {
-      const data = await API.getLeaderboard();
+      this._lbData = await API.getLeaderboard();
+      this._renderLeaderboard(this._lbData);
+    } catch {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Failed to load leaderboard</td></tr>';
+    }
+  },
 
-      // Podium for top 3
-      const top3 = data.slice(0, 3);
-      const podiumOrder = [top3[1], top3[0], top3[2]]; // silver, gold, bronze
-      const medals = ['&#x1F948;', '&#x1F947;', '&#x1F949;'];
-      const podiumLabels = ['2nd', '1st', '3rd'];
-      const heights = ['160px', '200px', '140px'];
+  _renderLeaderboard(rawData) {
+    const tbody = document.querySelector('#leaderboard-table tbody');
+    const podium = document.getElementById('leaderboard-podium');
+    const thead = document.getElementById('leaderboard-thead');
+    const isTime = this._lbTab === 'time';
 
-      podium.innerHTML = podiumOrder.map((entry, i) => {
-        if (!entry) return '<div class="podium-slot empty"></div>';
-        const isFirst = podiumLabels[i] === '1st';
-        const avatarContent = entry.avatar
-          ? `<img src="${entry.avatar}?t=${entry.avatarUpdatedAt || ''}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-          : entry.name.charAt(0).toUpperCase();
-        return `
-          <div class="podium-slot">
-            ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
-            <div class="podium-avatar">${avatarContent}</div>
-            <div class="podium-name">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span> ' : ''}${this.escapeHtml(entry.name)}</div>
-            ${entry.username ? `<div class="podium-username">@${this.escapeHtml(entry.username)}</div>` : ''}
-            <div class="podium-words">${entry.streak ? '&#x1F525; ' + entry.streak + ' day streak' : 'No streak'}</div>
-            <div class="podium-pedestal" style="height:${heights[i]}">
-              <span class="podium-medal">${medals[i]}</span>
-              <span class="podium-rank">${podiumLabels[i]}</span>
-            </div>
-          </div>`;
-      }).join('');
+    // Sort based on active tab
+    const data = [...rawData].sort((a, b) => {
+      if (isTime) return (b.minutesWritten || 0) - (a.minutesWritten || 0) || (b.totalWords || 0) - (a.totalWords || 0);
+      return (b.streak || 0) - (a.streak || 0) || (b.totalWords || 0) - (a.totalWords || 0);
+    });
 
-      // Full table
-      tbody.innerHTML = data.map((entry, i) => {
-        const rankEmoji = i === 0 ? '&#x1F947;' : i === 1 ? '&#x1F948;' : i === 2 ? '&#x1F949;' : `${i + 1}`;
-        const isMe = this.user && (entry.id === this.user.id || entry.name === this.user.name);
+    // Update thead
+    if (isTime) {
+      thead.innerHTML = `<tr><th>Rank</th><th class="lb-pro-col"></th><th>Writer</th><th class="lb-col-time">Writing Time</th><th class="lb-col-words">Words</th><th>Streak</th><th class="lb-col-sessions">Sessions</th><th class="lb-col-level">Level</th></tr>`;
+    } else {
+      thead.innerHTML = `<tr><th>Rank</th><th class="lb-pro-col"></th><th>Writer</th><th>Streak</th><th class="lb-col-words">Words</th><th class="lb-col-sessions">Sessions</th><th class="lb-col-time">Time</th><th class="lb-col-level">Level</th></tr>`;
+    }
+
+    // Podium for top 3
+    const top3 = data.slice(0, 3);
+    const podiumOrder = [top3[1], top3[0], top3[2]];
+    const medals = ['&#x1F948;', '&#x1F947;', '&#x1F949;'];
+    const podiumLabels = ['2nd', '1st', '3rd'];
+    const heights = ['160px', '200px', '140px'];
+
+    podium.innerHTML = podiumOrder.map((entry, i) => {
+      if (!entry) return '<div class="podium-slot empty"></div>';
+      const isFirst = podiumLabels[i] === '1st';
+      const avatarContent = entry.avatar
+        ? `<img src="${entry.avatar}?t=${entry.avatarUpdatedAt || ''}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        : entry.name.charAt(0).toUpperCase();
+      const statLine = isTime
+        ? `${this._formatWritingTime(entry.minutesWritten)}`
+        : `${entry.streak ? '&#x1F525; ' + entry.streak + ' day streak' : 'No streak'}`;
+      return `
+        <div class="podium-slot">
+          ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
+          <div class="podium-avatar">${avatarContent}</div>
+          <div class="podium-name">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span> ' : ''}${this.escapeHtml(entry.name)}</div>
+          ${entry.username ? `<div class="podium-username">@${this.escapeHtml(entry.username)}</div>` : ''}
+          <div class="podium-words">${statLine}</div>
+          <div class="podium-pedestal" style="height:${heights[i]}">
+            <span class="podium-medal">${medals[i]}</span>
+            <span class="podium-rank">${podiumLabels[i]}</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Full table
+    tbody.innerHTML = data.map((entry, i) => {
+      const rankEmoji = i === 0 ? '&#x1F947;' : i === 1 ? '&#x1F948;' : i === 2 ? '&#x1F949;' : `${i + 1}`;
+      const isMe = this.user && (entry.id === this.user.id || entry.name === this.user.name);
+      const timeStr = this._formatWritingTime(entry.minutesWritten);
+
+      if (isTime) {
         return `
           <tr class="${isMe ? 'leaderboard-me' : ''}">
             <td class="lb-rank">${rankEmoji}</td>
             <td class="lb-pro-col">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span>' : ''}</td>
             <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <span class="lb-username">@${this.escapeHtml(entry.username)}</span>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
+            <td class="lb-col-time"><strong>${timeStr}</strong></td>
+            <td class="lb-col-words">${(entry.totalWords || 0).toLocaleString()}</td>
             <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
-            <td class="lb-col-words"><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
             <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
-            <td class="lb-col-time">${entry.minutesWritten || 0}m</td>
             <td class="lb-col-level"><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
           </tr>`;
-      }).join('');
-
-      if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">No writers yet. Be the first!</td></tr>';
-        podium.innerHTML = '';
       }
-    } catch {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Failed to load leaderboard</td></tr>';
+      return `
+        <tr class="${isMe ? 'leaderboard-me' : ''}">
+          <td class="lb-rank">${rankEmoji}</td>
+          <td class="lb-pro-col">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span>' : ''}</td>
+          <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <span class="lb-username">@${this.escapeHtml(entry.username)}</span>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
+          <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
+          <td class="lb-col-words"><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
+          <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
+          <td class="lb-col-time">${timeStr}</td>
+          <td class="lb-col-level"><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
+        </tr>`;
+    }).join('');
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">No writers yet. Be the first!</td></tr>';
+      podium.innerHTML = '';
     }
+  },
+
+  _formatWritingTime(minutes) {
+    if (!minutes) return '0m';
+    if (minutes >= 60) {
+      const h = Math.floor(minutes / 60);
+      const m = Math.round(minutes % 60);
+      return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    }
+    return `${Math.round(minutes)}m`;
   },
 
   // ===== PASSWORD CHANGE =====

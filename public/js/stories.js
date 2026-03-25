@@ -712,7 +712,7 @@
           </div>
 
           <div class="story-compose-canvas">
-            <input type="text" id="story-title-input" class="story-title-input story-title-input-plain" placeholder="Title" value="${esc(story.title)}">
+            <input type="text" id="story-title-input" class="story-title-input story-title-input-plain" placeholder="Give your story a title..." value="${esc(story.title)}">
             <div id="story-editor" class="story-editor" contenteditable="true"></div>
           </div>
 
@@ -903,6 +903,16 @@
       const content = editor ? editor.innerHTML : this.storyDetail.content;
       const allowComments = commentsToggle ? commentsToggle.checked : true;
 
+      if (!title) {
+        if (titleInput) {
+          titleInput.focus();
+          titleInput.classList.add('shake');
+          setTimeout(() => titleInput.classList.remove('shake'), 500);
+        }
+        App.toast('Please add a title to your story', 'error');
+        return;
+      }
+
       try {
         const updated = await API.updateStory(this.storyDetail.id, { title, content, allowComments });
         this.storyDetail = updated;
@@ -929,7 +939,7 @@
     async createStoryDraft() {
       try {
         const story = await API.createStory({
-          title: 'Untitled Story',
+          title: '',
           content: '<p></p>',
           allowComments: true
         });
@@ -1036,10 +1046,25 @@
 
     async toggleStoryLike(storyId) {
       try {
-        await API.toggleStoryLike(storyId);
-        const currentId = this.storySelectedId || storyId;
-        await this.loadStories();
-        await this.selectStory(currentId);
+        const result = await API.toggleStoryLike(storyId);
+        const liked = result.liked;
+        const count = result.likeCount || 0;
+        const heartSvg = renderIcon('heart', { filled: liked });
+
+        // Update both top and bottom like buttons in place
+        for (const id of ['story-like-btn', 'story-bottom-like-btn']) {
+          const btn = document.getElementById(id);
+          if (!btn) continue;
+          btn.classList.toggle('liked', liked);
+          btn.innerHTML = `${heartSvg}<span>${count}</span>`;
+        }
+
+        // Update the feed card metric too if visible
+        const story = this.storyList.find(s => s.id === storyId);
+        if (story) {
+          story.likedByMe = liked;
+          story.likeCount = count;
+        }
       } catch (err) {
         App.toast(err.message || 'Failed to update like', 'error');
       }
