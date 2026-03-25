@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.36</span>
+            <span class="version-tag" style="margin-top:0">v2.3.39</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -1142,7 +1142,7 @@
         const stats = await adminRequest('/admin/stats');
         document.getElementById('admin-stats').innerHTML = `
           <div class="admin-stat-card admin-stat-card-hero">
-            <div class="label">Active Now</div>
+            <div class="label">Online</div>
             <div class="value" style="color:#22c55e" id="active-now-count">${stats.activeNow || 0}</div>
             <div class="admin-online-dot"></div>
             <div style="position:absolute;bottom:16px;right:16px;display:flex;gap:6px">
@@ -1151,9 +1151,11 @@
             </div>
             <div id="active-users-list" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;max-height:200px;overflow-y:auto"></div>
           </div>
+          <div class="admin-stat-card"><div class="label">Writing Now</div><div class="value" style="color:#f59e0b">${stats.writingNow || 0}</div></div>
           <div class="admin-stat-card"><div class="label">Users</div><div class="value">${stats.totalUsers}</div></div>
           <div class="admin-stat-card"><div class="label">Documents</div><div class="value">${stats.totalDocuments}</div></div>
           <div class="admin-stat-card"><div class="label">Active Docs</div><div class="value" style="color:var(--success)">${stats.activeDocuments}</div></div>
+          <div class="admin-stat-card"><div class="label">Total Time</div><div class="value">${stats.totalTimeMinutes >= 60 ? Math.floor(stats.totalTimeMinutes / 60).toLocaleString() + 'h' : stats.totalTimeMinutes + 'm'}</div></div>
           <div class="admin-stat-card"><div class="label">Abandoned</div><div class="value" style="color:var(--danger)">${stats.abandonedDocuments}</div></div>
           <div class="admin-stat-card"><div class="label">Total Words</div><div class="value">${stats.totalWords.toLocaleString()}</div></div>
           <div class="admin-stat-card"><div class="label">Pro Users</div><div class="value" style="color:var(--xp-color)">${stats.premiumUsers}</div></div>
@@ -1209,8 +1211,11 @@
         } else {
           el.innerHTML = data.users.map(u => `
             <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:13px">
-              <span style="color:var(--text-primary)">${u.email}</span>
-              <span style="color:var(--text-muted);font-size:11px">${u.minutesAgo === 0 ? 'just now' : u.minutesAgo + 'm ago'}</span>
+              <span style="color:var(--text-primary);display:flex;align-items:center;gap:6px">
+                ${u.writing ? '<span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block" title="Writing now"></span>' : '<span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;opacity:0.5" title="Online"></span>'}
+                ${u.email}
+              </span>
+              <span style="color:var(--text-muted);font-size:11px">${u.writing ? '✍️ writing' : u.minutesAgo === 0 ? 'just now' : u.minutesAgo + 'm ago'}</span>
             </div>
           `).join('');
         }
@@ -1815,7 +1820,7 @@
           </div>
           ${story.excerpt ? `<div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;font-style:italic;border-left:3px solid var(--border);padding-left:12px">${esc(story.excerpt)}</div>` : ''}
           <div style="border:1px solid var(--border);border-radius:var(--radius);padding:20px;background:var(--bg-card);line-height:1.8;font-size:14px;max-height:50vh;overflow-y:auto">
-            ${story.body || '<em style="color:var(--text-muted)">No content</em>'}
+            ${story.content || '<em style="color:var(--text-muted)">No content</em>'}
           </div>
           <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:var(--text-muted)">
             <span>👁 ${story.viewCount || 0} views</span>
