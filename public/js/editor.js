@@ -96,7 +96,7 @@ const Editor = {
     if (typeof CommentSystem !== 'undefined') CommentSystem.destroy();
 
     try {
-      const doc = await API.createDocument(this.titleInput.value || 'Untitled', '', mode);
+      const doc = await API.createDocument(this.titleInput.value || 'Untitled', '', mode, this.sessionTopic);
       this.documentId = doc.id;
     } catch {
       App.toast('Failed to create document', 'error');

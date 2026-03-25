@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.41</span>
+            <span class="version-tag" style="margin-top:0">v2.3.42</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -1678,8 +1678,8 @@
             ${doc.failedAt ? `<div class="user-detail-stat"><div class="label">Lost At</div><div class="value" style="font-size:12px;color:var(--danger)">${new Date(doc.failedAt).toLocaleString()}</div></div>` : ''}
             ${doc.failReason ? `<div class="user-detail-stat"><div class="label">Reason</div><div class="value" style="font-size:13px">${esc(doc.failReason)}</div></div>` : ''}
           </div>
-          ${doc.prompt ? `<h4 style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Prompt / Question</h4>
-          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;font-size:14px;line-height:1.6;margin-bottom:16px;font-style:italic;color:var(--text-secondary)">${esc(doc.prompt)}</div>` : ''}
+          <h4 style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Prompt / Topic</h4>
+          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;font-size:14px;line-height:1.6;margin-bottom:16px;font-style:italic;color:${doc.prompt ? 'var(--text-secondary)' : 'var(--text-muted)'}">${doc.prompt ? esc(doc.prompt) : 'NaN'}</div>
           <h4 style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Content</h4>
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;font-size:14px;line-height:1.7;max-height:400px;overflow-y:auto">${doc.content || '<em style="color:var(--text-muted)">Empty document</em>'}</div>
         `;

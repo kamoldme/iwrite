@@ -58,10 +58,10 @@ const API = {
     return this.request('/documents');
   },
 
-  async createDocument(title, content, mode) {
+  async createDocument(title, content, mode, prompt) {
     return this.request('/documents', {
       method: 'POST',
-      body: JSON.stringify({ title, content, mode })
+      body: JSON.stringify({ title, content, mode, prompt: prompt || '' })
     });
   },
 

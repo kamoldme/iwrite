@@ -95,7 +95,7 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { title, content, mode } = req.body;
+  const { title, content, mode, prompt } = req.body;
 
   // Monthly session limit (invisible): free 200/month, pro 300/month
   const user = await findOne('users.json', u => u.id === req.user.id);
@@ -124,6 +124,7 @@ router.post('/', async (req, res) => {
     title: title || 'Untitled',
     content: content || '',
     mode: mode || 'normal',
+    prompt: prompt || '',
     wordCount: (content || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter(Boolean).length,
     xpEarned: 0,
     duration: 0,
