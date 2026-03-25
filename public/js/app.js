@@ -2508,7 +2508,7 @@ const App = {
   },
 
   async _startCheckout(isTrial) {
-    this.toast('Payment method is coming soon!', 'info');
+    this.toast('Automatic payment method is not set yet. If you want to buy a subscription, contact <strong>@kamoldme</strong> in Telegram.', 'info', 10000);
   },
 
   async _openBillingPortal() {
@@ -3869,7 +3869,7 @@ const App = {
     });
   },
 
-  toast(message, type = '') {
+  toast(message, type = '', duration = 3000) {
     if (this.toastTimer) clearTimeout(this.toastTimer);
     const el = document.getElementById('toast');
     // Replace "Pro" with styled orange gradient badge
@@ -3879,7 +3879,7 @@ const App = {
     this.toastTimer = setTimeout(() => {
       el.className = 'toast';
       this.toastTimer = null;
-    }, 3000);
+    }, duration);
   },
 
   // ===== ANALYTICS =====
