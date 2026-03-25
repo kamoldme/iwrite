@@ -247,6 +247,21 @@ router.get('/public/:id/comments', async (req, res) => {
 
 router.use(authenticate);
 
+// Lightweight endpoint: returns just the latest published story timestamp + count of new stories since a given time
+router.get('/latest-published', async (req, res) => {
+  try {
+    const stories = await findMany('stories.json');
+    const published = stories.filter(s => s.status === 'published' && s.publishedAt);
+    if (published.length === 0) return res.json({ latestPublishedAt: null, newCount: 0 });
+    published.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+    const since = req.query.since ? new Date(req.query.since).getTime() : 0;
+    const newCount = since ? published.filter(s => new Date(s.publishedAt).getTime() > since).length : 0;
+    res.json({ latestPublishedAt: published[0].publishedAt, newCount });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to check stories' });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const filter = (req.query.filter || 'feed').toLowerCase();

@@ -1129,6 +1129,10 @@
     if (view === 'stories') {
       this.syncStoryControls();
       this.loadStories();
+      // Mark community as seen — hide the green dot
+      localStorage.setItem('iwrite_community_seen', new Date().toISOString());
+      const dot = document.getElementById('community-new-dot');
+      if (dot) dot.style.display = 'none';
     }
   };
 })();

@@ -2940,6 +2940,20 @@ const App = {
         this.toast(`New duel challenge received! ⚔️`, 'info');
       }
       this._lastDuelRequestCount = duelRequests.length;
+
+      // Community new-story green dot
+      try {
+        const lastSeen = localStorage.getItem('iwrite_community_seen') || '1970-01-01T00:00:00.000Z';
+        const latest = await API.getLatestPublished(lastSeen);
+        const dot = document.getElementById('community-new-dot');
+        if (dot) {
+          if (latest.newCount > 0) {
+            dot.style.display = 'inline-block';
+          } else {
+            dot.style.display = 'none';
+          }
+        }
+      } catch {}
     } catch {}
   },
 

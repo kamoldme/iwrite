@@ -352,6 +352,11 @@ const API = {
     return this.request(`/stories?filter=${encodeURIComponent(filter)}&sort=${encodeURIComponent(sort)}`);
   },
 
+  async getLatestPublished(since) {
+    const q = since ? `?since=${encodeURIComponent(since)}` : '';
+    return this.request(`/stories/latest-published${q}`);
+  },
+
   async getStory(id) {
     return this.request(`/stories/${id}`);
   },
