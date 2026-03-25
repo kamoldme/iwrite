@@ -111,7 +111,14 @@ app.use('/api', (req, res, next) => {
       const jwt = require('jsonwebtoken');
       const token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'iwrite-dev-secret-change-in-production');
-      if (decoded.id) activeUsers.set(decoded.id, { email: decoded.email, lastSeen: Date.now() });
+      if (decoded.id) {
+            const existing = activeUsers.get(decoded.id);
+            if (existing) {
+              existing.lastSeen = Date.now();
+            } else {
+              activeUsers.set(decoded.id, { email: decoded.email, lastSeen: Date.now() });
+            }
+          }
     } catch {}
   }
   next();
