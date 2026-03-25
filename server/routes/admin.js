@@ -26,7 +26,7 @@ router.get('/stats', async (req, res) => {
   // Get active users count from the in-memory tracker on the main app
   const activeUsersMap = req.app.get('activeUsers');
   const activeNow = activeUsersMap ? activeUsersMap.size : 0;
-  const writingCutoff = Date.now() - 30000; // 30s window
+  const writingCutoff = Date.now() - 60000; // 60s window
   let writingNow = 0;
   if (activeUsersMap) {
     for (const [, data] of activeUsersMap) {

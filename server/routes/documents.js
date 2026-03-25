@@ -13,6 +13,20 @@ function streakToTreeStage(streak) {
   return 0;
 }
 
+// ===== Writing heartbeat (editor pings every 5s while session is active) =====
+router.post('/heartbeat', (req, res) => {
+  const activeUsers = req.app.get('activeUsers');
+  if (activeUsers && req.user) {
+    const entry = activeUsers.get(req.user.id);
+    if (entry) {
+      entry.writingAt = Date.now();
+    } else {
+      activeUsers.set(req.user.id, { email: req.user.email, lastSeen: Date.now(), writingAt: Date.now() });
+    }
+  }
+  res.json({ ok: true });
+});
+
 // Activity generation for friends feed
 const WORD_MILESTONES = [1000, 5000, 10000, 25000, 50000, 100000];
 const STREAK_MILESTONES = [7, 14, 30, 50, 100];

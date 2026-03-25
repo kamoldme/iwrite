@@ -89,9 +89,18 @@ const App = {
         localStorage.removeItem('iwrite_stripe_session');
         this._verifyStripeSession(pendingSession);
       }
-    } catch {
-      API.clearToken();
-      this.showAuth();
+    } catch (err) {
+      // Only clear token on 401 (expired/invalid) — NOT on network errors
+      // so users stay logged in during deploys/restarts
+      if (err && err.status === 401) {
+        API.clearToken();
+        this.showAuth();
+      } else {
+        // Network error or server down — retry after 3s, keep token
+        console.warn('Server unreachable, retrying...', err);
+        setTimeout(() => this.init(), 3000);
+        return;
+      }
     }
 
     // Analytics pageview
@@ -2449,11 +2458,33 @@ const App = {
       </div>
     `;
 
-    // Bind duration tab clicks
+    // Bind duration tab clicks — update price inline, don't re-render everything
     el.querySelectorAll('.upgrade-duration-pill').forEach(pill => {
       pill.addEventListener('click', () => {
         this._selectedDuration = pill.dataset.duration;
-        this.loadUpgrade();
+        const d = this._stripePricing[this._selectedDuration];
+        // Update active pill
+        el.querySelectorAll('.upgrade-duration-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        // Update price display
+        const priceDisplay = document.getElementById('upgrade-price-display');
+        if (priceDisplay) {
+          priceDisplay.innerHTML = `<span class="upgrade-price-dollar">$</span><span class="upgrade-price-amount">${d.price}</span><span class="upgrade-price-period">${d.period}</span>`;
+        }
+        // Update savings line
+        const savingsEl = priceDisplay && priceDisplay.nextElementSibling;
+        if (savingsEl && savingsEl.classList.contains('upgrade-price-savings')) {
+          if (d.savings) { savingsEl.textContent = d.savings; savingsEl.style.display = ''; }
+          else { savingsEl.style.display = 'none'; }
+        } else if (d.savings && priceDisplay) {
+          const s = document.createElement('div');
+          s.className = 'upgrade-price-savings';
+          s.textContent = d.savings;
+          priceDisplay.insertAdjacentElement('afterend', s);
+        }
+        // Update UZS line
+        const uzsEl = el.querySelector('.upgrade-price-uzs');
+        if (uzsEl) uzsEl.textContent = d.uzs;
       });
     });
 

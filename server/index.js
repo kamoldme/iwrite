@@ -218,7 +218,7 @@ app.get('/api/active-users', (req, res) => {
   authenticate(req, res, () => {
     requireAdmin(req, res, () => {
       const now = Date.now();
-      const writingCutoff = now - 30000;
+      const writingCutoff = now - 60000; // 60s window
       const users = [];
       for (const [id, data] of activeUsers) {
         users.push({
