@@ -218,9 +218,15 @@ app.get('/api/active-users', (req, res) => {
   authenticate(req, res, () => {
     requireAdmin(req, res, () => {
       const now = Date.now();
+      const writingCutoff = now - 30000;
       const users = [];
       for (const [id, data] of activeUsers) {
-        users.push({ id, email: data.email, minutesAgo: Math.round((now - data.lastSeen) / 60000) });
+        users.push({
+          id,
+          email: data.email,
+          minutesAgo: Math.round((now - data.lastSeen) / 60000),
+          writing: !!(data.writingAt && data.writingAt > writingCutoff)
+        });
       }
       res.json({ count: users.length, users: users.sort((a, b) => a.minutesAgo - b.minutesAgo) });
     });

@@ -224,6 +224,14 @@ router.patch('/:id', async (req, res) => {
   updates.updatedAt = new Date().toISOString();
 
   const updated = await updateOne('documents.json', d => d.id === req.params.id, updates);
+
+  // Mark user as actively writing (for admin "Writing Now" tracker)
+  const activeUsers = req.app.get('activeUsers');
+  if (activeUsers && req.user) {
+    const entry = activeUsers.get(req.user.id);
+    if (entry) entry.writingAt = Date.now();
+  }
+
   res.json(updated);
 });
 

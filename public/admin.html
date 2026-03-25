@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.37</span>
+            <span class="version-tag" style="margin-top:0">v2.3.38</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -1142,7 +1142,7 @@
         const stats = await adminRequest('/admin/stats');
         document.getElementById('admin-stats').innerHTML = `
           <div class="admin-stat-card admin-stat-card-hero">
-            <div class="label">Active Now</div>
+            <div class="label">Online</div>
             <div class="value" style="color:#22c55e" id="active-now-count">${stats.activeNow || 0}</div>
             <div class="admin-online-dot"></div>
             <div style="position:absolute;bottom:16px;right:16px;display:flex;gap:6px">
@@ -1151,6 +1151,7 @@
             </div>
             <div id="active-users-list" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;max-height:200px;overflow-y:auto"></div>
           </div>
+          <div class="admin-stat-card"><div class="label">Writing Now</div><div class="value" style="color:#f59e0b">${stats.writingNow || 0}</div></div>
           <div class="admin-stat-card"><div class="label">Users</div><div class="value">${stats.totalUsers}</div></div>
           <div class="admin-stat-card"><div class="label">Documents</div><div class="value">${stats.totalDocuments}</div></div>
           <div class="admin-stat-card"><div class="label">Active Docs</div><div class="value" style="color:var(--success)">${stats.activeDocuments}</div></div>
@@ -1210,8 +1211,11 @@
         } else {
           el.innerHTML = data.users.map(u => `
             <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:13px">
-              <span style="color:var(--text-primary)">${u.email}</span>
-              <span style="color:var(--text-muted);font-size:11px">${u.minutesAgo === 0 ? 'just now' : u.minutesAgo + 'm ago'}</span>
+              <span style="color:var(--text-primary);display:flex;align-items:center;gap:6px">
+                ${u.writing ? '<span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block" title="Writing now"></span>' : '<span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;opacity:0.5" title="Online"></span>'}
+                ${u.email}
+              </span>
+              <span style="color:var(--text-muted);font-size:11px">${u.writing ? '✍️ writing' : u.minutesAgo === 0 ? 'just now' : u.minutesAgo + 'm ago'}</span>
             </div>
           `).join('');
         }

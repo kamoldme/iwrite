@@ -26,6 +26,13 @@ router.get('/stats', async (req, res) => {
   // Get active users count from the in-memory tracker on the main app
   const activeUsersMap = req.app.get('activeUsers');
   const activeNow = activeUsersMap ? activeUsersMap.size : 0;
+  const writingCutoff = Date.now() - 30000; // 30s window
+  let writingNow = 0;
+  if (activeUsersMap) {
+    for (const [, data] of activeUsersMap) {
+      if (data.writingAt && data.writingAt > writingCutoff) writingNow++;
+    }
+  }
 
   // Session outcomes (all-time)
   const completed = docs.filter(d => !d.deletedBySystem && !d.deleted && (d.wordCount || 0) > 0).length;
@@ -48,6 +55,7 @@ router.get('/stats', async (req, res) => {
 
   res.json({
     activeNow,
+    writingNow,
     totalUsers: users.filter(u => u.role !== 'admin').length,
     totalDocuments: docs.length,
     activeDocuments: docs.filter(d => !d.deleted).length,
