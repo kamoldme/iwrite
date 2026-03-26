@@ -747,6 +747,9 @@ router.get('/referrals', async (req, res) => {
 // All promo codes live in Stripe — we're a thin wrapper around the Stripe API
 
 router.get('/promo-codes', async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Stripe is not configured' });
+  }
   try {
     const Stripe = require('stripe');
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -780,6 +783,9 @@ router.get('/promo-codes', async (req, res) => {
 });
 
 router.post('/promo-codes', async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Stripe is not configured' });
+  }
   try {
     const Stripe = require('stripe');
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -790,16 +796,24 @@ router.post('/promo-codes', async (req, res) => {
       return res.status(400).json({ error: 'Code and percentOff are required' });
     }
 
+    const pct = parseFloat(percentOff);
+    if (isNaN(pct) || pct < 1 || pct > 100) {
+      return res.status(400).json({ error: 'percentOff must be between 1 and 100' });
+    }
+
     // Create a coupon first
     const couponConfig = {
-      percent_off: parseFloat(percentOff),
-      duration: duration || 'once'
+      percent_off: pct,
+      duration: duration || 'once',
+      name: `${code.toUpperCase()} — ${pct}% off`
     };
     if (duration === 'repeating' && durationInMonths) {
       couponConfig.duration_in_months = parseInt(durationInMonths);
     }
 
+    console.log('Creating Stripe coupon:', couponConfig);
     const coupon = await stripe.coupons.create(couponConfig);
+    console.log('Coupon created:', coupon.id);
 
     // Then create a promotion code with the specified code string
     const promoConfig = {
@@ -810,11 +824,13 @@ router.post('/promo-codes', async (req, res) => {
       promoConfig.max_redemptions = parseInt(maxRedemptions);
     }
 
+    console.log('Creating Stripe promotion code:', promoConfig);
     const promotionCode = await stripe.promotionCodes.create(promoConfig);
+    console.log('Promotion code created:', promotionCode.code);
 
     logAction('promo_code_created', {
       code: promotionCode.code,
-      percentOff,
+      percentOff: pct,
       duration
     }, req.user.id);
 
@@ -825,12 +841,16 @@ router.post('/promo-codes', async (req, res) => {
       percentOff: coupon.percent_off
     });
   } catch (err) {
-    console.error('Promo code create error:', err);
-    res.status(500).json({ error: err.message || 'Failed to create promo code' });
+    console.error('Promo code create error:', err.type, err.message, err.raw?.message);
+    const msg = err.raw?.message || err.message || 'Failed to create promo code';
+    res.status(500).json({ error: msg });
   }
 });
 
 router.post('/promo-codes/:id/deactivate', async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Stripe is not configured' });
+  }
   try {
     const Stripe = require('stripe');
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
