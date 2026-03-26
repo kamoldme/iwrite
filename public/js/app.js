@@ -381,7 +381,7 @@ const App = {
     });
 
     // Pricing modal
-    document.getElementById('user-info-btn').addEventListener('click', () => this.openPricing());
+    document.getElementById('user-info-btn').addEventListener('click', () => this.switchView('settings'));
     document.getElementById('pricing-close').addEventListener('click', () => this.closePricing());
     document.getElementById('pricing-overlay').addEventListener('click', (e) => {
       if (e.target === e.currentTarget) this.closePricing();
@@ -769,7 +769,7 @@ const App = {
   switchView(view, opts = {}) {
     const { fromHash, username } = typeof opts === 'string' ? { username: opts } : opts;
     this.currentView = view;
-    // Don't persist user-profile as default view
+    // Don't persist user-profile or my-profile as default view (they require data loading)
     if (view !== 'user-profile') localStorage.setItem('iwrite_view', view);
 
     // Update hash in URL for browser back/forward navigation
@@ -798,7 +798,8 @@ const App = {
     if (view === 'dashboard') this.loadDashboard();
     if (view === 'documents') this.loadDocuments();
     if (view === 'leaderboard') this.loadLeaderboard();
-    if (view === 'profile') this.loadProfile();
+    if (view === 'settings') this.loadProfile();
+    if (view === 'my-profile') this.loadMyProfile();
     if (view === 'friends') this.loadFriends();
     if (view === 'support') this.loadSupport();
     if (view === 'analytics') this.loadAnalytics();
@@ -829,6 +830,12 @@ const App = {
       avatarEl.textContent = this.user.name.charAt(0).toUpperCase();
     }
 
+    // Update sidebar profile nav label
+    const profileNavLabel = document.getElementById('my-profile-nav-label');
+    if (profileNavLabel) {
+      profileNavLabel.textContent = this.user.username ? `@${this.user.username}` : 'Profile';
+    }
+
     const badge = document.getElementById('plan-badge');
     if (badge) {
       const isPro = this.user.plan === 'premium';
@@ -850,16 +857,21 @@ const App = {
       badge.className = 'plan-badge' + (isPro ? ' pro' : '');
     }
 
-    // Hide Upgrade nav + dividers for Pro users, show profile-support divider instead
+    // Update Upgrade nav label for Pro users
     const upgradeNav = document.getElementById('upgrade-nav-btn');
     const upgradeDivTop = document.getElementById('upgrade-divider-top');
     const upgradeDivBottom = document.getElementById('upgrade-divider-bottom');
     const proProfileDiv = document.getElementById('pro-profile-divider');
-    const hideUpgrade = this.user.plan === 'premium';
-    if (upgradeNav) upgradeNav.style.display = hideUpgrade ? 'none' : '';
-    if (upgradeDivTop) upgradeDivTop.style.display = hideUpgrade ? 'none' : '';
-    if (upgradeDivBottom) upgradeDivBottom.style.display = hideUpgrade ? 'none' : '';
-    if (proProfileDiv) proProfileDiv.style.display = hideUpgrade ? '' : 'none';
+    const isPremium = this.user.plan === 'premium';
+    if (upgradeNav) {
+      const label = upgradeNav.childNodes;
+      // Update text content (last text node after the SVG)
+      const textSpan = upgradeNav.querySelector('.upgrade-nav-label');
+      if (textSpan) {
+        textSpan.textContent = isPremium ? 'Manage Subscription' : 'Upgrade to Pro';
+      }
+    }
+    if (proProfileDiv) proProfileDiv.style.display = isPremium ? '' : 'none';
 
     if (this.user.streak > 0) {
       document.getElementById('streak-badge').style.display = 'flex';
@@ -1720,7 +1732,7 @@ const App = {
           ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
           <div class="podium-avatar">${avatarContent}</div>
           <div class="podium-name">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span> ' : ''}${this.escapeHtml(entry.name)}</div>
-          ${entry.username ? `<div class="podium-username">@${this.escapeHtml(entry.username)}</div>` : ''}
+          ${entry.username ? `<div class="podium-username"><a href="#" class="profile-link" data-username="${this.escapeHtml(entry.username)}" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(entry.username)}'})">@${this.escapeHtml(entry.username)}</a></div>` : ''}
           <div class="podium-words">${statLine}</div>
           <div class="podium-pedestal" style="height:${heights[i]}">
             <span class="podium-medal">${medals[i]}</span>
@@ -1740,7 +1752,7 @@ const App = {
           <tr class="${isMe ? 'leaderboard-me' : ''}">
             <td class="lb-rank">${rankEmoji}</td>
             <td class="lb-pro-col">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span>' : ''}</td>
-            <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <span class="lb-username">@${this.escapeHtml(entry.username)}</span>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
+            <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <a href="#" class="lb-username profile-link" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(entry.username)}'})">@${this.escapeHtml(entry.username)}</a>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
             <td class="lb-col-time"><strong>${timeStr}</strong></td>
             <td class="lb-col-words">${(entry.totalWords || 0).toLocaleString()}</td>
             <td class="lb-col-streak">${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
@@ -1752,7 +1764,7 @@ const App = {
         <tr class="${isMe ? 'leaderboard-me' : ''}">
           <td class="lb-rank">${rankEmoji}</td>
           <td class="lb-pro-col">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span>' : ''}</td>
-          <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <span class="lb-username">@${this.escapeHtml(entry.username)}</span>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
+          <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <a href="#" class="lb-username profile-link" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(entry.username)}'})">@${this.escapeHtml(entry.username)}</a>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
           <td class="lb-col-streak">${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
           <td class="lb-col-words"><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
           <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
@@ -2354,12 +2366,15 @@ const App = {
     const bannerPreview = document.getElementById('profile-banner-preview');
     const removeBannerBtn = document.getElementById('remove-banner-btn');
     if (bannerPreview) {
+      const bannerPlaceholder = document.getElementById('profile-banner-placeholder');
       if (this.user.banner) {
         bannerPreview.style.backgroundImage = `url(${this.user.banner}?t=${this.user.bannerUpdatedAt || ''})`;
         if (removeBannerBtn) removeBannerBtn.style.display = 'inline-flex';
+        if (bannerPlaceholder) bannerPlaceholder.style.display = 'none';
       } else {
         bannerPreview.style.backgroundImage = '';
         if (removeBannerBtn) removeBannerBtn.style.display = 'none';
+        if (bannerPlaceholder) bannerPlaceholder.style.display = '';
       }
     }
     // Banner upload handler
@@ -2558,6 +2573,84 @@ const App = {
     }
   },
 
+  // ===== MY PROFILE (own public profile view) =====
+  async loadMyProfile() {
+    if (!this.user || !this.user.username) {
+      // No username set — redirect to settings to set one
+      this.switchView('settings');
+      this.toast('Set a username first to view your profile.', 'info');
+      return;
+    }
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const initialsFor = n => (n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+
+    try {
+      const p = await API.request(`/profiles/${encodeURIComponent(this.user.username)}`);
+
+      // Banner
+      const bannerEl = document.getElementById('mp-banner');
+      if (p.banner) {
+        bannerEl.style.backgroundImage = `url(${p.banner})`;
+        bannerEl.innerHTML = '';
+      } else {
+        bannerEl.style.backgroundImage = '';
+        bannerEl.innerHTML = '<span class="up-banner-placeholder">No banner yet</span>';
+      }
+      bannerEl.className = 'up-banner';
+
+      // Avatar
+      const avatarEl = document.getElementById('mp-avatar');
+      if (p.avatar) {
+        avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${esc(p.avatar)}" alt="${esc(p.name)}'s photo"></div>`;
+      } else {
+        avatarEl.innerHTML = `<div class="up-avatar-circle"><span>${esc(initialsFor(p.name))}</span></div>`;
+      }
+
+      // Name + badge
+      document.getElementById('mp-name').textContent = p.name;
+      document.getElementById('mp-pro-badge').style.display = p.plan === 'premium' ? 'inline-block' : 'none';
+
+      // Username + bio
+      document.getElementById('mp-username').textContent = `@${p.username}`;
+      const bioEl = document.getElementById('mp-bio');
+      bioEl.textContent = p.bio || '';
+      bioEl.style.display = p.bio ? 'block' : 'none';
+
+      // Stats
+      document.getElementById('mp-stats').innerHTML = `
+        <span><strong>${p.followerCount}</strong> followers</span>
+        <span><strong>${p.followingCount}</strong> following</span>
+        <span><strong>${p.storyCount}</strong> stories</span>
+        <span>Joined ${new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+      `;
+
+      // Tabs
+      this._setupMyProfileTabs(p);
+      this._renderProfilePosts(p, 'mp-posts');
+    } catch (err) {
+      document.getElementById('mp-banner').className = 'up-banner';
+      document.getElementById('mp-name').textContent = 'Error loading profile';
+    }
+  },
+
+  _setupMyProfileTabs(profile) {
+    document.querySelectorAll('[data-mptab]').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('[data-mptab]').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        document.getElementById('mp-posts').style.display = 'none';
+        document.getElementById('mp-activity').style.display = 'none';
+        document.getElementById('mp-about').style.display = 'none';
+        const t = tab.dataset.mptab;
+        document.getElementById(`mp-${t}`).style.display = 'block';
+        if (t === 'posts') this._renderProfilePosts(profile, 'mp-posts');
+        if (t === 'activity') this._renderProfileActivity(profile, 'mp-activity');
+        if (t === 'about') this._renderProfileAbout(profile, 'mp-about');
+      };
+    });
+  },
+
   // ===== PUBLIC USER PROFILE =====
   _profileCache: {},
 
@@ -2605,8 +2698,10 @@ const App = {
     bannerEl.className = 'up-banner';
     if (p.banner) {
       bannerEl.style.backgroundImage = `url(${p.banner})`;
+      bannerEl.innerHTML = '';
     } else {
       bannerEl.style.backgroundImage = '';
+      bannerEl.innerHTML = '<span class="up-banner-placeholder">No banner yet</span>';
     }
 
     // Avatar
@@ -2631,7 +2726,7 @@ const App = {
     // Actions — follow button or edit profile
     const actionsEl = document.getElementById('up-actions');
     if (p.isOwnProfile) {
-      actionsEl.innerHTML = `<button class="btn btn-ghost btn-small" onclick="App.switchView('profile')">Edit Profile</button>`;
+      actionsEl.innerHTML = `<button class="btn btn-ghost btn-small" onclick="App.switchView('settings')">Edit Profile</button>`;
     } else if (this.user) {
       const isFollowing = p.isFollowing;
       actionsEl.innerHTML = `<button class="up-follow-btn ${isFollowing ? 'following' : ''}" id="up-follow-btn" data-userid="${esc(p.id)}" data-following="${isFollowing}" aria-label="${isFollowing ? 'Unfollow' : 'Follow'} ${esc(p.name)}">${isFollowing ? 'Following' : 'Follow'}</button>`;
@@ -2673,9 +2768,9 @@ const App = {
     });
   },
 
-  _renderProfilePosts(p) {
+  _renderProfilePosts(p, targetId) {
     const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    const el = document.getElementById('up-posts');
+    const el = document.getElementById(targetId || 'up-posts');
     if (!p.stories || p.stories.length === 0) {
       el.innerHTML = p.isOwnProfile
         ? '<div class="up-empty">You haven\'t published any stories yet. <a href="javascript:void(0)" onclick="App.switchView(\'stories\')">Write your first story →</a></div>'
@@ -2696,11 +2791,12 @@ const App = {
     `).join('');
   },
 
-  async _renderProfileActivity(p) {
-    const el = document.getElementById('up-activity');
+  async _renderProfileActivity(p, targetId) {
+    const el = document.getElementById(targetId || 'up-activity');
     const { level, xpInLevel, xpForNextLevel } = this.calcXPLevel ? this.calcXPLevel(p.xp || 0) : { level: p.level || 0, xpInLevel: 0, xpForNextLevel: 100 };
 
     // Stats cards
+    const prefix = targetId ? targetId.replace('-activity', '') : 'up';
     el.innerHTML = `
       <div class="up-activity-stats">
         <div class="up-stat-card"><div class="up-stat-value">${(p.totalWords || 0).toLocaleString()}</div><div class="up-stat-label">Total Words</div></div>
@@ -2709,31 +2805,32 @@ const App = {
         <div class="up-stat-card"><div class="up-stat-value">${p.longestStreak || 0}</div><div class="up-stat-label">Best Streak</div></div>
         <div class="up-stat-card"><div class="up-stat-value">${level}</div><div class="up-stat-label">Level</div></div>
       </div>
-      <div id="up-heatmap" style="margin-top:20px"></div>
+      <div id="${prefix}-heatmap" style="margin-top:20px"></div>
       <div class="up-achievements-section" style="margin-top:20px">
         <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">Achievements</h3>
-        <div class="up-achievements-grid" id="up-achievements-grid"></div>
+        <div class="up-achievements-grid" id="${prefix}-achievements-grid"></div>
       </div>
     `;
 
     // Render heatmap
-    this._renderHeatmap(p.username);
+    this._renderHeatmap(p.username, `${prefix}-heatmap`);
 
-    // Render earned achievements
-    if (this.getAchievements) {
-      const allAch = this.getAchievements(p);
-      const earned = allAch.filter(a => (p.achievements || []).includes(a.id));
-      const grid = document.getElementById('up-achievements-grid');
-      if (earned.length) {
-        grid.innerHTML = earned.map(a => `<div class="achievement-card earned"><div class="achievement-icon">${a.icon}</div><h3>${a.name}</h3></div>`).join('');
-      } else {
-        grid.innerHTML = '<div class="up-empty" style="padding:12px">No achievements yet.</div>';
-      }
+    // Render all achievements (earned + unearned) with descriptions
+    const grid = document.getElementById(`${prefix}-achievements-grid`);
+    if (grid) {
+      const allAch = this._getProfileAchievements(p);
+      grid.innerHTML = allAch.map(a => `
+        <div class="achievement-card ${a.earned ? 'earned' : ''}">
+          <div class="achievement-icon">${a.icon}</div>
+          <h3>${a.name}</h3>
+          <p>${a.description}</p>
+        </div>
+      `).join('');
     }
   },
 
-  async _renderHeatmap(username) {
-    const container = document.getElementById('up-heatmap');
+  async _renderHeatmap(username, containerId) {
+    const container = document.getElementById(containerId || 'up-heatmap');
     if (!container) return;
     try {
       const activity = await API.request(`/profiles/${encodeURIComponent(username)}/activity`);
@@ -2760,15 +2857,39 @@ const App = {
     }
   },
 
-  _renderProfileAbout(p) {
+  _renderProfileAbout(p, targetId) {
     const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    const el = document.getElementById('up-about');
-    const bio = p.bio ? `<p class="up-about-bio">${esc(p.bio)}</p>` : (p.isOwnProfile ? '<p class="up-about-bio" style="color:var(--text-muted)">You haven\'t written a bio yet. <a href="javascript:void(0)" onclick="App.switchView(\'profile\')">Add a bio →</a></p>' : '<p class="up-about-bio" style="color:var(--text-muted)">This writer hasn\'t written a bio yet.</p>');
+    const el = document.getElementById(targetId || 'up-about');
+    const bio = p.bio ? `<p class="up-about-bio">${esc(p.bio)}</p>` : (p.isOwnProfile ? '<p class="up-about-bio" style="color:var(--text-muted)">You haven\'t written a bio yet. <a href="javascript:void(0)" onclick="App.switchView(\'settings\')">Add a bio →</a></p>' : '<p class="up-about-bio" style="color:var(--text-muted)">This writer hasn\'t written a bio yet.</p>');
     const joinDate = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const achievements = this._getProfileAchievements(p);
+    const earnedAch = achievements.filter(a => a.earned);
+    const unearnedAch = achievements.filter(a => !a.earned);
     el.innerHTML = `
       ${bio}
-      <div class="up-about-detail"><strong>Member since</strong> ${joinDate}</div>
-      <div class="up-about-detail"><strong>Level</strong> ${p.level || 0} · <strong>XP</strong> ${(p.xp || 0).toLocaleString()}</div>
+      <div class="up-about-stats">
+        <div class="up-about-detail"><strong>Member since</strong> ${joinDate}</div>
+        <div class="up-about-detail"><strong>Level</strong> ${p.level || 0} · <strong>XP</strong> ${(p.xp || 0).toLocaleString()}</div>
+      </div>
+      <div class="up-about-achievements">
+        <h3 class="up-about-achievements-title">Achievements</h3>
+        <div class="up-achievements-grid">
+          ${earnedAch.map(a => `
+            <div class="achievement-card earned">
+              <div class="achievement-icon">${a.icon}</div>
+              <h3>${a.name}</h3>
+              <p>${a.description}</p>
+            </div>
+          `).join('')}
+          ${unearnedAch.map(a => `
+            <div class="achievement-card">
+              <div class="achievement-icon">${a.icon}</div>
+              <h3>${a.name}</h3>
+              <p>${a.description}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
     `;
   },
 
@@ -3202,6 +3323,33 @@ const App = {
     ];
   },
 
+  _getProfileAchievements(p) {
+    return [
+      { icon: '&#x1F331;', name: 'First Seed', description: 'Complete your first session', earned: (p.totalSessions || 0) >= 1 },
+      { icon: '&#x270D;&#xFE0F;', name: 'Getting Started', description: 'Complete 5 sessions', earned: (p.totalSessions || 0) >= 5 },
+      { icon: '&#x1F4DD;', name: 'Regular Writer', description: 'Complete 25 sessions', earned: (p.totalSessions || 0) >= 25 },
+      { icon: '&#x1F58B;&#xFE0F;', name: 'Session Master', description: 'Complete 100 sessions', earned: (p.totalSessions || 0) >= 100 },
+      { icon: '&#x1F525;', name: 'On Fire', description: '3-day writing streak', earned: (p.longestStreak || 0) >= 3 },
+      { icon: '&#x1F3AF;', name: 'Consistent', description: '7-day writing streak', earned: (p.longestStreak || 0) >= 7 },
+      { icon: '&#x1F4AA;', name: 'Dedicated', description: '14-day writing streak', earned: (p.longestStreak || 0) >= 14 },
+      { icon: '&#x1F3C6;', name: 'Legend', description: '30-day writing streak', earned: (p.longestStreak || 0) >= 30 },
+      { icon: '&#x1F451;', name: 'Unstoppable', description: '60-day writing streak', earned: (p.longestStreak || 0) >= 60 },
+      { icon: '&#x1F30D;', name: 'World Writer', description: '100-day writing streak', earned: (p.longestStreak || 0) >= 100 },
+      { icon: '&#x26A1;', name: 'Speed Writer', description: 'Write 500 total words', earned: (p.totalWords || 0) >= 500 },
+      { icon: '&#x1F4D6;', name: 'Storyteller', description: 'Write 2,500 total words', earned: (p.totalWords || 0) >= 2500 },
+      { icon: '&#x1F4DA;', name: 'Prolific', description: 'Write 10,000 total words', earned: (p.totalWords || 0) >= 10000 },
+      { icon: '&#x1F4D5;', name: 'Novelist', description: 'Write 50,000 total words', earned: (p.totalWords || 0) >= 50000 },
+      { icon: '&#x1F3DB;&#xFE0F;', name: 'Epic Author', description: 'Write 100,000 total words', earned: (p.totalWords || 0) >= 100000 },
+      { icon: '&#x2B50;', name: 'Rising Star', description: 'Reach Level 5', earned: (p.level || 0) >= 5 },
+      { icon: '&#x1F31F;', name: 'Shining Bright', description: 'Reach Level 10', earned: (p.level || 0) >= 10 },
+      { icon: '&#x1F48E;', name: 'Diamond Writer', description: 'Reach Level 25', earned: (p.level || 0) >= 25 },
+      { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode session', earned: (p.achievements || []).includes('danger_zone') },
+      { icon: '&#x1F333;', name: 'Forest', description: 'Grow your tree to max stage', earned: (p.treeStage || 0) >= 11 },
+      { icon: '&#x1F91D;', name: 'Social Writer', description: 'Add your first friend', earned: (p.friends || []).length >= 1 },
+      { icon: '&#x1F465;', name: 'Writing Circle', description: 'Have 5 friends', earned: (p.friends || []).length >= 5 },
+    ];
+  },
+
   _friendsPage: 1,
   _friendsSort: 'added',
   _friendsTotalPages: 1,
@@ -3302,7 +3450,7 @@ const App = {
       const cards = friends.map(f => {
         const fl = this.calcXPLevel(f.xp || 0);
         const fPro = f.plan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
-        const fHandle = f.username ? ` <span class="friend-handle">@${this.escapeHtml(f.username)}</span>` : '';
+        const fHandle = f.username ? ` <a href="#" class="friend-handle profile-link" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(f.username)}'})">@${this.escapeHtml(f.username)}</a>` : '';
         return `
         <div class="doc-card friend-card">
           <div class="doc-card-info">
