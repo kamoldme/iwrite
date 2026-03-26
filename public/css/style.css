@@ -5525,6 +5525,11 @@ html.light .logo-img-light { display: inline; }
 }
 
 @media (max-width: 720px) {
+  /* Hide inner back button — hamburger becomes the back arrow */
+  .stories-back-btn {
+    display: none;
+  }
+
   .story-reader-topbar,
   .story-composer-topbar,
   .story-composer-footer {
