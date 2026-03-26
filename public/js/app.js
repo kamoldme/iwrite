@@ -207,11 +207,13 @@ const App = {
     // Try to resume session in background (non-blocking)
     Editor.resumeSession().then(sessionResumed => {
       if (!sessionResumed) {
-        const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
+        const hashView = location.hash.replace('#', '');
+        const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
         if (!this._openPendingStory()) this.switchView(savedView);
       }
     }).catch(() => {
-      const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
+      const hashView = location.hash.replace('#', '');
+      const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
       if (!this._openPendingStory()) this.switchView(savedView);
     });
 
@@ -340,6 +342,14 @@ const App = {
     });
 
     document.getElementById('logout-btn').addEventListener('click', () => API.logout());
+
+    // Browser back/forward navigation via hash routes
+    window.addEventListener('popstate', () => {
+      const hash = location.hash.replace('#', '');
+      if (hash && hash !== this.currentView && document.getElementById(`view-${hash}`)) {
+        this.switchView(hash, { fromHash: true });
+      }
+    });
 
     // Pricing modal
     document.getElementById('user-info-btn').addEventListener('click', () => this.openPricing());
@@ -727,9 +737,15 @@ const App = {
     document.getElementById('editor-comment-history-btn').addEventListener('click', () => this.openCommentHistory());
   },
 
-  switchView(view) {
+  switchView(view, { fromHash } = {}) {
     this.currentView = view;
     localStorage.setItem('iwrite_view', view);
+
+    // Update hash in URL for browser back/forward navigation
+    const currentHash = location.hash.replace('#', '');
+    if (!fromHash && currentHash !== view) {
+      history.pushState(null, '', '#' + view);
+    }
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     document.getElementById(`view-${view}`).style.display = 'block';
     document.querySelectorAll('.sidebar-nav-item[data-view]').forEach(btn => {
