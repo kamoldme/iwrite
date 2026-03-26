@@ -5533,9 +5533,18 @@ html.light .logo-img-light { display: inline; }
   }
 
   .stories-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9400;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px 10px 56px;
+    margin: 0;
     flex-wrap: wrap;
-    gap: 10px;
-    padding-left: 56px;
+    gap: 8px;
+    align-items: center;
   }
 
   .stories-primary-tabs {
@@ -5549,7 +5558,7 @@ html.light .logo-img-light { display: inline; }
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
   }
 
   .stories-topbar-filters {
