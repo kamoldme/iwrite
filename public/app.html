@@ -48,7 +48,7 @@
         <div class="sidebar-header">
           <div style="display:flex;flex-direction:column">
             <a href="/" class="logo">iWrite4.me</a>
-            <span class="version-tag">v2.5.2</span>
+            <span class="version-tag">v2.5.3</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="streak-indicator" id="streak-badge" style="display:none;cursor:pointer" onclick="App.openStreakPopup()">
@@ -528,8 +528,6 @@
                   <button class="btn btn-primary btn-small" id="save-profile-btn" style="margin-top:8px">Save Changes</button>
                 </div>
 
-                <div class="profile-section" id="referral-section"></div>
-
                 <div class="profile-section" id="change-password-section">
                   <h3 class="profile-section-title">&#x1F512; Change Password</h3>
                   <div class="auth-error" id="password-error"></div>
@@ -551,12 +549,13 @@
               </div>
             </div>
 
-            <!-- Right column: achievements -->
+            <!-- Right column: achievements + referral -->
             <div class="profile-right">
               <div class="profile-section">
                 <h3 class="profile-section-title">&#x1F3C5; Achievements</h3>
                 <div id="achievements-list" class="achievements-grid"></div>
               </div>
+              <div class="profile-section" id="referral-section"></div>
             </div>
           </div>
         </div>
