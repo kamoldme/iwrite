@@ -5388,6 +5388,7 @@ html.light .logo-img-light { display: inline; }
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   white-space: nowrap;
+  overflow: visible;
 }
 
 .story-float-toolbar.visible {
@@ -5444,7 +5445,7 @@ html.light .logo-img-light { display: inline; }
 
 .story-format-dropdown {
   position: absolute;
-  bottom: calc(100% + 6px);
+  top: calc(100% + 6px);
   left: 0;
   min-width: 180px;
   padding: 4px;
@@ -5666,6 +5667,9 @@ html.light .logo-img-light { display: inline; }
     left: 8px !important;
     right: 8px !important;
     max-width: calc(100vw - 16px);
+    white-space: normal;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .story-float-link-input input {

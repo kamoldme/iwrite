@@ -715,7 +715,7 @@
             <div class="story-format-dropdown-wrap">
               <button type="button" class="story-format-dropdown-btn" id="float-format-toggle">
                 <span id="float-format-label">Normal</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 15 12 9 18 15"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div class="story-format-dropdown" id="float-format-dropdown">
                 <button type="button" data-float-block="p">Normal text</button>
