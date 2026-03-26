@@ -3045,6 +3045,20 @@ const App = {
       }
       this._lastDuelRequestCount = duelRequests.length;
 
+      // Notification badge (comment replies)
+      try {
+        const notifResult = await API.getUnreadNotifCount();
+        const notifBadge = document.getElementById('notif-badge');
+        if (notifBadge) {
+          if (notifResult.count > 0) {
+            notifBadge.textContent = notifResult.count;
+            notifBadge.style.display = 'inline-flex';
+          } else {
+            notifBadge.style.display = 'none';
+          }
+        }
+      } catch {}
+
       // Community new-story green dot
       try {
         const lastSeen = localStorage.getItem('iwrite_community_seen') || '1970-01-01T00:00:00.000Z';

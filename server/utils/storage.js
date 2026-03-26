@@ -19,7 +19,9 @@ const TABLE_MAP = {
   'support.json': 'support',
   'stories.json': 'stories',
   'story-comments.json': 'story_comments',
-  'story-likes.json': 'story_likes'
+  'story-likes.json': 'story_likes',
+  'story-comment-likes.json': 'story_comment_likes',
+  'notifications.json': 'notifications'
 };
 
 function getTable(filename) {
@@ -48,6 +50,10 @@ async function initDB() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_story_comments_status ON story_comments ((data->>'status'))`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_story_likes_storyid ON story_likes ((data->>'storyId'))`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_story_likes_user_story ON story_likes ((data->>'userId'), (data->>'storyId'))`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_story_comment_likes_commentid ON story_comment_likes ((data->>'commentId'))`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_story_comment_likes_user_comment ON story_comment_likes ((data->>'userId'), (data->>'commentId'))`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_userid ON notifications ((data->>'userId'))`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications ((data->>'read'))`);
 }
 
 async function findOne(filename, predicate) {

@@ -418,16 +418,37 @@ const API = {
     return this.request(`/stories/public/${id}/comments`);
   },
 
-  async addStoryComment(id, text) {
+  async addStoryComment(id, text, parentCommentId = null) {
     return this.request(`/stories/${id}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text, parentCommentId })
     });
   },
 
   async deleteStoryComment(storyId, commentId) {
     return this.request(`/stories/${storyId}/comments/${commentId}`, {
       method: 'DELETE'
+    });
+  },
+
+  async toggleCommentLike(storyId, commentId) {
+    return this.request(`/stories/${storyId}/comments/${commentId}/like`, {
+      method: 'POST'
+    });
+  },
+
+  async getNotifications() {
+    return this.request('/stories/notifications');
+  },
+
+  async getUnreadNotifCount() {
+    return this.request('/stories/notifications/unread-count');
+  },
+
+  async markNotifsRead(ids = []) {
+    return this.request('/stories/notifications/mark-read', {
+      method: 'POST',
+      body: JSON.stringify({ ids })
     });
   },
 

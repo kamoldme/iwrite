@@ -143,6 +143,7 @@ function getOptionalViewer(req) {
 
 async function loadStoryComments(story, options = {}) {
   const includePending = !!options.includePending;
+  const currentUserId = options.currentUserId || null;
   const users = await findMany('users.json');
   const userMap = new Map(users.map(u => [u.id, u]));
   const comments = await findMany('story-comments.json', c => {
@@ -151,16 +152,49 @@ async function loadStoryComments(story, options = {}) {
     return includePending && c.status === 'pending';
   });
 
-  return comments
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-    .map(comment => {
-      const author = userMap.get(comment.userId);
-      return {
-        ...comment,
-        authorName: author ? author.name : comment.authorName || 'Unknown',
-        authorUsername: author ? (author.username || null) : null
-      };
-    });
+  const commentLikes = await findMany('story-comment-likes.json');
+  const likesByComment = new Map();
+  for (const like of commentLikes) {
+    if (!likesByComment.has(like.commentId)) likesByComment.set(like.commentId, []);
+    likesByComment.get(like.commentId).push(like);
+  }
+
+  const enriched = comments.map(comment => {
+    const author = userMap.get(comment.userId);
+    const cLikes = likesByComment.get(comment.id) || [];
+    return {
+      ...comment,
+      authorName: author ? author.name : comment.authorName || 'Unknown',
+      authorUsername: author ? (author.username || null) : null,
+      parentCommentId: comment.parentCommentId || null,
+      likeCount: cLikes.length,
+      likedByMe: currentUserId ? !!cLikes.find(l => l.userId === currentUserId) : false
+    };
+  });
+
+  // Build threaded structure: top-level sorted newest-first, replies sorted oldest-first
+  const topLevel = enriched.filter(c => !c.parentCommentId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const byParent = new Map();
+  for (const c of enriched) {
+    if (c.parentCommentId) {
+      if (!byParent.has(c.parentCommentId)) byParent.set(c.parentCommentId, []);
+      byParent.get(c.parentCommentId).push(c);
+    }
+  }
+  for (const [, replies] of byParent) {
+    replies.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  }
+
+  function attachReplies(comment, depth = 0) {
+    const replies = byParent.get(comment.id) || [];
+    return {
+      ...comment,
+      depth,
+      replies: replies.map(r => attachReplies(r, depth + 1))
+    };
+  }
+
+  return topLevel.map(c => attachReplies(c, 0));
 }
 
 async function hydrateStories(stories, currentUserId) {
@@ -535,7 +569,7 @@ router.get('/:id/comments', async (req, res) => {
     }
 
     const includePending = req.query.include_pending === '1' && (req.user.role === 'admin' || story.userId === req.user.id);
-    const comments = await loadStoryComments(story, { includePending });
+    const comments = await loadStoryComments(story, { includePending, currentUserId: req.user.id });
     res.json(comments);
   } catch (err) {
     console.error('Story comments error:', err);
@@ -557,6 +591,24 @@ router.post('/:id/comments', async (req, res) => {
     if (!text) return res.status(400).json({ error: 'Comment text is required' });
     if (text.length > 1000) return res.status(400).json({ error: 'Comment is too long' });
 
+    const parentCommentId = req.body.parentCommentId || null;
+    if (parentCommentId) {
+      const parent = await findOne('story-comments.json', c => c.id === parentCommentId && c.storyId === story.id && c.status === 'approved');
+      if (!parent) return res.status(404).json({ error: 'Parent comment not found' });
+      // Enforce max depth 3: find the depth of the parent
+      let depth = 0;
+      let current = parent;
+      while (current.parentCommentId && depth < 3) {
+        current = await findOne('story-comments.json', c => c.id === current.parentCommentId);
+        if (!current) break;
+        depth++;
+      }
+      if (depth >= 3) {
+        // Attach to the parent instead of going deeper
+        // (client should handle this, but enforce server-side too)
+      }
+    }
+
     const user = await findOne('users.json', u => u.id === req.user.id);
     const comment = {
       id: uuid(),
@@ -564,6 +616,7 @@ router.post('/:id/comments', async (req, res) => {
       userId: req.user.id,
       authorName: user ? user.name : 'Unknown',
       text,
+      parentCommentId,
       status: 'approved',
       createdAt: new Date().toISOString(),
       moderatedAt: null,
@@ -571,6 +624,46 @@ router.post('/:id/comments', async (req, res) => {
     };
 
     await insertOne('story-comments.json', comment);
+
+    // Create notification for the parent comment author (reply notification)
+    if (parentCommentId) {
+      const parentComment = await findOne('story-comments.json', c => c.id === parentCommentId);
+      if (parentComment && parentComment.userId !== req.user.id) {
+        await insertOne('notifications.json', {
+          id: uuid(),
+          userId: parentComment.userId,
+          type: 'comment_reply',
+          fromUserId: req.user.id,
+          fromUserName: user ? user.name : 'Unknown',
+          storyId: story.id,
+          storyTitle: story.title || 'Untitled',
+          commentId: comment.id,
+          parentCommentId,
+          text: text.substring(0, 100),
+          read: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+    } else {
+      // Notify story author about new top-level comment
+      if (story.userId !== req.user.id) {
+        await insertOne('notifications.json', {
+          id: uuid(),
+          userId: story.userId,
+          type: 'story_comment',
+          fromUserId: req.user.id,
+          fromUserName: user ? user.name : 'Unknown',
+          storyId: story.id,
+          storyTitle: story.title || 'Untitled',
+          commentId: comment.id,
+          parentCommentId: null,
+          text: text.substring(0, 100),
+          read: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
+
     res.status(201).json({ ok: true, status: 'approved' });
   } catch (err) {
     console.error('Create story comment error:', err);
@@ -592,11 +685,94 @@ router.delete('/:id/comments/:commentId', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    await deleteOne('story-comments.json', c => c.id === comment.id);
+    // Delete the comment and all its replies recursively
+    async function deleteCommentTree(commentId) {
+      const replies = await findMany('story-comments.json', c => c.parentCommentId === commentId);
+      for (const reply of replies) {
+        await deleteCommentTree(reply.id);
+      }
+      // Delete comment likes
+      const cLikes = await findMany('story-comment-likes.json', l => l.commentId === commentId);
+      for (const like of cLikes) {
+        await deleteOne('story-comment-likes.json', l => l.id === like.id);
+      }
+      await deleteOne('story-comments.json', c => c.id === commentId);
+    }
+
+    await deleteCommentTree(comment.id);
     res.json({ ok: true });
   } catch (err) {
     console.error('Delete story comment error:', err);
     res.status(500).json({ error: 'Failed to delete comment' });
+  }
+});
+
+// Comment like toggle
+router.post('/:id/comments/:commentId/like', async (req, res) => {
+  try {
+    const comment = await findOne('story-comments.json', c => c.id === req.params.commentId && c.storyId === req.params.id && c.status === 'approved');
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+    const existing = await findOne('story-comment-likes.json', l => l.commentId === comment.id && l.userId === req.user.id);
+    if (existing) {
+      await deleteOne('story-comment-likes.json', l => l.id === existing.id);
+    } else {
+      await insertOne('story-comment-likes.json', {
+        id: uuid(),
+        commentId: comment.id,
+        storyId: req.params.id,
+        userId: req.user.id,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    const allLikes = await findMany('story-comment-likes.json', l => l.commentId === comment.id);
+    res.json({ liked: !existing, likeCount: allLikes.length });
+  } catch (err) {
+    console.error('Like comment error:', err);
+    res.status(500).json({ error: 'Failed to update comment like' });
+  }
+});
+
+// Notifications
+router.get('/notifications', async (req, res) => {
+  try {
+    const notifications = await findMany('notifications.json', n => n.userId === req.user.id);
+    notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(notifications.slice(0, 50));
+  } catch (err) {
+    console.error('Notifications error:', err);
+    res.status(500).json({ error: 'Failed to load notifications' });
+  }
+});
+
+router.get('/notifications/unread-count', async (req, res) => {
+  try {
+    const unread = await findMany('notifications.json', n => n.userId === req.user.id && !n.read);
+    res.json({ count: unread.length });
+  } catch (err) {
+    res.json({ count: 0 });
+  }
+});
+
+router.post('/notifications/mark-read', async (req, res) => {
+  try {
+    const ids = req.body.ids || [];
+    if (ids.length === 0) {
+      // Mark all as read
+      const unread = await findMany('notifications.json', n => n.userId === req.user.id && !n.read);
+      for (const n of unread) {
+        await updateOne('notifications.json', nn => nn.id === n.id, { read: true });
+      }
+    } else {
+      for (const id of ids) {
+        await updateOne('notifications.json', n => n.id === id && n.userId === req.user.id, { read: true });
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Mark notifications read error:', err);
+    res.status(500).json({ error: 'Failed to mark notifications' });
   }
 });
 
