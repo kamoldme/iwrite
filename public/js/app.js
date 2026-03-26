@@ -67,6 +67,18 @@ const App = {
 
     const token = API.getToken();
     if (!token) {
+      // Allow public profile viewing without login
+      const hash = location.hash.replace('#', '');
+      const [hashBase, hashParam] = hash.split('/', 2);
+      if (hashBase === 'user-profile' && hashParam) {
+        document.getElementById('auth-view').style.display = 'none';
+        document.getElementById('app-view').style.display = 'block';
+        document.querySelectorAll('.sidebar').forEach(s => s.style.display = 'none');
+        document.querySelector('.main-content').style.marginLeft = '0';
+        this.switchView('user-profile');
+        this.loadUserProfile(decodeURIComponent(hashParam));
+        return;
+      }
       this.showAuth();
       return;
     }
@@ -208,19 +220,32 @@ const App = {
     Editor.resumeSession().then(sessionResumed => {
       if (!sessionResumed) {
         const hashView = location.hash.replace('#', '');
-        const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
-        if (!this._openPendingStory()) this.switchView(savedView);
+        const [hashBase, hashParam] = hashView.split('/', 2);
+        if (hashBase === 'user-profile' && hashParam) {
+          this.switchView('user-profile');
+          this.loadUserProfile(decodeURIComponent(hashParam));
+        } else {
+          const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
+          if (!this._openPendingStory()) this.switchView(savedView);
+        }
       }
     }).catch(() => {
       const hashView = location.hash.replace('#', '');
-      const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
-      if (!this._openPendingStory()) this.switchView(savedView);
+      const [hashBase, hashParam] = hashView.split('/', 2);
+      if (hashBase === 'user-profile' && hashParam) {
+        this.switchView('user-profile');
+        this.loadUserProfile(decodeURIComponent(hashParam));
+      } else {
+        const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
+        if (!this._openPendingStory()) this.switchView(savedView);
+      }
     });
 
     this.bindAppEvents();
     this.startNotifPolling();
     this._applyProLocks();
     this._startMaintenancePolling();
+    this._initHoverCards();
     this._checkInviteParam();
     this._updatePaymentFailedBanner();
   },
@@ -346,7 +371,11 @@ const App = {
     // Browser back/forward navigation via hash routes
     window.addEventListener('popstate', () => {
       const hash = location.hash.replace('#', '');
-      if (hash && hash !== this.currentView && document.getElementById(`view-${hash}`)) {
+      const [hashBase, hashParam] = hash.split('/', 2);
+      if (hashBase === 'user-profile' && hashParam) {
+        this.switchView('user-profile', { fromHash: true });
+        this.loadUserProfile(decodeURIComponent(hashParam));
+      } else if (hash && hash !== this.currentView && document.getElementById(`view-${hash}`)) {
         this.switchView(hash, { fromHash: true });
       }
     });
@@ -737,14 +766,17 @@ const App = {
     document.getElementById('editor-comment-history-btn').addEventListener('click', () => this.openCommentHistory());
   },
 
-  switchView(view, { fromHash } = {}) {
+  switchView(view, opts = {}) {
+    const { fromHash, username } = typeof opts === 'string' ? { username: opts } : opts;
     this.currentView = view;
-    localStorage.setItem('iwrite_view', view);
+    // Don't persist user-profile as default view
+    if (view !== 'user-profile') localStorage.setItem('iwrite_view', view);
 
     // Update hash in URL for browser back/forward navigation
+    const hashValue = (view === 'user-profile' && username) ? `user-profile/${username}` : view;
     const currentHash = location.hash.replace('#', '');
-    if (!fromHash && currentHash !== view) {
-      history.pushState(null, '', '#' + view);
+    if (!fromHash && currentHash !== hashValue) {
+      history.pushState(null, '', '#' + hashValue);
     }
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     document.getElementById(`view-${view}`).style.display = 'block';
@@ -771,6 +803,7 @@ const App = {
     if (view === 'support') this.loadSupport();
     if (view === 'analytics') this.loadAnalytics();
     if (view === 'upgrade') this.loadUpgrade();
+    if (view === 'user-profile' && username) this.loadUserProfile(username);
     if (view === 'duels') {
       this.loadDuelsView();
       // Auto-refresh duels tab every 10 seconds while viewing
@@ -2309,6 +2342,65 @@ const App = {
     document.getElementById('profile-email').value = this.user.email;
     const usernameEl = document.getElementById('profile-username');
     if (usernameEl) usernameEl.value = this.user.username || '';
+    // Bio
+    const bioEl = document.getElementById('profile-bio');
+    if (bioEl) {
+      bioEl.value = this.user.bio || '';
+      const countEl = document.getElementById('profile-bio-count');
+      if (countEl) countEl.textContent = `${(this.user.bio || '').length}/160`;
+      bioEl.oninput = () => { if (countEl) countEl.textContent = `${bioEl.value.length}/160`; };
+    }
+    // Banner
+    const bannerPreview = document.getElementById('profile-banner-preview');
+    const removeBannerBtn = document.getElementById('remove-banner-btn');
+    if (bannerPreview) {
+      if (this.user.banner) {
+        bannerPreview.style.backgroundImage = `url(${this.user.banner}?t=${this.user.bannerUpdatedAt || ''})`;
+        if (removeBannerBtn) removeBannerBtn.style.display = 'inline-flex';
+      } else {
+        bannerPreview.style.backgroundImage = '';
+        if (removeBannerBtn) removeBannerBtn.style.display = 'none';
+      }
+    }
+    // Banner upload handler
+    const bannerInput = document.getElementById('banner-file-input');
+    if (bannerInput && !bannerInput._bound) {
+      bannerInput._bound = true;
+      bannerInput.addEventListener('change', async () => {
+        if (!bannerInput.files[0]) return;
+        const fd = new FormData();
+        fd.append('banner', bannerInput.files[0]);
+        try {
+          const res = await fetch('/api/auth/banner', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${API.getToken()}` },
+            body: fd
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          this.user = data;
+          this.loadProfile();
+          this.toast('Banner updated!', 'success');
+        } catch (e) { this.toast(e.message || 'Failed to upload banner', 'error'); }
+        bannerInput.value = '';
+      });
+    }
+    if (removeBannerBtn && !removeBannerBtn._bound) {
+      removeBannerBtn._bound = true;
+      removeBannerBtn.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/api/auth/banner', {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${API.getToken()}` }
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          this.user = data;
+          this.loadProfile();
+          this.toast('Banner removed', 'success');
+        } catch (e) { this.toast(e.message || 'Failed to remove banner', 'error'); }
+      });
+    }
     // Show username change info (Free: 1/30 days, Pro: 3/month)
     const usernameInfo = document.getElementById('profile-username-info');
     const isPro = this.user && this.user.plan === 'premium';
@@ -2464,6 +2556,327 @@ const App = {
     } catch (e) {
       wrap.innerHTML = '';
     }
+  },
+
+  // ===== PUBLIC USER PROFILE =====
+  _profileCache: {},
+
+  async loadUserProfile(username) {
+    if (!username) return;
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    // Show skeleton
+    document.getElementById('up-banner').className = 'up-banner up-skeleton';
+    document.getElementById('up-avatar').innerHTML = '<div class="up-avatar-circle up-skeleton-circle"></div>';
+    document.getElementById('up-name').textContent = '';
+    document.getElementById('up-username').textContent = '';
+    document.getElementById('up-bio').textContent = '';
+    document.getElementById('up-stats').textContent = '';
+    document.getElementById('up-actions').innerHTML = '';
+    document.getElementById('up-posts').innerHTML = '<div class="up-skeleton-cards"><div class="up-skeleton-card"></div><div class="up-skeleton-card"></div></div>';
+    document.getElementById('up-activity').innerHTML = '';
+    document.getElementById('up-about').innerHTML = '';
+
+    try {
+      const profile = await API.request(`/profiles/${encodeURIComponent(username)}`);
+      this._profileCache[username] = profile;
+      this._renderUserProfile(profile);
+    } catch (err) {
+      if (err.status === 404) {
+        document.getElementById('up-banner').className = 'up-banner';
+        document.getElementById('up-banner').style.backgroundImage = '';
+        document.getElementById('up-avatar').innerHTML = '<div class="up-avatar-circle"><span style="font-size:40px;color:var(--text-muted)">?</span></div>';
+        document.getElementById('up-name').textContent = 'Writer not found';
+        document.getElementById('up-username').textContent = `@${username} doesn't exist`;
+        document.getElementById('up-posts').innerHTML = '';
+      } else {
+        document.getElementById('up-name').textContent = 'Error loading profile';
+        document.getElementById('up-posts').innerHTML = '<div class="up-empty">Couldn\'t load profile. <a href="javascript:void(0)" onclick="App.loadUserProfile(\'' + esc(username) + '\')">Try again</a></div>';
+      }
+    }
+  },
+
+  _renderUserProfile(p) {
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const initialsFor = n => (n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+
+    // Banner
+    const bannerEl = document.getElementById('up-banner');
+    bannerEl.className = 'up-banner';
+    if (p.banner) {
+      bannerEl.style.backgroundImage = `url(${p.banner})`;
+    } else {
+      bannerEl.style.backgroundImage = '';
+    }
+
+    // Avatar
+    const avatarEl = document.getElementById('up-avatar');
+    if (p.avatar) {
+      avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${esc(p.avatar)}" alt="${esc(p.name)}'s photo"></div>`;
+    } else {
+      avatarEl.innerHTML = `<div class="up-avatar-circle"><span>${esc(initialsFor(p.name))}</span></div>`;
+    }
+
+    // Name + badge
+    document.getElementById('up-name').textContent = p.name;
+    const proBadge = document.getElementById('up-pro-badge');
+    proBadge.style.display = p.plan === 'premium' ? 'inline-block' : 'none';
+
+    // Username + bio
+    document.getElementById('up-username').textContent = `@${p.username}`;
+    const bioEl = document.getElementById('up-bio');
+    bioEl.textContent = p.bio || '';
+    bioEl.style.display = p.bio ? 'block' : 'none';
+
+    // Actions — follow button or edit profile
+    const actionsEl = document.getElementById('up-actions');
+    if (p.isOwnProfile) {
+      actionsEl.innerHTML = `<button class="btn btn-ghost btn-small" onclick="App.switchView('profile')">Edit Profile</button>`;
+    } else if (this.user) {
+      const isFollowing = p.isFollowing;
+      actionsEl.innerHTML = `<button class="up-follow-btn ${isFollowing ? 'following' : ''}" id="up-follow-btn" data-userid="${esc(p.id)}" data-following="${isFollowing}" aria-label="${isFollowing ? 'Unfollow' : 'Follow'} ${esc(p.name)}">${isFollowing ? 'Following' : 'Follow'}</button>`;
+      document.getElementById('up-follow-btn').addEventListener('click', (e) => this._toggleFollow(e.target, p));
+    } else {
+      actionsEl.innerHTML = `<a href="/app#stories" class="btn btn-primary btn-small">Sign up to follow</a>`;
+    }
+
+    // Stats
+    document.getElementById('up-stats').innerHTML = `
+      <span><strong>${p.followerCount}</strong> followers</span>
+      <span><strong>${p.followingCount}</strong> following</span>
+      <span><strong>${p.storyCount}</strong> stories</span>
+      <span>Joined ${new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+    `;
+
+    // Tabs
+    this._setupProfileTabs(p);
+
+    // Default: render Posts tab
+    this._renderProfilePosts(p);
+  },
+
+  _setupProfileTabs(profile) {
+    document.querySelectorAll('.up-tab').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('.up-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        document.getElementById('up-posts').style.display = 'none';
+        document.getElementById('up-activity').style.display = 'none';
+        document.getElementById('up-about').style.display = 'none';
+        const t = tab.dataset.uptab;
+        document.getElementById(`up-${t}`).style.display = 'block';
+        if (t === 'posts') this._renderProfilePosts(profile);
+        if (t === 'activity') this._renderProfileActivity(profile);
+        if (t === 'about') this._renderProfileAbout(profile);
+      };
+    });
+  },
+
+  _renderProfilePosts(p) {
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const el = document.getElementById('up-posts');
+    if (!p.stories || p.stories.length === 0) {
+      el.innerHTML = p.isOwnProfile
+        ? '<div class="up-empty">You haven\'t published any stories yet. <a href="javascript:void(0)" onclick="App.switchView(\'stories\')">Write your first story →</a></div>'
+        : '<div class="up-empty">No published stories yet.</div>';
+      return;
+    }
+    el.innerHTML = p.stories.map(s => `
+      <div class="up-story-card" onclick="window.location.hash='stories';setTimeout(()=>Stories.openStory&&Stories.openStory('${esc(s.id)}'),100)">
+        <h3 class="up-story-title">${esc(s.title)}</h3>
+        <p class="up-story-excerpt">${esc(s.excerpt || '')}</p>
+        <div class="up-story-meta">
+          <span>${new Date(s.publishedAt || s.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+          <span>${s.readTimeMinutes || 1} min read</span>
+          <span>❤ ${s.likeCount || 0}</span>
+          <span>💬 ${s.commentCount || 0}</span>
+        </div>
+      </div>
+    `).join('');
+  },
+
+  async _renderProfileActivity(p) {
+    const el = document.getElementById('up-activity');
+    const { level, xpInLevel, xpForNextLevel } = this.calcXPLevel ? this.calcXPLevel(p.xp || 0) : { level: p.level || 0, xpInLevel: 0, xpForNextLevel: 100 };
+
+    // Stats cards
+    el.innerHTML = `
+      <div class="up-activity-stats">
+        <div class="up-stat-card"><div class="up-stat-value">${(p.totalWords || 0).toLocaleString()}</div><div class="up-stat-label">Total Words</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${p.totalSessions || 0}</div><div class="up-stat-label">Sessions</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${p.streak || 0}</div><div class="up-stat-label">Day Streak</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${p.longestStreak || 0}</div><div class="up-stat-label">Best Streak</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${level}</div><div class="up-stat-label">Level</div></div>
+      </div>
+      <div id="up-heatmap" style="margin-top:20px"></div>
+      <div class="up-achievements-section" style="margin-top:20px">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">Achievements</h3>
+        <div class="up-achievements-grid" id="up-achievements-grid"></div>
+      </div>
+    `;
+
+    // Render heatmap
+    this._renderHeatmap(p.username);
+
+    // Render earned achievements
+    if (this.getAchievements) {
+      const allAch = this.getAchievements(p);
+      const earned = allAch.filter(a => (p.achievements || []).includes(a.id));
+      const grid = document.getElementById('up-achievements-grid');
+      if (earned.length) {
+        grid.innerHTML = earned.map(a => `<div class="achievement-card earned"><div class="achievement-icon">${a.icon}</div><h3>${a.name}</h3></div>`).join('');
+      } else {
+        grid.innerHTML = '<div class="up-empty" style="padding:12px">No achievements yet.</div>';
+      }
+    }
+  },
+
+  async _renderHeatmap(username) {
+    const container = document.getElementById('up-heatmap');
+    if (!container) return;
+    try {
+      const activity = await API.request(`/profiles/${encodeURIComponent(username)}/activity`);
+      if (!activity || activity.every(d => d.sessionCount === 0)) {
+        container.innerHTML = '<div class="up-empty" style="padding:12px">No writing sessions in the last 30 days.</div>';
+        return;
+      }
+      const maxCount = Math.max(...activity.map(d => d.sessionCount), 1);
+      const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      // Build grid: 7 columns (Mon-Sun), ~5 rows
+      let html = '<div class="streak-heatmap"><div class="heatmap-grid">';
+      activity.forEach((d, i) => {
+        const date = new Date(d.date);
+        const level = d.sessionCount === 0 ? 0 : d.sessionCount === 1 ? 1 : 2;
+        const title = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${d.sessionCount} session${d.sessionCount !== 1 ? 's' : ''}`;
+        html += `<div class="heatmap-cell level-${level}" title="${title}"></div>`;
+      });
+      html += '</div>';
+      html += '<div class="heatmap-legend"><span>Less</span><div class="heatmap-cell level-0"></div><div class="heatmap-cell level-1"></div><div class="heatmap-cell level-2"></div><span>More</span></div>';
+      html += '</div>';
+      container.innerHTML = html;
+    } catch {
+      container.innerHTML = '<div class="up-empty" style="padding:12px">Couldn\'t load activity.</div>';
+    }
+  },
+
+  _renderProfileAbout(p) {
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const el = document.getElementById('up-about');
+    const bio = p.bio ? `<p class="up-about-bio">${esc(p.bio)}</p>` : (p.isOwnProfile ? '<p class="up-about-bio" style="color:var(--text-muted)">You haven\'t written a bio yet. <a href="javascript:void(0)" onclick="App.switchView(\'profile\')">Add a bio →</a></p>' : '<p class="up-about-bio" style="color:var(--text-muted)">This writer hasn\'t written a bio yet.</p>');
+    const joinDate = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    el.innerHTML = `
+      ${bio}
+      <div class="up-about-detail"><strong>Member since</strong> ${joinDate}</div>
+      <div class="up-about-detail"><strong>Level</strong> ${p.level || 0} · <strong>XP</strong> ${(p.xp || 0).toLocaleString()}</div>
+    `;
+  },
+
+  async _toggleFollow(btn, profile) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const isFollowing = btn.dataset.following === 'true';
+    try {
+      if (isFollowing) {
+        await API.request(`/follow/${profile.id}`, { method: 'DELETE' });
+        btn.dataset.following = 'false';
+        btn.classList.remove('following');
+        btn.textContent = 'Follow';
+        btn.setAttribute('aria-label', `Follow ${profile.name}`);
+        const countEl = document.querySelector('.up-stats strong');
+        if (countEl) countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
+      } else {
+        const res = await API.request(`/follow/${profile.id}`, { method: 'POST' });
+        btn.dataset.following = 'true';
+        btn.classList.add('following');
+        btn.textContent = 'Following';
+        btn.setAttribute('aria-label', `Unfollow ${profile.name}`);
+        const countEl = document.querySelector('.up-stats strong');
+        if (countEl) countEl.textContent = res.followerCount;
+      }
+    } catch (err) {
+      this.toast(err.message || 'Failed', 'error');
+    }
+    btn.disabled = false;
+  },
+
+  // ===== HOVER CARD =====
+  _hoverCardEl: null,
+  _hoverCardTimeout: null,
+
+  _initHoverCards() {
+    if (this._hoverCardEl) return;
+    const card = document.createElement('div');
+    card.className = 'profile-hover-card';
+    card.style.display = 'none';
+    document.body.appendChild(card);
+    this._hoverCardEl = card;
+
+    card.addEventListener('mouseenter', () => clearTimeout(this._hoverCardTimeout));
+    card.addEventListener('mouseleave', () => {
+      this._hoverCardTimeout = setTimeout(() => { card.style.display = 'none'; }, 200);
+    });
+
+    // Delegate hover events on username links
+    document.addEventListener('mouseenter', async (e) => {
+      const link = e.target.closest('.username-link');
+      if (!link) return;
+      const username = link.dataset.username;
+      if (!username) return;
+      clearTimeout(this._hoverCardTimeout);
+      this._hoverCardTimeout = setTimeout(async () => {
+        try {
+          let data = this._profileCache[username];
+          if (!data) {
+            data = await API.request(`/profiles/${encodeURIComponent(username)}`);
+            this._profileCache[username] = data;
+          }
+          this._showHoverCard(data, link);
+        } catch {}
+      }, 300);
+    }, true);
+
+    document.addEventListener('mouseleave', (e) => {
+      const link = e.target.closest('.username-link');
+      if (!link) return;
+      this._hoverCardTimeout = setTimeout(() => { card.style.display = 'none'; }, 200);
+    }, true);
+  },
+
+  _showHoverCard(profile, anchor) {
+    const card = this._hoverCardEl;
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const initialsFor = n => (n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const avatar = profile.avatar
+      ? `<img src="${esc(profile.avatar)}" alt="" class="hc-avatar-img">`
+      : `<span class="hc-avatar-fallback">${esc(initialsFor(profile.name))}</span>`;
+
+    card.innerHTML = `
+      <div class="hc-header">
+        <div class="hc-avatar">${avatar}</div>
+        <div class="hc-info">
+          <strong>${esc(profile.name)}</strong> ${profile.plan === 'premium' ? '<span class="pro-nav-badge" style="font-size:8px;padding:1px 4px">PRO</span>' : ''}
+          <div style="color:var(--text-muted);font-size:12px">@${esc(profile.username)}</div>
+        </div>
+      </div>
+      <div class="hc-stats">
+        <span>Lvl ${profile.level || 0}</span>
+        <span>${profile.streak || 0}d streak</span>
+        <span>${profile.storyCount || 0} stories</span>
+        <span>${profile.followerCount || 0} followers</span>
+      </div>
+    `;
+
+    // Position
+    const rect = anchor.getBoundingClientRect();
+    card.style.display = 'block';
+    const cardRect = card.getBoundingClientRect();
+    let top = rect.bottom + 8;
+    let left = rect.left;
+    if (top + cardRect.height > window.innerHeight) top = rect.top - cardRect.height - 8;
+    if (left + cardRect.width > window.innerWidth) left = window.innerWidth - cardRect.width - 8;
+    card.style.top = `${top}px`;
+    card.style.left = `${Math.max(8, left)}px`;
   },
 
   // Stripe pricing data
@@ -3469,6 +3882,9 @@ const App = {
     if (usernameEl && usernameEl.value !== (this.user.username || '')) {
       updates.username = usernameEl.value;
     }
+    // Bio
+    const bioEl = document.getElementById('profile-bio');
+    if (bioEl) updates.bio = bioEl.value;
 
     try {
       const updated = await API.request('/auth/me', { method: 'PATCH', body: JSON.stringify(updates) });

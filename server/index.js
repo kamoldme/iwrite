@@ -89,6 +89,9 @@ const avatarsDir = path.join(dataDir, 'avatars');
 if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
 
 app.use('/uploads/avatars', express.static(avatarsDir));
+const bannersDir = path.join(dataDir, 'banners');
+if (!fs.existsSync(bannersDir)) fs.mkdirSync(bannersDir, { recursive: true });
+app.use('/uploads/banners', express.static(bannersDir));
 // Force no-cache on HTML/CSS/JS so deployments are instant
 app.use((req, res, next) => {
   const url = req.url.split('?')[0];
@@ -284,6 +287,8 @@ app.use('/api/share', require('./routes/share'));
 app.use('/api/support', require('./routes/support'));
 app.use('/api/duels', require('./routes/duels'));
 app.use('/api/stripe', require('./routes/stripe').router);
+app.use('/api/profiles', require('./routes/profiles'));
+app.use('/api/follow', require('./routes/follow'));
 
 const { findOne, findMany, insertOne, updateOne } = require('./utils/storage');
 const bcrypt = require('bcryptjs');
@@ -433,6 +438,45 @@ app.get('/api/users/lookup/:username', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ name: user.name, username: user.username });
   } catch { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Public profile route: /u/:username → OG tags for bots, redirect for browsers
+app.get('/u/:username', async (req, res) => {
+  const ua = (req.headers['user-agent'] || '').toLowerCase();
+  const isBot = /bot|crawler|spider|preview|telegram|whatsapp|slack|discord|facebook|twitter|linkedin|embedly|quora|pinterest/i.test(ua);
+  const username = req.params.username;
+
+  if (!isBot) {
+    return res.redirect(302, `/app#user-profile/${encodeURIComponent(username)}`);
+  }
+
+  const { findOne } = require('./utils/storage');
+  const user = await findOne('users.json', u => u.username && u.username.toLowerCase() === username.toLowerCase());
+  const name = user ? (user.name || username) : username;
+  const bio = user ? (user.bio || '') : '';
+  const words = user ? (user.totalWords || 0) : 0;
+  const level = user ? (user.level || 1) : 1;
+  const streak = user ? liveStreak(user) : 0;
+  const sessions = user ? (user.totalSessions || 0) : 0;
+  const isPro = user && user.plan === 'premium';
+  const desc = bio || `${name}${isPro ? ' (PRO)' : ''} on iWrite4.me — ${words > 0 ? `${words.toLocaleString()} words written · Level ${level}${streak > 0 ? ` · ${streak}-day streak` : ''} · ${sessions} sessions.` : 'Writer on iWrite4.me'}`;
+  const origin = `https://${req.get('host') || 'iwrite4.me'}`;
+  const ogImage = user ? `${origin}/api/profiles/${encodeURIComponent(username)}/og-image` : `${origin}/og-image.png`;
+
+  res.send(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>${name} — iWrite4.me</title>
+    <meta property="og:title" content="${name} — iWrite4.me">
+    <meta property="og:description" content="${desc}">
+    <meta property="og:image" content="${ogImage}">
+    <meta property="og:url" content="${origin}/u/${encodeURIComponent(username)}">
+    <meta property="og:type" content="profile">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${name} — iWrite4.me">
+    <meta name="twitter:description" content="${desc}">
+    <meta name="twitter:image" content="${ogImage}">
+    <meta http-equiv="refresh" content="0;url=/app#user-profile/${encodeURIComponent(username)}">
+  </head><body></body></html>`);
 });
 
 // Invite route: /invite/:username → OG tags for bots, redirect for browsers

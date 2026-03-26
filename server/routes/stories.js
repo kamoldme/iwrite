@@ -777,3 +777,4 @@ router.post('/notifications/mark-read', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.hydrateStories = hydrateStories;
