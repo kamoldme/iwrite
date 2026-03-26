@@ -4698,6 +4698,11 @@ html.light .logo-img-light { display: inline; }
 /* Thread lines on nested comments via left border */
 .comment-replies {
   position: relative;
+  margin-bottom: 12px;
+}
+
+.comment-replies:empty {
+  margin-bottom: 0;
 }
 
 .comment-replies > .story-comment-thread {
