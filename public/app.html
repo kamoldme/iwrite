@@ -48,7 +48,7 @@
         <div class="sidebar-header">
           <div style="display:flex;flex-direction:column">
             <a href="/" class="logo">iWrite4.me</a>
-            <span class="version-tag">v2.3.55</span>
+            <span class="version-tag">v2.3.56</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="streak-indicator" id="streak-badge" style="display:none;cursor:pointer" onclick="App.openStreakPopup()">
@@ -263,33 +263,35 @@
 
         <!-- STORIES VIEW -->
         <div id="view-stories" class="view stories-view stories-mode-feed" style="display:none">
-          <div class="stories-navbar">
-            <div class="stories-filter-row stories-primary-tabs">
-              <button class="stories-filter-btn active" data-story-tab="feed">Feed</button>
-              <button class="stories-filter-btn" data-story-tab="mine">My Stories</button>
-            </div>
-          </div>
-          <div class="stories-topbar">
-            <div class="stories-topbar-filters">
-              <div class="stories-filter-row" id="stories-feed-sort-row">
-                <button class="stories-filter-btn active" data-story-sort="newest">Newest</button>
-                <button class="stories-filter-btn" data-story-sort="oldest">Oldest</button>
-                <button class="stories-filter-btn" data-story-sort="popular">Popular</button>
-              </div>
-              <div class="stories-filter-row" id="stories-mine-filter-row" style="display:none">
-                <button class="stories-filter-btn active" data-story-mine-filter="drafts">Drafts</button>
-                <button class="stories-filter-btn" data-story-mine-filter="review">Under Review</button>
-                <button class="stories-filter-btn" data-story-mine-filter="published">Published</button>
+          <div class="stories-header-row">
+            <div class="stories-navbar">
+              <div class="stories-filter-row stories-primary-tabs">
+                <button class="stories-filter-btn active" data-story-tab="feed">Feed</button>
+                <button class="stories-filter-btn" data-story-tab="mine">My Stories</button>
               </div>
             </div>
-            <div class="stories-topbar-quick-actions">
-              <button class="stories-icon-btn" id="story-refresh-btn" title="Refresh stories" aria-label="Refresh stories">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.13-3.36L23 10"/><path d="M20.49 15a9 9 0 01-14.13 3.36L1 14"/></svg>
-              </button>
-              <button class="btn btn-primary stories-primary-btn" id="new-story-btn" aria-label="Create new story">
-                <span class="stories-primary-icon">+</span>
-                <span class="stories-primary-label">New Story</span>
-              </button>
+            <div class="stories-topbar">
+              <div class="stories-topbar-filters">
+                <div class="stories-filter-row" id="stories-feed-sort-row">
+                  <button class="stories-filter-btn active" data-story-sort="newest">Newest</button>
+                  <button class="stories-filter-btn" data-story-sort="oldest">Oldest</button>
+                  <button class="stories-filter-btn" data-story-sort="popular">Popular</button>
+                </div>
+                <div class="stories-filter-row" id="stories-mine-filter-row" style="display:none">
+                  <button class="stories-filter-btn active" data-story-mine-filter="drafts">Drafts</button>
+                  <button class="stories-filter-btn" data-story-mine-filter="review">Under Review</button>
+                  <button class="stories-filter-btn" data-story-mine-filter="published">Published</button>
+                </div>
+              </div>
+              <div class="stories-topbar-quick-actions">
+                <button class="stories-icon-btn" id="story-refresh-btn" title="Refresh stories" aria-label="Refresh stories">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.13-3.36L23 10"/><path d="M20.49 15a9 9 0 01-14.13 3.36L1 14"/></svg>
+                </button>
+                <button class="btn btn-primary stories-primary-btn" id="new-story-btn" aria-label="Create new story">
+                  <span class="stories-primary-icon">+</span>
+                  <span class="stories-primary-label">New Story</span>
+                </button>
+              </div>
             </div>
           </div>
 
