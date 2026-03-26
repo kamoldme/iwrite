@@ -9338,6 +9338,15 @@ body.editor-active .mobile-sidebar-toggle {
   font-weight: 600;
   font-size: 16px;
   min-width: 40px;
+  text-align: center;
+}
+
+.lb-col-time,
+.lb-col-words,
+.lb-col-streak,
+.lb-col-sessions,
+.lb-col-level {
+  text-align: center;
 }
 
 .lb-name {
