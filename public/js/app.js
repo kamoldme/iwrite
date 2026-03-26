@@ -2813,7 +2813,7 @@ const App = {
     `;
 
     // Render heatmap
-    this._renderHeatmap(p.username, `${prefix}-heatmap`);
+    this._renderProfileHeatmap(p.username, `${prefix}-heatmap`);
 
     // Render all achievements (earned + unearned) with descriptions
     const grid = document.getElementById(`${prefix}-achievements-grid`);
@@ -2829,7 +2829,7 @@ const App = {
     }
   },
 
-  async _renderHeatmap(username, containerId) {
+  async _renderProfileHeatmap(username, containerId) {
     const container = document.getElementById(containerId || 'up-heatmap');
     if (!container) return;
     try {
