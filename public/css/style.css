@@ -5444,7 +5444,7 @@ html.light .logo-img-light { display: inline; }
 
 .story-format-dropdown {
   position: absolute;
-  top: calc(100% + 6px);
+  bottom: calc(100% + 6px);
   left: 0;
   min-width: 180px;
   padding: 4px;
@@ -5467,6 +5467,25 @@ html.light .logo-img-light { display: inline; }
   font-size: 13px;
   border-radius: 4px;
   color: var(--text-primary);
+  font-weight: 400;
+}
+
+.story-format-dropdown button[data-float-block="h1"] {
+  font-size: 20px;
+  font-weight: 700;
+}
+.story-format-dropdown button[data-float-block="h2"] {
+  font-size: 17px;
+  font-weight: 700;
+}
+.story-format-dropdown button[data-float-block="h3"] {
+  font-size: 15px;
+  font-weight: 600;
+}
+.story-format-dropdown button[data-float-block="h4"] {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .story-format-dropdown button:hover {
