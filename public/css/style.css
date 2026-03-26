@@ -5447,7 +5447,7 @@ html.light .logo-img-light { display: inline; }
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  min-width: 180px;
+  min-width: 140px;
   padding: 4px;
   border-radius: 8px;
   background: var(--bg-card);
@@ -5462,13 +5462,17 @@ html.light .logo-img-light { display: inline; }
 }
 
 .story-format-dropdown button {
+  display: block;
   width: 100%;
+  height: auto;
+  min-width: unset;
   text-align: left;
   padding: 8px 12px;
   font-size: 13px;
   border-radius: 4px;
   color: var(--text-primary);
   font-weight: 400;
+  white-space: normal;
 }
 
 .story-format-dropdown button[data-float-block="h1"] {
