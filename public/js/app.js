@@ -3025,7 +3025,35 @@ const App = {
   },
 
   async _startCheckout(isTrial) {
-    this.toast('Automatic payment method is not set yet. If you want to buy a subscription, contact <strong>@kamoldme</strong> in Telegram.', 'info', 10000);
+    try {
+      const purchaseBtn = document.getElementById('purchase-plan-btn');
+      const trialLink = document.getElementById('start-trial-link');
+      if (purchaseBtn) { purchaseBtn.disabled = true; purchaseBtn.textContent = 'Redirecting...'; }
+      if (trialLink) { trialLink.style.pointerEvents = 'none'; trialLink.style.opacity = '0.5'; }
+
+      const res = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API.getToken()}`
+        },
+        body: JSON.stringify({ duration: this._selectedDuration, trial: isTrial })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        this.toast(data.error || 'Failed to start checkout', 'error');
+        if (purchaseBtn) { purchaseBtn.disabled = false; purchaseBtn.textContent = 'Purchase plan'; }
+        if (trialLink) { trialLink.style.pointerEvents = ''; trialLink.style.opacity = ''; }
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      this.toast('Failed to start checkout. Please try again.', 'error');
+      const purchaseBtn = document.getElementById('purchase-plan-btn');
+      if (purchaseBtn) { purchaseBtn.disabled = false; purchaseBtn.textContent = 'Purchase plan'; }
+    }
   },
 
   async _openBillingPortal() {
