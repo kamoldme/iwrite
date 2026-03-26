@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.4.68</span>
+            <span class="version-tag" style="margin-top:0">v2.4.69</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -639,11 +639,15 @@
                 </div>
                 <div>
                   <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Duration</label>
-                  <select id="promo-duration-select" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:13px">
+                  <select id="promo-duration-select" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:13px" onchange="document.getElementById('promo-months-wrap').style.display=this.value==='repeating'?'block':'none'">
                     <option value="once">Once</option>
                     <option value="forever">Forever</option>
                     <option value="repeating">Repeating</option>
                   </select>
+                </div>
+                <div id="promo-months-wrap" style="display:none">
+                  <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Months</label>
+                  <input id="promo-months-input" type="number" min="1" max="24" placeholder="3" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:13px;width:70px">
                 </div>
                 <div>
                   <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Max Uses</label>
@@ -2549,14 +2553,16 @@
       const code = document.getElementById('promo-code-input').value.trim();
       const percentOff = document.getElementById('promo-percent-input').value;
       const duration = document.getElementById('promo-duration-select').value;
+      const durationInMonths = document.getElementById('promo-months-input')?.value;
       const maxRedemptions = document.getElementById('promo-max-input').value;
 
       if (!code || !percentOff) { toast('Code and % off are required', 'error'); return; }
+      if (duration === 'repeating' && !durationInMonths) { toast('Months is required for repeating duration', 'error'); return; }
 
       try {
         await adminRequest('/admin/promo-codes', {
           method: 'POST',
-          body: JSON.stringify({ code, percentOff, duration, maxRedemptions: maxRedemptions || null })
+          body: JSON.stringify({ code, percentOff, duration, durationInMonths: durationInMonths || null, maxRedemptions: maxRedemptions || null })
         });
         toast(`Promo code ${code.toUpperCase()} created!`, 'success');
         document.getElementById('promo-code-input').value = '';

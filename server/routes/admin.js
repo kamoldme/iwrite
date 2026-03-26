@@ -752,7 +752,7 @@ router.get('/promo-codes', async (req, res) => {
   }
   try {
     const Stripe = require('stripe');
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-12-18.acacia' });
 
     const promotionCodes = await stripe.promotionCodes.list({
       limit: 50,
@@ -788,7 +788,7 @@ router.post('/promo-codes', async (req, res) => {
   }
   try {
     const Stripe = require('stripe');
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-12-18.acacia' });
 
     const { code, percentOff, duration, durationInMonths, maxRedemptions } = req.body;
 
@@ -853,7 +853,7 @@ router.post('/promo-codes/:id/deactivate', async (req, res) => {
   }
   try {
     const Stripe = require('stripe');
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-12-18.acacia' });
 
     const promotionCode = await stripe.promotionCodes.update(req.params.id, {
       active: false
