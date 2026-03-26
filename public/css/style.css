@@ -4850,9 +4850,17 @@ html.light .logo-img-light { display: inline; }
 }
 
 /* ===== STORIES LAYOUT UPDATE ===== */
+.stories-mode-read .stories-navbar,
 .stories-mode-read .stories-topbar,
+.stories-mode-compose .stories-navbar,
 .stories-mode-compose .stories-topbar {
   display: none;
+}
+
+/* Desktop: navbar + topbar form one header row */
+.stories-navbar {
+  display: flex;
+  align-items: center;
 }
 
 .stories-topbar {
@@ -4864,14 +4872,6 @@ html.light .logo-img-light { display: inline; }
   justify-content: space-between;
   align-items: center;
   gap: 14px;
-  flex-wrap: wrap;
-}
-
-.stories-topbar-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 24px;
   flex-wrap: wrap;
 }
 
@@ -5532,44 +5532,45 @@ html.light .logo-img-light { display: inline; }
     align-items: stretch;
   }
 
-  .stories-topbar {
+  /* Row 1: Fixed navbar — Feed / My Stories */
+  .stories-navbar {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     z-index: 9400;
     background: var(--bg);
-    padding: 14px 16px 12px 76px;
-    margin: 0;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
+    padding: 16px 16px 14px 76px;
+    justify-content: flex-end;
   }
 
   .stories-primary-tabs {
-    flex: 1;
     justify-content: flex-end;
     min-width: 0;
     gap: 6px;
   }
 
-  /* Mobile: inactive buttons are plain text, active gets pill border */
+  /* Mobile: inactive = plain text, active = pill border */
+  .stories-navbar .stories-filter-btn,
   .stories-topbar .stories-filter-btn {
     border-color: transparent;
     background: transparent;
-    padding: 8px 16px;
-    font-size: 13px;
   }
+  .stories-navbar .stories-filter-btn.active,
   .stories-topbar .stories-filter-btn.active {
     border-color: rgba(74, 222, 128, 0.3);
     background: rgba(74, 222, 128, 0.06);
   }
 
-  .stories-topbar-actions {
-    width: 100%;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
+  .stories-primary-tabs .stories-filter-btn {
+    min-width: 0;
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+
+  /* Row 2: Scrollable — filters + quick actions */
+  .stories-topbar {
+    margin: 0 0 14px;
     gap: 10px;
   }
 
@@ -5583,6 +5584,11 @@ html.light .logo-img-light { display: inline; }
     gap: 4px;
   }
 
+  .stories-topbar-filters .stories-filter-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
   .stories-topbar-quick-actions {
     margin-left: 0;
     justify-content: flex-end;
@@ -5590,17 +5596,6 @@ html.light .logo-img-light { display: inline; }
     padding-left: 0;
     border-left: none;
     gap: 8px;
-  }
-
-  .stories-primary-tabs .stories-filter-btn {
-    min-width: 0;
-    padding: 10px 18px;
-    font-size: 14px;
-  }
-
-  .stories-topbar-filters .stories-filter-btn {
-    padding: 8px 14px;
-    font-size: 13px;
   }
 
   .stories-topbar .stories-icon-btn {
