@@ -3028,7 +3028,7 @@ const App = {
     try {
       const purchaseBtn = document.getElementById('purchase-plan-btn');
       const trialLink = document.getElementById('start-trial-link');
-      if (purchaseBtn) { purchaseBtn.disabled = true; purchaseBtn.textContent = 'Redirecting...'; }
+      if (purchaseBtn) { purchaseBtn.disabled = true; purchaseBtn.textContent = 'Opening checkout...'; }
       if (trialLink) { trialLink.style.pointerEvents = 'none'; trialLink.style.opacity = '0.5'; }
 
       const res = await fetch('/api/stripe/create-checkout-session', {
@@ -3048,7 +3048,34 @@ const App = {
         return;
       }
 
-      window.location.href = data.url;
+      // Open Stripe checkout in new tab
+      window.open(data.url, '_blank');
+
+      // Update button to show waiting state
+      if (purchaseBtn) { purchaseBtn.textContent = 'Waiting for payment...'; }
+      this.toast('Complete your payment in the new tab. This page will update automatically.', 'info', 8000);
+
+      // Poll for plan upgrade every 3s (stops after 10 min or when upgraded)
+      this._checkoutPollCount = 0;
+      this._checkoutPoller = setInterval(async () => {
+        this._checkoutPollCount++;
+        if (this._checkoutPollCount > 200) {
+          clearInterval(this._checkoutPoller);
+          if (purchaseBtn) { purchaseBtn.disabled = false; purchaseBtn.textContent = 'Purchase plan'; }
+          return;
+        }
+        try {
+          const me = await API.getMe();
+          if (me.plan === 'premium' && (!this.user || this.user.plan !== 'premium')) {
+            clearInterval(this._checkoutPoller);
+            this.user = me;
+            this.updateUserUI();
+            this._applyProLocks();
+            this._showProCelebration();
+            this.loadUpgrade();
+          }
+        } catch {}
+      }, 3000);
     } catch (err) {
       this.toast('Failed to start checkout. Please try again.', 'error');
       const purchaseBtn = document.getElementById('purchase-plan-btn');
