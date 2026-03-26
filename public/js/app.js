@@ -2862,6 +2862,11 @@ const App = {
     const bio = p.bio ? `<p class="up-about-bio">${esc(p.bio)}</p>` : (p.isOwnProfile ? '<p class="up-about-bio" style="color:var(--text-muted)">You haven\'t written a bio yet. <a href="javascript:void(0)" onclick="App.switchView(\'settings\')">Add a bio →</a></p>' : '<p class="up-about-bio" style="color:var(--text-muted)">This writer hasn\'t written a bio yet.</p>');
     const joinDate = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     const { level } = this.calcXPLevel ? this.calcXPLevel(p.xp || 0) : { level: p.level || 0 };
+    // Format total writing time
+    const totalSecs = p.totalWritingTime || 0;
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
     const achievements = this._getProfileAchievements(p);
     const earnedAch = achievements.filter(a => a.earned);
     const unearnedAch = achievements.filter(a => !a.earned);
@@ -2869,7 +2874,9 @@ const App = {
       ${bio}
       <div class="up-about-stats">
         <div class="up-about-detail"><strong>Member since</strong> ${joinDate}</div>
-        <div class="up-about-detail"><strong>Level</strong> ${level} &nbsp;&middot;&nbsp; <strong>XP</strong> ${(p.xp || 0).toLocaleString()}</div>
+        <div class="up-about-detail"><strong>Level</strong> ${level}</div>
+        <div class="up-about-detail"><strong>XP</strong> ${(p.xp || 0).toLocaleString()}</div>
+        <div class="up-about-detail"><strong>Writing Time</strong> ${timeStr}</div>
       </div>
       <div class="up-activity-stats" style="margin-top:16px">
         <div class="up-stat-card"><div class="up-stat-value">${(p.totalWords || 0).toLocaleString()}</div><div class="up-stat-label">Total Words</div></div>

@@ -42,6 +42,10 @@ router.get('/:username', async (req, res) => {
     // Hydrate with engagement data
     const stories = await hydrateStories(paginatedStories, viewer ? viewer.id : null);
 
+    // Calculate total writing time from completed documents
+    const userDocs = await findMany('documents.json', d => d.userId === user.id && d.status === 'completed');
+    const totalWritingTime = userDocs.reduce((sum, d) => sum + (d.duration || 0), 0);
+
     // Check follow/friend status
     const isFollowing = viewer ? (user.followers || []).includes(viewer.id) : false;
     const isFriend = viewer ? (user.friends || []).includes(viewer.id) : false;
@@ -61,6 +65,7 @@ router.get('/:username', async (req, res) => {
       treeStage: user.treeStage || 0,
       totalWords: user.totalWords || 0,
       totalSessions: user.totalSessions || 0,
+      totalWritingTime: totalWritingTime || 0,
       achievements: user.achievements || [],
       createdAt: user.createdAt,
       followerCount: (user.followers || []).length,
