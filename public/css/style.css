@@ -5540,6 +5540,7 @@ html.light .logo-img-light { display: inline; }
     right: 0;
     z-index: 9400;
     background: var(--bg);
+    border-bottom: 1px solid var(--border);
     padding: 16px 16px 14px 76px;
     justify-content: flex-end;
   }
