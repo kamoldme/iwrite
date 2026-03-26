@@ -48,7 +48,7 @@
         <div class="sidebar-header">
           <div style="display:flex;flex-direction:column">
             <a href="/" class="logo">iWrite4.me</a>
-            <span class="version-tag">v2.5.1</span>
+            <span class="version-tag">v2.5.2</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="streak-indicator" id="streak-badge" style="display:none;cursor:pointer" onclick="App.openStreakPopup()">
@@ -98,10 +98,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span id="my-profile-nav-label">Profile</span>
           </button>
-          <button class="sidebar-nav-item" data-view="settings" id="settings-nav-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-            Settings
-          </button>
           <div class="sidebar-divider" id="pro-profile-divider" style="display:none"></div>
           <div class="sidebar-divider" id="upgrade-divider-top"></div>
           <button class="sidebar-nav-item" data-view="upgrade" id="upgrade-nav-btn">
@@ -109,6 +105,10 @@
             <span class="upgrade-nav-label">Upgrade to Pro</span>
           </button>
           <div class="sidebar-divider" id="upgrade-divider-bottom"></div>
+          <button class="sidebar-nav-item" data-view="settings" id="settings-nav-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            Settings
+          </button>
           <button class="sidebar-nav-item" data-view="support">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             Support
@@ -442,8 +442,8 @@
               <div class="up-bio" id="mp-bio"></div>
             </div>
             <div class="up-actions">
-              <button class="btn btn-ghost btn-small" onclick="App.switchView('settings')" id="mp-edit-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <button class="btn btn-ghost btn-small" onclick="App.switchView('settings')" id="mp-edit-btn" style="display:inline-flex;align-items:center;gap:6px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="flex-shrink:0"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit Profile
               </button>
             </div>
@@ -451,12 +451,10 @@
           <div class="up-stats" id="mp-stats"></div>
           <div class="up-tabs" role="tablist">
             <button class="up-tab active" data-mptab="posts" role="tab" aria-selected="true">Posts</button>
-            <button class="up-tab" data-mptab="activity" role="tab" aria-selected="false">Activity</button>
             <button class="up-tab" data-mptab="about" role="tab" aria-selected="false">About</button>
           </div>
           <div class="up-tab-content">
             <div id="mp-posts" role="tabpanel"></div>
-            <div id="mp-activity" role="tabpanel" style="display:none"></div>
             <div id="mp-about" role="tabpanel" style="display:none"></div>
           </div>
         </div>
@@ -580,12 +578,10 @@
           <div class="up-stats" id="up-stats"></div>
           <div class="up-tabs" role="tablist">
             <button class="up-tab active" data-uptab="posts" role="tab" aria-selected="true">Posts</button>
-            <button class="up-tab" data-uptab="activity" role="tab" aria-selected="false">Activity</button>
             <button class="up-tab" data-uptab="about" role="tab" aria-selected="false">About</button>
           </div>
           <div class="up-tab-content">
             <div id="up-posts" role="tabpanel"></div>
-            <div id="up-activity" role="tabpanel" style="display:none"></div>
             <div id="up-about" role="tabpanel" style="display:none"></div>
           </div>
         </div>

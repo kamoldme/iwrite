@@ -833,7 +833,9 @@ const App = {
     // Update sidebar profile nav label
     const profileNavLabel = document.getElementById('my-profile-nav-label');
     if (profileNavLabel) {
-      profileNavLabel.textContent = this.user.username ? `@${this.user.username}` : 'Profile';
+      const uname = this.user.username || '';
+      profileNavLabel.textContent = uname ? (uname.length > 14 ? uname.slice(0, 14) + '...' : uname) : 'Profile';
+      if (uname.length > 14) profileNavLabel.title = uname;
     }
 
     const badge = document.getElementById('plan-badge');
@@ -2640,12 +2642,10 @@ const App = {
         tab.classList.add('active');
         tab.setAttribute('aria-selected', 'true');
         document.getElementById('mp-posts').style.display = 'none';
-        document.getElementById('mp-activity').style.display = 'none';
         document.getElementById('mp-about').style.display = 'none';
         const t = tab.dataset.mptab;
         document.getElementById(`mp-${t}`).style.display = 'block';
         if (t === 'posts') this._renderProfilePosts(profile, 'mp-posts');
-        if (t === 'activity') this._renderProfileActivity(profile, 'mp-activity');
         if (t === 'about') this._renderProfileAbout(profile, 'mp-about');
       };
     });
@@ -2757,12 +2757,10 @@ const App = {
         tab.classList.add('active');
         tab.setAttribute('aria-selected', 'true');
         document.getElementById('up-posts').style.display = 'none';
-        document.getElementById('up-activity').style.display = 'none';
         document.getElementById('up-about').style.display = 'none';
         const t = tab.dataset.uptab;
         document.getElementById(`up-${t}`).style.display = 'block';
         if (t === 'posts') this._renderProfilePosts(profile);
-        if (t === 'activity') this._renderProfileActivity(profile);
         if (t === 'about') this._renderProfileAbout(profile);
       };
     });
@@ -2860,8 +2858,10 @@ const App = {
   _renderProfileAbout(p, targetId) {
     const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const el = document.getElementById(targetId || 'up-about');
+    const prefix = targetId ? targetId.replace('-about', '') : 'up';
     const bio = p.bio ? `<p class="up-about-bio">${esc(p.bio)}</p>` : (p.isOwnProfile ? '<p class="up-about-bio" style="color:var(--text-muted)">You haven\'t written a bio yet. <a href="javascript:void(0)" onclick="App.switchView(\'settings\')">Add a bio →</a></p>' : '<p class="up-about-bio" style="color:var(--text-muted)">This writer hasn\'t written a bio yet.</p>');
     const joinDate = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const { level } = this.calcXPLevel ? this.calcXPLevel(p.xp || 0) : { level: p.level || 0 };
     const achievements = this._getProfileAchievements(p);
     const earnedAch = achievements.filter(a => a.earned);
     const unearnedAch = achievements.filter(a => !a.earned);
@@ -2869,7 +2869,13 @@ const App = {
       ${bio}
       <div class="up-about-stats">
         <div class="up-about-detail"><strong>Member since</strong> ${joinDate}</div>
-        <div class="up-about-detail"><strong>Level</strong> ${p.level || 0} · <strong>XP</strong> ${(p.xp || 0).toLocaleString()}</div>
+        <div class="up-about-detail"><strong>Level</strong> ${level} &nbsp;&middot;&nbsp; <strong>XP</strong> ${(p.xp || 0).toLocaleString()}</div>
+      </div>
+      <div class="up-activity-stats" style="margin-top:16px">
+        <div class="up-stat-card"><div class="up-stat-value">${(p.totalWords || 0).toLocaleString()}</div><div class="up-stat-label">Total Words</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${p.totalSessions || 0}</div><div class="up-stat-label">Sessions</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${p.streak || 0}</div><div class="up-stat-label">Day Streak</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${p.longestStreak || 0}</div><div class="up-stat-label">Best Streak</div></div>
       </div>
       <div class="up-about-achievements">
         <h3 class="up-about-achievements-title">Achievements</h3>
