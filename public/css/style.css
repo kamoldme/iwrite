@@ -12634,7 +12634,9 @@ html {
 
 /* Achievements on profile */
 .up-achievements-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
-.up-achievements-grid .achievement-card { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 8px; }
+.up-achievements-grid .achievement-card { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 8px; overflow: hidden; }
+.up-achievements-grid .achievement-card h3 { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.up-achievements-grid .achievement-card p { font-size: 10px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-width: 100%; }
 
 /* Mobile profile */
 @media (max-width: 768px) {

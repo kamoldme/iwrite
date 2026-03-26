@@ -3329,7 +3329,7 @@ const App = {
       { icon: '&#x1F31F;', name: 'Shining Bright', description: 'Reach Level 10', earned: (u.level || 0) >= 10 },
       { icon: '&#x1F48E;', name: 'Diamond Writer', description: 'Reach Level 25', earned: (u.level || 0) >= 25 },
       // Special
-      { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode session', earned: (u.achievements || []).includes('danger_zone') },
+      { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode', earned: (u.achievements || []).includes('danger_zone') },
       { icon: '&#x1F333;', name: 'Forest', description: 'Grow your tree to max stage', earned: (u.treeStage || 0) >= 11 },
       { icon: '&#x1F91D;', name: 'Social Writer', description: 'Add your first friend', earned: (u.friends || []).length >= 1 },
       { icon: '&#x1F465;', name: 'Writing Circle', description: 'Have 5 friends', earned: (u.friends || []).length >= 5 },
@@ -3356,7 +3356,7 @@ const App = {
       { icon: '&#x2B50;', name: 'Rising Star', description: 'Reach Level 5', earned: (p.level || 0) >= 5 },
       { icon: '&#x1F31F;', name: 'Shining Bright', description: 'Reach Level 10', earned: (p.level || 0) >= 10 },
       { icon: '&#x1F48E;', name: 'Diamond Writer', description: 'Reach Level 25', earned: (p.level || 0) >= 25 },
-      { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode session', earned: (p.achievements || []).includes('danger_zone') },
+      { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode', earned: (p.achievements || []).includes('danger_zone') },
       { icon: '&#x1F333;', name: 'Forest', description: 'Grow your tree to max stage', earned: (p.treeStage || 0) >= 11 },
       { icon: '&#x1F91D;', name: 'Social Writer', description: 'Add your first friend', earned: (p.friends || []).length >= 1 },
       { icon: '&#x1F465;', name: 'Writing Circle', description: 'Have 5 friends', earned: (p.friends || []).length >= 5 },
