@@ -8140,6 +8140,33 @@ body.editor-active .mobile-sidebar-toggle {
   font-weight: 400;
   margin-bottom: 24px;
 }
+.upgrade-pro-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0 24px;
+  width: 100%;
+}
+.upgrade-pro-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.upgrade-pro-status-row:last-child {
+  border-bottom: none;
+}
+.upgrade-pro-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.upgrade-pro-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
 .upgrade-card-btn-wrap {
   margin-bottom: 24px;
 }

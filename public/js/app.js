@@ -3080,18 +3080,32 @@ const App = {
         <div class="upgrade-card-head">
           <h3 class="upgrade-card-name">Pro</h3>
           <p class="upgrade-card-desc">Enhanced features for serious, dedicated writers.</p>
-          ${!isPro ? `
+          ${isPro ? (() => {
+            const u = this.user;
+            const src = u.planSource === 'trial' ? 'Free Trial' : u.planSource === 'stripe' ? 'Stripe' : u.planSource === 'admin' ? 'Admin' : u.planSource === 'referral' ? 'Referral' : u.planSource || 'Unknown';
+            const durLabel = u.planDuration === '6m' ? '6-month' : u.planDuration === '3m' ? '3-month' : u.planDuration === '1m' ? 'Monthly' : '';
+            const renewsAt = u.planExpiresAt && u.planExpiresAt !== 'infinite' ? new Date(u.planExpiresAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : null;
+            const startedAt = u.planStartedAt ? new Date(u.planStartedAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : null;
+            return `
+          <div class="upgrade-pro-status">
+            <div class="upgrade-pro-status-row"><span class="upgrade-pro-label">Plan</span><span class="upgrade-pro-value">${durLabel ? durLabel + ' Pro' : 'Pro'}</span></div>
+            <div class="upgrade-pro-status-row"><span class="upgrade-pro-label">Source</span><span class="upgrade-pro-value">${src}</span></div>
+            ${startedAt ? `<div class="upgrade-pro-status-row"><span class="upgrade-pro-label">Started</span><span class="upgrade-pro-value">${startedAt}</span></div>` : ''}
+            ${renewsAt ? `<div class="upgrade-pro-status-row"><span class="upgrade-pro-label">Renews</span><span class="upgrade-pro-value">${renewsAt}</span></div>` : ''}
+            ${u.planExpiresAt === 'infinite' ? `<div class="upgrade-pro-status-row"><span class="upgrade-pro-label">Duration</span><span class="upgrade-pro-value">Lifetime</span></div>` : ''}
+          </div>`;
+          })() : `
           <div class="upgrade-duration-tabs">
             <button class="upgrade-duration-pill${this._selectedDuration === '1m' ? ' active' : ''}" data-duration="1m">1 Mo</button>
             <button class="upgrade-duration-pill${this._selectedDuration === '3m' ? ' active' : ''}" data-duration="3m">3 Mo<span class="upgrade-popular-label">Popular</span></button>
             <button class="upgrade-duration-pill${this._selectedDuration === '6m' ? ' active' : ''}" data-duration="6m">6 Mo</button>
           </div>
-          ` : ''}
           <div class="upgrade-card-price" id="upgrade-price-display">
             <span class="upgrade-price-dollar">$</span><span class="upgrade-price-amount">${dur.price}</span><span class="upgrade-price-period">${dur.period}</span>
           </div>
           ${dur.savings ? `<div class="upgrade-price-savings">${dur.savings}</div>` : ''}
           <div class="upgrade-price-uzs">${dur.uzs}</div>
+          `}
         </div>
         <div class="upgrade-card-btn-wrap">
           ${isPro
