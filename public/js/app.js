@@ -2647,7 +2647,7 @@ const App = {
       document.getElementById('mp-stats').innerHTML = `
         <span class="up-stat-link" data-userid="${this.escapeHtml(p.id)}" data-type="followers"><strong>${p.followerCount}</strong> followers</span>
         <span class="up-stat-link" data-userid="${this.escapeHtml(p.id)}" data-type="following"><strong>${p.followingCount}</strong> following</span>
-        <span><strong>${p.storyCount}</strong> stories</span>
+        <span class="up-stat-link" data-type="stories"><strong>${p.storyCount}</strong> stories</span>
         <span>Joined ${new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
       `;
 
@@ -2770,7 +2770,7 @@ const App = {
     document.getElementById('up-stats').innerHTML = `
       <span class="up-stat-link" data-userid="${esc(p.id)}" data-type="followers"><strong>${p.followerCount}</strong> followers</span>
       <span class="up-stat-link" data-userid="${esc(p.id)}" data-type="following"><strong>${p.followingCount}</strong> following</span>
-      <span><strong>${p.storyCount}</strong> stories</span>
+      <span class="up-stat-link" data-type="stories"><strong>${p.storyCount}</strong> stories</span>
       <span>Joined ${new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
     `;
 
@@ -3004,7 +3004,7 @@ const App = {
     const body = document.getElementById('follow-list-body');
     title.textContent = type === 'followers' ? 'Followers' : 'Following';
     body.innerHTML = '<div class="follow-list-empty">Loading...</div>';
-    overlay.style.display = 'flex';
+    overlay.classList.add('active');
 
     try {
       const data = await API.request(`/follow/${encodeURIComponent(userId)}/${type}?limit=50`);
@@ -3027,26 +3027,36 @@ const App = {
     }
   },
 
+  _closeFollowList() {
+    document.getElementById('follow-list-overlay').classList.remove('active');
+  },
+
   _initFollowListModal() {
     const overlay = document.getElementById('follow-list-overlay');
     const close = document.getElementById('follow-list-close');
     if (!overlay || !close) return;
-    close.addEventListener('click', () => overlay.style.display = 'none');
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
+    close.addEventListener('click', () => this._closeFollowList());
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) this._closeFollowList(); });
 
-    // Delegated click on .up-stat-link
+    // Delegated click on .up-stat-link (followers, following, stories)
     document.addEventListener('click', (e) => {
       const stat = e.target.closest('.up-stat-link');
       if (!stat) return;
       const userId = stat.dataset.userid;
       const type = stat.dataset.type;
+      if (type === 'stories') {
+        // Switch to Posts tab on the current profile page
+        const postsTab = document.querySelector('.up-tab[data-uptab="posts"]');
+        if (postsTab) postsTab.click();
+        return;
+      }
       if (userId && type) this._openFollowList(userId, type);
     });
 
     // Close modal and navigate when a username link inside the modal is clicked
     document.getElementById('follow-list-body').addEventListener('click', (e) => {
       const link = e.target.closest('.username-link');
-      if (link) overlay.style.display = 'none';
+      if (link) this._closeFollowList();
     });
   },
 
