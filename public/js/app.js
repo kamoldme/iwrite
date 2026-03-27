@@ -819,15 +819,20 @@ const App = {
 
   updateUserUI() {
     if (!this.user) return;
-    document.getElementById('user-name').textContent = (this.user.name || '').split(' ')[0];
+    const userNameEl = document.getElementById('user-name');
+    if (userNameEl) userNameEl.textContent = (this.user.name || '').split(' ')[0];
     const { level } = this.calcXPLevel(this.user.xp || 0);
-    document.getElementById('user-level').textContent = `Level ${level}`;
+    const userLevelEl = document.getElementById('user-level');
+    if (userLevelEl) userLevelEl.textContent = `Level ${level}`;
     const avatarEl = document.getElementById('user-avatar');
-    if (this.user.avatar) {
-      const t = this.user.avatarUpdatedAt || '';
-      avatarEl.innerHTML = `<img src="${this.user.avatar}?t=${t}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-    } else {
-      avatarEl.textContent = this.user.name.charAt(0).toUpperCase();
+    if (avatarEl) {
+      if (this.user.avatar) {
+        const t = this.user.avatarUpdatedAt || Date.now();
+        avatarEl.innerHTML = `<img src="${this.user.avatar}?t=${t}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+      } else {
+        avatarEl.innerHTML = '';
+        avatarEl.textContent = this.user.name.charAt(0).toUpperCase();
+      }
     }
 
     // Update sidebar profile nav label
@@ -876,11 +881,15 @@ const App = {
     if (proProfileDiv) proProfileDiv.style.display = isPremium ? '' : 'none';
     if (upgradeDivTop) upgradeDivTop.style.display = isPremium ? 'none' : '';
 
-    if (this.user.streak > 0) {
-      document.getElementById('streak-badge').style.display = 'flex';
-      document.getElementById('streak-count').textContent = this.user.streak;
-    } else {
-      document.getElementById('streak-badge').style.display = 'none';
+    const streakBadge = document.getElementById('streak-badge');
+    const streakCount = document.getElementById('streak-count');
+    if (streakBadge) {
+      if (this.user.streak > 0) {
+        streakBadge.style.display = 'flex';
+        if (streakCount) streakCount.textContent = this.user.streak;
+      } else {
+        streakBadge.style.display = 'none';
+      }
     }
 
     const hour = new Date().getHours();
@@ -889,7 +898,8 @@ const App = {
     if (hour < 12) { greeting = 'Good morning'; emoji = '&#x2600;&#xFE0F;'; }
     else if (hour < 18) { greeting = 'Good afternoon'; emoji = '&#x1F324;&#xFE0F;'; }
     const firstName = (this.user.name || '').split(' ')[0];
-    document.getElementById('greeting-text').innerHTML = `${emoji} ${greeting}, <em>${firstName}</em>`;
+    const greetingEl = document.getElementById('greeting-text');
+    if (greetingEl) greetingEl.innerHTML = `${emoji} ${greeting}, <em>${firstName}</em>`;
   },
 
   async loadDashboard() {
@@ -2353,8 +2363,10 @@ const App = {
   },
 
   loadProfile() {
-    document.getElementById('profile-name').value = this.user.name;
-    document.getElementById('profile-email').value = this.user.email;
+    const nameEl = document.getElementById('profile-name');
+    const emailEl = document.getElementById('profile-email');
+    if (nameEl) nameEl.value = this.user.name;
+    if (emailEl) emailEl.value = this.user.email;
     const usernameEl = document.getElementById('profile-username');
     if (usernameEl) usernameEl.value = this.user.username || '';
     // Bio
@@ -2371,7 +2383,7 @@ const App = {
     if (bannerPreview) {
       const bannerPlaceholder = document.getElementById('profile-banner-placeholder');
       if (this.user.banner) {
-        bannerPreview.style.backgroundImage = `url(${this.user.banner}?t=${this.user.bannerUpdatedAt || ''})`;
+        bannerPreview.style.backgroundImage = `url(${this.user.banner}?t=${this.user.bannerUpdatedAt || Date.now()})`;
         if (removeBannerBtn) removeBannerBtn.style.display = 'inline-flex';
         if (bannerPlaceholder) bannerPlaceholder.style.display = 'none';
       } else {
@@ -2450,7 +2462,8 @@ const App = {
     }
     const pwSection = document.getElementById('change-password-section');
     if (pwSection) pwSection.style.display = this.user.provider === 'google' ? 'none' : '';
-    document.getElementById('profile-since').value = new Date(this.user.createdAt).toLocaleDateString('en-US', {
+    const sinceEl = document.getElementById('profile-since');
+    if (sinceEl) sinceEl.value = new Date(this.user.createdAt).toLocaleDateString('en-US', {
       year: 'numeric', month: 'long', day: 'numeric'
     });
 
@@ -2482,7 +2495,7 @@ const App = {
     }
 
     if (this.user.avatar && imgEl && letterEl) {
-      const t = this.user.avatarUpdatedAt || '';
+      const t = this.user.avatarUpdatedAt || Date.now();
       imgEl.src = `${this.user.avatar}?t=${t}`;
       imgEl.style.display = 'block';
       if (letterEl) letterEl.style.display = 'none';

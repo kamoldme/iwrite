@@ -88,10 +88,10 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const avatarsDir = path.join(dataDir, 'avatars');
 if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
 
-app.use('/uploads/avatars', express.static(avatarsDir));
+app.use('/uploads/avatars', express.static(avatarsDir, { etag: false, lastModified: false, setHeaders: (res) => res.setHeader('Cache-Control', 'no-store') }));
 const bannersDir = path.join(dataDir, 'banners');
 if (!fs.existsSync(bannersDir)) fs.mkdirSync(bannersDir, { recursive: true });
-app.use('/uploads/banners', express.static(bannersDir));
+app.use('/uploads/banners', express.static(bannersDir, { etag: false, lastModified: false, setHeaders: (res) => res.setHeader('Cache-Control', 'no-store') }));
 // Force no-cache on HTML/CSS/JS so deployments are instant
 app.use((req, res, next) => {
   const url = req.url.split('?')[0];
