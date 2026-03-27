@@ -919,4 +919,78 @@ router.post('/promo-codes/:id/deactivate', async (req, res) => {
   }
 });
 
+// ===== FEATURED STORY =====
+router.get('/featured-story', async (req, res) => {
+  try {
+    const settings = await findMany('app-settings.json');
+    const feat = settings.find(s => s.key === 'featured_story');
+    if (!feat || !feat.storyId) return res.json({ featured: null });
+
+    // Check auto-rotation: if 7+ days since featuredAt, clear it
+    const age = Date.now() - new Date(feat.featuredAt).getTime();
+    if (age > 7 * 24 * 60 * 60 * 1000) {
+      await updateOne('app-settings.json', s => s.key === 'featured_story', { storyId: null, featuredAt: null, featuredBy: null });
+      return res.json({ featured: null, expired: true });
+    }
+
+    const story = await findOne('stories.json', s => s.id === feat.storyId && s.status === 'published');
+    if (!story) return res.json({ featured: null });
+
+    const users = await findMany('users.json');
+    const author = users.find(u => u.id === story.userId);
+
+    res.json({
+      featured: {
+        storyId: story.id,
+        title: story.title,
+        excerpt: story.excerpt || (story.content || '').replace(/<[^>]*>/g, '').slice(0, 200),
+        authorName: author ? author.name : 'Unknown',
+        authorUsername: author ? (author.username || null) : null,
+        authorAvatar: author ? (author.avatar || null) : null,
+        authorAvatarUpdatedAt: author ? (author.avatarUpdatedAt || null) : null,
+        featuredAt: feat.featuredAt,
+        featuredBy: feat.featuredBy
+      }
+    });
+  } catch (err) {
+    console.error('Featured story error:', err);
+    res.status(500).json({ error: 'Failed to load featured story' });
+  }
+});
+
+router.post('/featured-story', async (req, res) => {
+  try {
+    const { storyId } = req.body;
+    if (!storyId) return res.status(400).json({ error: 'storyId required' });
+
+    const story = await findOne('stories.json', s => s.id === storyId && s.status === 'published');
+    if (!story) return res.status(404).json({ error: 'Published story not found' });
+
+    const settings = await findMany('app-settings.json');
+    const existing = settings.find(s => s.key === 'featured_story');
+    const data = { storyId, featuredAt: new Date().toISOString(), featuredBy: req.user.id };
+
+    if (existing) {
+      await updateOne('app-settings.json', s => s.key === 'featured_story', data);
+    } else {
+      await insertOne('app-settings.json', { id: uuid(), key: 'featured_story', ...data });
+    }
+
+    logAction(req.user.id, 'feature_story', { storyId, title: story.title });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Set featured story error:', err);
+    res.status(500).json({ error: 'Failed to set featured story' });
+  }
+});
+
+router.delete('/featured-story', async (req, res) => {
+  try {
+    await updateOne('app-settings.json', s => s.key === 'featured_story', { storyId: null, featuredAt: null, featuredBy: null });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to clear featured story' });
+  }
+});
+
 module.exports = router;

@@ -301,6 +301,8 @@ router.get('/', async (req, res) => {
   try {
     const filter = (req.query.filter || 'feed').toLowerCase();
     const sort = (req.query.sort || 'newest').toLowerCase();
+    const limit = Math.min(parseInt(req.query.limit) || 0, 50);
+    const offset = parseInt(req.query.offset) || 0;
     const stories = await findMany('stories.json');
     const hydrated = await hydrateStories(stories, req.user.id);
 
@@ -321,7 +323,12 @@ router.get('/', async (req, res) => {
       }
     }
 
-    res.json(filtered);
+    const total = filtered.length;
+    if (limit > 0) {
+      filtered = filtered.slice(offset, offset + limit);
+    }
+
+    res.json({ stories: filtered, total, hasMore: limit > 0 && (offset + limit) < total });
   } catch (err) {
     console.error('Stories list error:', err);
     res.status(500).json({ error: 'Failed to load stories' });

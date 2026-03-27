@@ -92,6 +92,10 @@
     storyDetail: null,
     storyComments: [],
     storySelectedId: null,
+    _storyHasMore: false,
+    _storyTotal: 0,
+    _storyLoadingMore: false,
+    _featuredStory: null,
     storyEditingId: null,
     _storyAudioElement: null,
     _storyAudioKey: null,
@@ -277,6 +281,30 @@
       }
 
       if (this.storyTab === 'feed') {
+        // Featured story card (admin-picked)
+        let featuredHtml = '';
+        const feat = this._featuredStory;
+        if (feat && !list.some(s => s.id === feat.storyId && list.indexOf(s) === 0)) {
+          const fAvatar = feat.authorAvatar
+            ? `<img src="${esc(feat.authorAvatar)}?t=${feat.authorAvatarUpdatedAt || 0}" alt="" class="story-author-avatar-img">`
+            : `<span class="story-author-avatar-fallback">${esc(initialsFor(feat.authorName || 'Writer'))}</span>`;
+          const fPlan = feat.authorPlan === 'premium' ? '<span class="pro-nav-badge">PRO</span>' : '';
+          featuredHtml = `
+            <div class="story-featured-card" data-story-id="${esc(feat.storyId)}">
+              <div class="story-featured-badge">&#x2B50; Featured Story</div>
+              <h3 class="story-featured-title">${esc(feat.title)}</h3>
+              <p class="story-featured-excerpt">${esc(feat.excerpt)}</p>
+              <div class="story-featured-meta">
+                <span class="story-author-avatar" style="width:20px;height:20px">${fAvatar}</span>
+                <span>${esc(feat.authorName)}${fPlan}</span>
+                <span class="story-meta-divider">&middot;</span>
+                <span>${feat.readTimeMinutes || 1} min read</span>
+                <span class="story-meta-divider">&middot;</span>
+                <span>&#x2764; ${feat.likeCount || 0}</span>
+              </div>
+            </div>`;
+        }
+
         const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
         const recentStories = list.filter(s => {
           const d = new Date(s.publishedAt || s.updatedAt || s.createdAt);
@@ -285,7 +313,10 @@
         const heroPool = recentStories.length ? recentStories : list;
         const hero = heroPool.reduce((best, s) => (s.popularityScore || 0) > (best.popularityScore || 0) ? s : best, heroPool[0]);
         const rest = list.filter(s => s.id !== hero.id);
-        feedEl.innerHTML = `<div class="stories-list">${this.renderFeedStoryCard(hero, true)}${rest.map(s => this.renderFeedStoryCard(s, false)).join('')}</div>`;
+        const readMoreBtn = this._storyHasMore
+          ? `<button id="stories-read-more" class="btn stories-read-more-btn">Read more stories (${this._storyTotal - this.storyList.length} remaining)</button>`
+          : '';
+        feedEl.innerHTML = `${featuredHtml}<div class="stories-list">${this.renderFeedStoryCard(hero, true)}${rest.map(s => this.renderFeedStoryCard(s, false)).join('')}</div>${readMoreBtn}`;
       } else {
         feedEl.innerHTML = `<div class="stories-mine-list">${list.map(story => this.renderMyStoryCard(story)).join('')}</div>`;
       }
@@ -322,6 +353,18 @@
           }
         });
       });
+
+      // Featured card click
+      const featCard = feedEl.querySelector('.story-featured-card[data-story-id]');
+      if (featCard) {
+        featCard.addEventListener('click', () => this.selectStory(featCard.dataset.storyId));
+      }
+
+      // Read more button
+      const readMoreBtn = document.getElementById('stories-read-more');
+      if (readMoreBtn) {
+        readMoreBtn.addEventListener('click', () => this.loadMoreStories());
+      }
     },
 
     async loadStories() {
@@ -332,7 +375,25 @@
       }
 
       try {
-        this.storyList = await API.getStories(this.storyTab, this.storySort);
+        // Fetch featured story for feed tab
+        if (this.storyTab === 'feed') {
+          try { this._featuredStory = (await API.getFeaturedStory()).featured; } catch (_) { this._featuredStory = null; }
+        }
+
+        const isFeed = this.storyTab === 'feed';
+        const result = await API.getStories(this.storyTab, this.storySort, isFeed ? { limit: 8, offset: 0 } : {});
+
+        // Handle both paginated { stories, total, hasMore } and legacy array
+        if (Array.isArray(result)) {
+          this.storyList = result;
+          this._storyHasMore = false;
+          this._storyTotal = result.length;
+        } else {
+          this.storyList = result.stories;
+          this._storyHasMore = result.hasMore;
+          this._storyTotal = result.total;
+        }
+
         this.renderStoriesFeed();
         if (this.storyMode === 'feed') {
           const detailEl = document.getElementById('story-detail');
@@ -342,6 +403,28 @@
         if (feedEl) {
           feedEl.innerHTML = `<div class="empty-state"><h3>Stories are unavailable</h3><p>${esc(err.message || 'Failed to load stories.')}</p></div>`;
         }
+      }
+    },
+
+    async loadMoreStories() {
+      if (this._storyLoadingMore || !this._storyHasMore) return;
+      this._storyLoadingMore = true;
+
+      const btn = document.getElementById('stories-read-more');
+      if (btn) btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;margin:0 auto"></div>';
+
+      try {
+        const result = await API.getStories(this.storyTab, this.storySort, { limit: 5, offset: this.storyList.length });
+        const newStories = Array.isArray(result) ? result : result.stories;
+        this._storyHasMore = Array.isArray(result) ? false : result.hasMore;
+        this._storyTotal = Array.isArray(result) ? this.storyList.length + newStories.length : result.total;
+
+        this.storyList = this.storyList.concat(newStories);
+        this.renderStoriesFeed();
+      } catch (err) {
+        if (btn) btn.textContent = 'Failed to load. Try again';
+      } finally {
+        this._storyLoadingMore = false;
       }
     },
 

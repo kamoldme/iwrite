@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,900&family=Instrument+Sans:wght@400;500;600;700&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="/iWrite logo.png">
-  <link rel="stylesheet" href="/css/style.css?v=33">
+  <link rel="stylesheet" href="/css/style.css?v=34">
   <style>
     .admin-layout { display: flex; min-height: 100vh; }
     .admin-sidebar {
@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.5.27</span>
+            <span class="version-tag" style="margin-top:0">v2.5.28</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -445,6 +445,23 @@
         <!-- STORIES -->
         <div id="tab-stories" style="display:none">
           <div class="admin-page-title">Community</div>
+
+          <!-- Featured Story Picker -->
+          <div class="admin-card" style="padding:20px;margin-bottom:20px">
+            <div class="admin-toolbar" style="margin-bottom:12px;align-items:center">
+              <div>
+                <h3 style="font-size:14px;font-weight:600;margin-bottom:4px">&#x2B50; Featured Story</h3>
+                <div style="font-size:12px;color:var(--text-muted)">Pinned at the top of the Community feed. Auto-rotates after 7 days.</div>
+              </div>
+            </div>
+            <div id="featured-story-current" style="margin-bottom:12px"></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="admin-search" id="featured-story-search" placeholder="Search published stories by title or author..." style="max-width:360px;margin-bottom:0;flex:1">
+              <button class="admin-btn" id="featured-story-clear-btn" style="display:none;background:var(--danger);color:#fff" onclick="clearFeaturedStory()">Remove</button>
+            </div>
+            <div id="featured-story-results" style="margin-top:8px"></div>
+          </div>
+
           <div class="admin-card" style="padding:20px;margin-bottom:20px">
             <div class="admin-toolbar" style="margin-bottom:12px">
               <div>
@@ -1769,8 +1786,86 @@
       try {
         allStories = await adminRequest('/admin/stories');
         renderStoriesAdmin();
+        loadFeaturedStory();
       } catch {
         toast('Failed to load stories', 'error');
+      }
+    }
+
+    // ===== FEATURED STORY =====
+    async function loadFeaturedStory() {
+      try {
+        const data = await adminRequest('/admin/featured-story');
+        const el = document.getElementById('featured-story-current');
+        const clearBtn = document.getElementById('featured-story-clear-btn');
+        if (data.featured) {
+          const f = data.featured;
+          const ago = Math.floor((Date.now() - new Date(f.featuredAt).getTime()) / (1000 * 60 * 60 * 24));
+          const remaining = Math.max(0, 7 - ago);
+          el.innerHTML = `<div style="padding:12px;border-radius:8px;border:1px solid rgba(74,222,128,0.3);background:rgba(74,222,128,0.05)">
+            <div style="display:flex;justify-content:space-between;align-items:start">
+              <div>
+                <strong style="font-size:15px">${escHtml(f.title)}</strong>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px">by ${escHtml(f.authorName)}${f.authorUsername ? ' (@' + escHtml(f.authorUsername) + ')' : ''}</div>
+              </div>
+              <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">${remaining}d remaining</span>
+            </div>
+          </div>`;
+          clearBtn.style.display = 'inline-block';
+        } else {
+          el.innerHTML = `<div style="padding:12px;border-radius:8px;border:1px dashed var(--border);color:var(--text-muted);font-size:13px;text-align:center">No featured story set. Search and pick one below.</div>`;
+          clearBtn.style.display = 'none';
+        }
+      } catch {}
+    }
+
+    let _featSearchTimer = null;
+    document.getElementById('featured-story-search').addEventListener('input', (e) => {
+      clearTimeout(_featSearchTimer);
+      const q = e.target.value.trim().toLowerCase();
+      _featSearchTimer = setTimeout(() => {
+        const resultsEl = document.getElementById('featured-story-results');
+        if (!q || q.length < 2) { resultsEl.innerHTML = ''; return; }
+        const published = allStories.filter(s => s.status === 'published');
+        const matches = published.filter(s =>
+          (s.title || '').toLowerCase().includes(q) ||
+          (s.authorName || '').toLowerCase().includes(q) ||
+          (s.authorUsername || '').toLowerCase().includes(q)
+        ).slice(0, 8);
+        if (!matches.length) { resultsEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px">No matches found.</div>'; return; }
+        resultsEl.innerHTML = matches.map(s => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px">
+            <div>
+              <strong>${escHtml(s.title)}</strong>
+              <span style="color:var(--text-muted);margin-left:8px">by ${escHtml(s.authorName)}</span>
+            </div>
+            <button class="admin-btn" style="font-size:11px;padding:4px 10px" onclick="setFeaturedStory('${s.id}', '${escHtml(s.title).replace(/'/g, "\\'")}')">Feature</button>
+          </div>
+        `).join('');
+      }, 250);
+    });
+
+    async function setFeaturedStory(storyId, title) {
+      if (!confirm('Feature "' + title + '" on the Community page?')) return;
+      try {
+        await adminRequest('/admin/featured-story', { method: 'POST', body: JSON.stringify({ storyId }) });
+        toast('Featured story set!', 'success');
+        document.getElementById('featured-story-search').value = '';
+        document.getElementById('featured-story-results').innerHTML = '';
+        loadFeaturedStory();
+      } catch (err) {
+        toast(err.message || 'Failed to set featured story', 'error');
+      }
+    }
+
+    async function clearFeaturedStory() {
+      if (!confirm('Remove the featured story?')) return;
+      try {
+        await adminRequest('/admin/featured-story', { method: 'DELETE' });
+        toast('Featured story removed', 'success');
+        loadFeaturedStory();
+      } catch (err) {
+        toast(err.message || 'Failed to clear featured story', 'error');
       }
     }
 

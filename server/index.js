@@ -370,6 +370,46 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
+// Public featured story (no auth required)
+app.get('/api/featured-story', async (req, res) => {
+  try {
+    const settings = await findMany('app-settings.json');
+    const feat = settings.find(s => s.key === 'featured_story');
+    if (!feat || !feat.storyId) return res.json({ featured: null });
+
+    // Auto-expire after 7 days
+    const age = Date.now() - new Date(feat.featuredAt).getTime();
+    if (age > 7 * 24 * 60 * 60 * 1000) return res.json({ featured: null });
+
+    const story = await findOne('stories.json', s => s.id === feat.storyId && s.status === 'published');
+    if (!story) return res.json({ featured: null });
+
+    const users = await findMany('users.json');
+    const author = users.find(u => u.id === story.userId);
+    const likes = (await findMany('story-likes.json')).filter(l => l.storyId === story.id);
+
+    res.json({
+      featured: {
+        storyId: story.id,
+        title: story.title,
+        excerpt: story.excerpt || (story.content || '').replace(/<[^>]*>/g, '').slice(0, 200),
+        readTimeMinutes: story.readTimeMinutes || 1,
+        authorName: author ? author.name : 'Unknown',
+        authorUsername: author ? (author.username || null) : null,
+        authorAvatar: author ? (author.avatar || null) : null,
+        authorAvatarUpdatedAt: author ? (author.avatarUpdatedAt || null) : null,
+        authorPlan: author ? (author.plan || 'free') : 'free',
+        likeCount: likes.length,
+        viewCount: story.viewCount || 0,
+        featuredAt: feat.featuredAt
+      }
+    });
+  } catch (err) {
+    console.error('Public featured story error:', err);
+    res.json({ featured: null });
+  }
+});
+
 // Simple analytics endpoint
 app.post('/api/analytics/pageview', (req, res) => {
   // Fire-and-forget — non-critical

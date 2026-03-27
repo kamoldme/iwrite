@@ -348,8 +348,14 @@ const API = {
     return this.request('/documents/analytics/sessions');
   },
 
-  async getStories(filter = 'feed', sort = 'newest') {
-    return this.request(`/stories?filter=${encodeURIComponent(filter)}&sort=${encodeURIComponent(sort)}`);
+  async getStories(filter = 'feed', sort = 'newest', { limit, offset } = {}) {
+    let url = `/stories?filter=${encodeURIComponent(filter)}&sort=${encodeURIComponent(sort)}`;
+    if (limit) url += `&limit=${limit}&offset=${offset || 0}`;
+    return this.request(url);
+  },
+
+  async getFeaturedStory() {
+    return this.request('/featured-story', { noAuth: true });
   },
 
   async getLatestPublished(since) {
