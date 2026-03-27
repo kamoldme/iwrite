@@ -9469,10 +9469,18 @@ a.profile-link {
   color: var(--text-muted);
   text-decoration: none;
   transition: color 0.15s;
+  cursor: pointer;
 }
 a.profile-link:hover {
   color: var(--accent);
   text-decoration: underline;
+}
+a.lb-name-link {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+a.lb-name-link .lb-username {
+  font-weight: 400;
 }
 .lb-pro-col {
   width: 24px;

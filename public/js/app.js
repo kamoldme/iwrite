@@ -368,6 +368,15 @@ const App = {
 
     document.getElementById('logout-btn').addEventListener('click', () => API.logout());
 
+    // Delegated click handler for all profile links (leaderboard, friends, podium)
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('[data-profile-username]');
+      if (link) {
+        e.preventDefault();
+        this.switchView('user-profile', { username: link.dataset.profileUsername });
+      }
+    });
+
     // Browser back/forward navigation via hash routes
     window.addEventListener('popstate', () => {
       const hash = location.hash.replace('#', '');
@@ -828,7 +837,11 @@ const App = {
     if (avatarEl) {
       if (this.user.avatar) {
         const t = this.user.avatarUpdatedAt || 0;
-        avatarEl.innerHTML = `<img src="${this.user.avatar}?t=${t}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+        const newSrc = `${this.user.avatar}?t=${t}`;
+        const existing = avatarEl.querySelector('img');
+        if (!existing || !existing.src.endsWith(newSrc)) {
+          avatarEl.innerHTML = `<img src="${newSrc}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+        }
       } else {
         avatarEl.innerHTML = '';
         avatarEl.textContent = this.user.name.charAt(0).toUpperCase();
@@ -1745,7 +1758,7 @@ const App = {
           ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
           <div class="podium-avatar">${avatarContent}</div>
           <div class="podium-name">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span> ' : ''}${this.escapeHtml(entry.name)}</div>
-          ${entry.username ? `<div class="podium-username"><a href="#" class="profile-link" data-username="${this.escapeHtml(entry.username)}" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(entry.username)}'})">@${this.escapeHtml(entry.username)}</a></div>` : ''}
+          ${entry.username ? `<div class="podium-username"><a href="#user-profile/${this.escapeHtml(entry.username)}" class="profile-link" data-profile-username="${this.escapeHtml(entry.username)}">@${this.escapeHtml(entry.username)}</a></div>` : ''}
           <div class="podium-words">${statLine}</div>
           <div class="podium-pedestal" style="height:${heights[i]}">
             <span class="podium-medal">${medals[i]}</span>
@@ -1760,12 +1773,17 @@ const App = {
       const isMe = this.user && (entry.id === this.user.id || entry.name === this.user.name);
       const timeStr = this._formatWritingTime(entry.minutesWritten);
 
+      const nameCell = entry.username
+        ? `<a href="#user-profile/${this.escapeHtml(entry.username)}" class="lb-name-link profile-link" data-profile-username="${this.escapeHtml(entry.username)}">${this.escapeHtml(entry.name)} <span class="lb-username">@${this.escapeHtml(entry.username)}</span></a>`
+        : this.escapeHtml(entry.name);
+      const youBadge = isMe ? ' <span class="lb-you">YOU</span>' : '';
+
       if (isTime) {
         return `
           <tr class="${isMe ? 'leaderboard-me' : ''}">
             <td class="lb-rank">${rankEmoji}</td>
             <td class="lb-pro-col">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span>' : ''}</td>
-            <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <a href="#" class="lb-username profile-link" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(entry.username)}'})">@${this.escapeHtml(entry.username)}</a>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
+            <td class="lb-name">${nameCell}${youBadge}</td>
             <td class="lb-col-time"><strong>${timeStr}</strong></td>
             <td class="lb-col-words">${(entry.totalWords || 0).toLocaleString()}</td>
             <td class="lb-col-streak">${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
@@ -1777,7 +1795,7 @@ const App = {
         <tr class="${isMe ? 'leaderboard-me' : ''}">
           <td class="lb-rank">${rankEmoji}</td>
           <td class="lb-pro-col">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span>' : ''}</td>
-          <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <a href="#" class="lb-username profile-link" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(entry.username)}'})">@${this.escapeHtml(entry.username)}</a>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
+          <td class="lb-name">${nameCell}${youBadge}</td>
           <td class="lb-col-streak">${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
           <td class="lb-col-words"><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
           <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
@@ -2496,7 +2514,8 @@ const App = {
 
     if (this.user.avatar && imgEl && letterEl) {
       const t = this.user.avatarUpdatedAt || 0;
-      imgEl.src = `${this.user.avatar}?t=${t}`;
+      const newSrc = `${this.user.avatar}?t=${t}`;
+      if (imgEl.src !== newSrc && !imgEl.src.endsWith(newSrc)) imgEl.src = newSrc;
       imgEl.style.display = 'block';
       if (letterEl) letterEl.style.display = 'none';
       if (removeBtn) removeBtn.style.display = '';
@@ -3512,7 +3531,7 @@ const App = {
       const cards = friends.map(f => {
         const fl = this.calcXPLevel(f.xp || 0);
         const fPro = f.plan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
-        const fHandle = f.username ? ` <a href="#" class="friend-handle profile-link" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(f.username)}'})">@${this.escapeHtml(f.username)}</a>` : '';
+        const fHandle = f.username ? ` <a href="#user-profile/${this.escapeHtml(f.username)}" class="friend-handle profile-link" data-profile-username="${this.escapeHtml(f.username)}">@${this.escapeHtml(f.username)}</a>` : '';
         return `
         <div class="doc-card friend-card">
           <div class="doc-card-info">
