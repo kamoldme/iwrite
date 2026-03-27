@@ -236,6 +236,7 @@ async function hydrateStories(stories, currentUserId) {
       authorName: author ? author.name : 'Unknown',
       authorUsername: author ? (author.username || null) : null,
       authorAvatar: author ? (author.avatar || null) : null,
+      authorAvatarUpdatedAt: author ? (author.avatarUpdatedAt || null) : null,
       authorPlan: author ? (author.plan || 'free') : 'free'
     };
   });

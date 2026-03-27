@@ -1741,7 +1741,7 @@ const App = {
       if (!entry) return '<div class="podium-slot empty"></div>';
       const isFirst = podiumLabels[i] === '1st';
       const avatarContent = entry.avatar
-        ? `<img src="${entry.avatar}?t=${entry.avatarUpdatedAt || ''}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        ? `<img src="${entry.avatar}?t=${entry.avatarUpdatedAt || 0}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
         : entry.name.charAt(0).toUpperCase();
       const statLine = isTime
         ? `${this._formatWritingTime(entry.minutesWritten)}`
@@ -3044,7 +3044,7 @@ const App = {
     const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const initialsFor = n => (n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
     const avatar = profile.avatar
-      ? `<img src="${esc(profile.avatar)}" alt="" class="hc-avatar-img">`
+      ? `<img src="${esc(profile.avatar)}?t=${profile.avatarUpdatedAt || 0}" alt="" class="hc-avatar-img">`
       : `<span class="hc-avatar-fallback">${esc(initialsFor(profile.name))}</span>`;
 
     card.innerHTML = `

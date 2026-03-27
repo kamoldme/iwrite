@@ -149,7 +149,7 @@
 
     renderStoryAuthor(story) {
       const avatar = story.authorAvatar
-        ? `<img src="${esc(story.authorAvatar)}" alt="${esc(story.authorName || 'Writer')}" class="story-author-avatar-img">`
+        ? `<img src="${esc(story.authorAvatar)}?t=${story.authorAvatarUpdatedAt || 0}" alt="${esc(story.authorName || 'Writer')}" class="story-author-avatar-img">`
         : `<span class="story-author-avatar-fallback">${esc(initialsFor(story.authorName || 'Writer'))}</span>`;
       const usernameText = story.authorUsername ? `@${esc(story.authorUsername)}` : 'Writer';
       const usernameHtml = story.authorUsername
