@@ -88,10 +88,28 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const avatarsDir = path.join(dataDir, 'avatars');
 if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
 
-app.use('/uploads/avatars', express.static(avatarsDir, { etag: false, lastModified: false, setHeaders: (res) => res.setHeader('Cache-Control', 'no-store') }));
+// Serve avatars dynamically to bypass all caching layers
+app.get('/uploads/avatars/:file', (req, res) => {
+  const filepath = path.join(avatarsDir, path.basename(req.params.file));
+  if (!fs.existsSync(filepath)) return res.status(404).end();
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.send(fs.readFileSync(filepath));
+});
 const bannersDir = path.join(dataDir, 'banners');
 if (!fs.existsSync(bannersDir)) fs.mkdirSync(bannersDir, { recursive: true });
-app.use('/uploads/banners', express.static(bannersDir, { etag: false, lastModified: false, setHeaders: (res) => res.setHeader('Cache-Control', 'no-store') }));
+// Serve banners dynamically to bypass all caching layers
+app.get('/uploads/banners/:file', (req, res) => {
+  const filepath = path.join(bannersDir, path.basename(req.params.file));
+  if (!fs.existsSync(filepath)) return res.status(404).end();
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.send(fs.readFileSync(filepath));
+});
 // Force no-cache on HTML/CSS/JS so deployments are instant
 app.use((req, res, next) => {
   const url = req.url.split('?')[0];
