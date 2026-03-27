@@ -308,7 +308,7 @@ app.get('/api/stats/public', async (req, res) => {
     const docs = await findMany('documents.json');
     res.json({
       totalWords: users.reduce((sum, u) => sum + (u.totalWords || 0), 0),
-      totalHours: Math.round(docs.reduce((sum, d) => sum + (d.duration || 0), 0) / 3600),
+      totalHours: Math.round(docs.reduce((sum, d) => sum + (Number(d.duration) || 0), 0) / 3600),
       totalWriters: users.filter(u => u.role !== 'admin').length,
       activeNow: activeUsers.size
     });
