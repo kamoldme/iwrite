@@ -12649,14 +12649,13 @@ html {
 .up-stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 .up-stat-emoji { font-size: 20px; margin-bottom: 4px; }
 
-/* Heatmap */
+/* Profile Heatmap (scoped under .streak-heatmap to avoid dashboard conflicts) */
 .streak-heatmap { margin-top: 16px; }
-.heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; max-width: 220px; }
-.heatmap-cell { width: 100%; aspect-ratio: 1; border-radius: 3px; background: var(--hover-bg); }
-.heatmap-cell.level-1 { background: rgba(74, 222, 128, 0.3); }
-.heatmap-cell.level-2 { background: #4ade80; }
-.heatmap-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 11px; color: var(--text-muted); }
-.heatmap-legend .heatmap-cell { width: 14px; height: 14px; flex-shrink: 0; }
+.streak-heatmap .heatmap-cell { width: 12px; height: 12px; border-radius: 2px; background: var(--hover-bg); flex-shrink: 0; }
+.streak-heatmap .heatmap-cell.level-1 { background: rgba(74, 222, 128, 0.3); }
+.streak-heatmap .heatmap-cell.level-2 { background: #4ade80; }
+.streak-heatmap .heatmap-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+.streak-heatmap .heatmap-legend .heatmap-cell { width: 10px; height: 10px; }
 
 /* About tab */
 .up-about-bio { font-size: 15px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px; }

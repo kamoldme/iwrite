@@ -2839,15 +2839,47 @@ const App = {
         container.innerHTML = '<div class="up-empty" style="padding:12px">No writing sessions in the last 60 days.</div>';
         return;
       }
-      const maxCount = Math.max(...activity.map(d => d.sessionCount), 1);
-      const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-      // Build grid: 7 columns (Mon-Sun), ~5 rows
-      let html = '<div class="streak-heatmap"><div class="heatmap-grid">';
-      activity.forEach((d, i) => {
-        const date = new Date(d.date);
-        const level = d.sessionCount === 0 ? 0 : d.sessionCount === 1 ? 1 : 2;
-        const title = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${d.sessionCount} session${d.sessionCount !== 1 ? 's' : ''}`;
-        html += `<div class="heatmap-cell level-${level}" title="${title}"></div>`;
+      // Build day map
+      const dayMap = {};
+      activity.forEach(d => { dayMap[d.date] = d.sessionCount; });
+
+      // Build GitHub-style grid: weeks as columns, days as rows
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 59);
+      // Align to Monday
+      const startDay = startDate.getDay();
+      const mondayOffset = startDay === 0 ? -6 : 1 - startDay;
+      startDate.setDate(startDate.getDate() + mondayOffset);
+
+      const weeks = [];
+      const d = new Date(startDate);
+      while (d <= today) {
+        const week = [];
+        for (let dow = 0; dow < 7; dow++) {
+          const key = d.toISOString().slice(0, 10);
+          const count = dayMap[key] || 0;
+          const isFuture = d > today;
+          week.push({ key, count, level: count === 0 ? 0 : count === 1 ? 1 : 2, hide: isFuture });
+          d.setDate(d.getDate() + 1);
+        }
+        weeks.push(week);
+      }
+
+      let html = '<div class="streak-heatmap"><div class="heatmap-grid" style="display:flex;gap:3px">';
+      weeks.forEach(week => {
+        html += '<div style="display:flex;flex-direction:column;gap:3px">';
+        week.forEach(cell => {
+          if (cell.hide) {
+            html += '<div class="heatmap-cell" style="visibility:hidden"></div>';
+          } else {
+            const dt = new Date(cell.key);
+            const title = `${dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${cell.count} session${cell.count !== 1 ? 's' : ''}`;
+            html += `<div class="heatmap-cell level-${cell.level}" title="${title}"></div>`;
+          }
+        });
+        html += '</div>';
       });
       html += '</div>';
       html += '<div class="heatmap-legend"><span>Less</span><div class="heatmap-cell level-0"></div><div class="heatmap-cell level-1"></div><div class="heatmap-cell level-2"></div><span>More</span></div>';
