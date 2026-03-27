@@ -2401,7 +2401,8 @@ const App = {
     if (bannerPreview) {
       const bannerPlaceholder = document.getElementById('profile-banner-placeholder');
       if (this.user.banner) {
-        bannerPreview.style.backgroundImage = `url(${this.user.banner}?t=${this.user.bannerUpdatedAt || 0})`;
+        const bannerUrl = `url(${this.user.banner}?t=${this.user.bannerUpdatedAt || 0})`;
+        if (bannerPreview.style.backgroundImage !== bannerUrl) bannerPreview.style.backgroundImage = bannerUrl;
         if (removeBannerBtn) removeBannerBtn.style.display = 'inline-flex';
         if (bannerPlaceholder) bannerPlaceholder.style.display = 'none';
       } else {
@@ -2612,21 +2613,28 @@ const App = {
     try {
       const p = await API.request(`/profiles/${encodeURIComponent(this.user.username)}`);
 
-      // Banner
+      // Banner (skip re-render if src unchanged)
       const bannerEl = document.getElementById('mp-banner');
       if (p.banner) {
-        bannerEl.style.backgroundImage = `url(${p.banner}?t=${p.bannerUpdatedAt || 0})`;
-        bannerEl.innerHTML = '';
+        const bannerUrl = `url(${p.banner}?t=${p.bannerUpdatedAt || 0})`;
+        if (bannerEl.style.backgroundImage !== bannerUrl) {
+          bannerEl.style.backgroundImage = bannerUrl;
+          bannerEl.innerHTML = '';
+        }
       } else {
         bannerEl.style.backgroundImage = '';
         bannerEl.innerHTML = '<span class="up-banner-placeholder">No banner yet</span>';
       }
       bannerEl.className = 'up-banner';
 
-      // Avatar
+      // Avatar (skip re-render if src unchanged)
       const avatarEl = document.getElementById('mp-avatar');
       if (p.avatar) {
-        avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${esc(p.avatar)}?t=${p.avatarUpdatedAt || 0}" alt="${esc(p.name)}'s photo"></div>`;
+        const avatarSrc = `${esc(p.avatar)}?t=${p.avatarUpdatedAt || 0}`;
+        const existingImg = avatarEl.querySelector('img');
+        if (!existingImg || !existingImg.src.endsWith(avatarSrc)) {
+          avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${avatarSrc}" alt="${esc(p.name)}'s photo"></div>`;
+        }
       } else {
         avatarEl.innerHTML = `<div class="up-avatar-circle"><span>${esc(initialsFor(p.name))}</span></div>`;
       }
@@ -2715,21 +2723,28 @@ const App = {
     const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const initialsFor = n => (n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
 
-    // Banner
+    // Banner (skip re-render if src unchanged)
     const bannerEl = document.getElementById('up-banner');
     bannerEl.className = 'up-banner';
     if (p.banner) {
-      bannerEl.style.backgroundImage = `url(${p.banner}?t=${p.bannerUpdatedAt || 0})`;
-      bannerEl.innerHTML = '';
+      const bannerUrl = `url(${p.banner}?t=${p.bannerUpdatedAt || 0})`;
+      if (bannerEl.style.backgroundImage !== bannerUrl) {
+        bannerEl.style.backgroundImage = bannerUrl;
+        bannerEl.innerHTML = '';
+      }
     } else {
       bannerEl.style.backgroundImage = '';
       bannerEl.innerHTML = '<span class="up-banner-placeholder">No banner yet</span>';
     }
 
-    // Avatar
+    // Avatar (skip re-render if src unchanged)
     const avatarEl = document.getElementById('up-avatar');
     if (p.avatar) {
-      avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${esc(p.avatar)}?t=${p.avatarUpdatedAt || 0}" alt="${esc(p.name)}'s photo"></div>`;
+      const avatarSrc = `${esc(p.avatar)}?t=${p.avatarUpdatedAt || 0}`;
+      const existingImg = avatarEl.querySelector('img');
+      if (!existingImg || !existingImg.src.endsWith(avatarSrc)) {
+        avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${avatarSrc}" alt="${esc(p.name)}'s photo"></div>`;
+      }
     } else {
       avatarEl.innerHTML = `<div class="up-avatar-circle"><span>${esc(initialsFor(p.name))}</span></div>`;
     }
