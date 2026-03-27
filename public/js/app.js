@@ -2526,16 +2526,6 @@ const App = {
       });
     }
 
-    const achievements = this.getAchievements();
-    const container = document.getElementById('achievements-list');
-    container.innerHTML = achievements.map(a => `
-      <div class="achievement-card ${a.earned ? 'earned' : ''}">
-        <div class="achievement-icon">${a.icon}</div>
-        <h3>${a.name}</h3>
-        <p>${a.description}</p>
-      </div>
-    `).join('');
-
     // Referral section
     this._loadReferral();
   },
