@@ -21,7 +21,8 @@ const TABLE_MAP = {
   'story-comments.json': 'story_comments',
   'story-likes.json': 'story_likes',
   'story-comment-likes.json': 'story_comment_likes',
-  'notifications.json': 'notifications'
+  'notifications.json': 'notifications',
+  'app-settings.json': 'app_settings'
 };
 
 function getTable(filename) {
