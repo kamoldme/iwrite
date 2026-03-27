@@ -12643,6 +12643,19 @@ html {
   border-bottom: 1px solid var(--border); flex-wrap: wrap;
 }
 .up-stats strong { color: var(--text-primary); margin-right: 2px; }
+.up-stat-link { cursor: pointer; border-radius: 6px; padding: 2px 6px; margin: -2px -6px; transition: background 0.15s; }
+.up-stat-link:hover { background: var(--hover-bg); }
+
+.follow-list-item { display: flex; align-items: center; gap: 12px; padding: 10px 20px; transition: background 0.15s; }
+.follow-list-item:hover { background: var(--hover-bg); }
+.follow-list-item .fl-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.follow-list-item .fl-avatar-fallback { display: flex; width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #fff; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.follow-list-item .fl-info { flex: 1; min-width: 0; }
+.follow-list-item .fl-name { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+.follow-list-item .fl-username { font-size: 12px; color: var(--text-muted); }
+.follow-list-item .fl-username a { color: var(--text-muted); text-decoration: none; }
+.follow-list-item .fl-username a:hover { color: var(--accent); }
+.follow-list-empty { padding: 32px 20px; text-align: center; color: var(--text-muted); font-size: 14px; }
 
 .up-tabs {
   display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 24px;

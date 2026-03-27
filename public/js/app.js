@@ -246,6 +246,7 @@ const App = {
     this._applyProLocks();
     this._startMaintenancePolling();
     this._initHoverCards();
+    this._initFollowListModal();
     this._checkInviteParam();
     this._updatePaymentFailedBanner();
   },
@@ -2644,8 +2645,8 @@ const App = {
 
       // Stats
       document.getElementById('mp-stats').innerHTML = `
-        <span><strong>${p.followerCount}</strong> followers</span>
-        <span><strong>${p.followingCount}</strong> following</span>
+        <span class="up-stat-link" data-userid="${this.escapeHtml(p.id)}" data-type="followers"><strong>${p.followerCount}</strong> followers</span>
+        <span class="up-stat-link" data-userid="${this.escapeHtml(p.id)}" data-type="following"><strong>${p.followingCount}</strong> following</span>
         <span><strong>${p.storyCount}</strong> stories</span>
         <span>Joined ${new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
       `;
@@ -2767,8 +2768,8 @@ const App = {
 
     // Stats
     document.getElementById('up-stats').innerHTML = `
-      <span><strong>${p.followerCount}</strong> followers</span>
-      <span><strong>${p.followingCount}</strong> following</span>
+      <span class="up-stat-link" data-userid="${esc(p.id)}" data-type="followers"><strong>${p.followerCount}</strong> followers</span>
+      <span class="up-stat-link" data-userid="${esc(p.id)}" data-type="following"><strong>${p.followingCount}</strong> following</span>
       <span><strong>${p.storyCount}</strong> stories</span>
       <span>Joined ${new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
     `;
@@ -2994,6 +2995,59 @@ const App = {
       this.toast(err.message || 'Failed', 'error');
     }
     btn.disabled = false;
+  },
+
+  // ===== FOLLOWERS/FOLLOWING MODAL =====
+  async _openFollowList(userId, type) {
+    const overlay = document.getElementById('follow-list-overlay');
+    const title = document.getElementById('follow-list-title');
+    const body = document.getElementById('follow-list-body');
+    title.textContent = type === 'followers' ? 'Followers' : 'Following';
+    body.innerHTML = '<div class="follow-list-empty">Loading...</div>';
+    overlay.style.display = 'flex';
+
+    try {
+      const data = await API.request(`/follow/${encodeURIComponent(userId)}/${type}?limit=50`);
+      const list = data.users || data;
+      if (!list.length) {
+        body.innerHTML = `<div class="follow-list-empty">No ${type} yet.</div>`;
+        return;
+      }
+      const esc = s => this.escapeHtml(s);
+      body.innerHTML = list.map(u => {
+        const avatar = u.avatar
+          ? `<img src="${esc(u.avatar)}${u.avatarUpdatedAt ? '?t=' + u.avatarUpdatedAt : ''}" class="fl-avatar" alt="">`
+          : `<span class="fl-avatar-fallback">${esc((u.name || '?').charAt(0).toUpperCase())}</span>`;
+        const uname = u.username ? `<div class="fl-username"><a href="#user-profile/${esc(u.username)}" class="username-link" data-username="${esc(u.username)}">@${esc(u.username)}</a></div>` : '';
+        const pro = u.plan === 'premium' ? ' <span class="pro-inline-badge" style="font-size:9px;padding:1px 4px">PRO</span>' : '';
+        return `<div class="follow-list-item">${avatar}<div class="fl-info"><div class="fl-name">${esc(u.name)}${pro}</div>${uname}</div></div>`;
+      }).join('');
+    } catch (err) {
+      body.innerHTML = `<div class="follow-list-empty">Failed to load.</div>`;
+    }
+  },
+
+  _initFollowListModal() {
+    const overlay = document.getElementById('follow-list-overlay');
+    const close = document.getElementById('follow-list-close');
+    if (!overlay || !close) return;
+    close.addEventListener('click', () => overlay.style.display = 'none');
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
+
+    // Delegated click on .up-stat-link
+    document.addEventListener('click', (e) => {
+      const stat = e.target.closest('.up-stat-link');
+      if (!stat) return;
+      const userId = stat.dataset.userid;
+      const type = stat.dataset.type;
+      if (userId && type) this._openFollowList(userId, type);
+    });
+
+    // Close modal and navigate when a username link inside the modal is clicked
+    document.getElementById('follow-list-body').addEventListener('click', (e) => {
+      const link = e.target.closest('.username-link');
+      if (link) overlay.style.display = 'none';
+    });
   },
 
   // ===== HOVER CARD =====
