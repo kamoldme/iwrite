@@ -8332,9 +8332,26 @@ body.editor-active .mobile-sidebar-toggle {
 }
 
 /* ── Pro Celebration Overlay ── */
-.pro-celebration-badge {
-  font-size: 24px !important;
-  letter-spacing: 2px;
+.pro-celebration-text {
+  font-family: var(--font-display);
+  font-size: 80px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  background: linear-gradient(135deg, #f59e0b, #d97706, #f59e0b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 auto 20px;
+  position: relative;
+  z-index: 1;
+  animation: levelup-badge-spin 0.8s ease-out;
+  filter: drop-shadow(0 0 30px rgba(245, 158, 11, 0.5));
+}
+.pro-glow {
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.4) 0%, transparent 70%) !important;
+}
+.pro-title {
+  text-shadow: 0 0 30px rgba(245, 158, 11, 0.5) !important;
 }
 
 /* ── Sepia: duration tabs + banner ── */

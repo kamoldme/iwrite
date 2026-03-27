@@ -874,6 +874,7 @@ const App = {
       }
     }
     if (proProfileDiv) proProfileDiv.style.display = isPremium ? '' : 'none';
+    if (upgradeDivTop) upgradeDivTop.style.display = isPremium ? 'none' : '';
 
     if (this.user.streak > 0) {
       document.getElementById('streak-badge').style.display = 'flex';
@@ -3279,11 +3280,11 @@ const App = {
     overlay.className = 'levelup-overlay pro-celebration-overlay';
     overlay.innerHTML = `
       <div class="levelup-modal">
-        <div class="levelup-glow"></div>
-        <div class="levelup-badge pro-celebration-badge">&#x2B50; PRO</div>
-        <h2 class="levelup-title">Welcome to Pro!</h2>
+        <div class="levelup-glow pro-glow"></div>
+        <div class="pro-celebration-text">PRO</div>
+        <h2 class="levelup-title pro-title">Welcome to Pro!</h2>
         <p class="levelup-sub">You just unlocked the full writing experience.</p>
-        <button class="btn btn-primary levelup-btn">Start Writing</button>
+        <button class="btn btn-primary levelup-btn" style="margin-top:30px">Start Writing</button>
       </div>
     `;
     document.body.appendChild(overlay);
