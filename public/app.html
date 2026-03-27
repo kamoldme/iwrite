@@ -48,7 +48,7 @@
         <div class="sidebar-header">
           <div style="display:flex;flex-direction:column">
             <a href="/" class="logo">iWrite4.me</a>
-            <span class="version-tag">v2.5.33</span>
+            <span class="version-tag">v2.5.34</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="streak-indicator" id="streak-badge" style="display:none;cursor:pointer" onclick="App.openStreakPopup()">
@@ -1128,7 +1128,7 @@
       <div class="modal" style="max-width:400px;padding:0">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)">
           <h3 id="follow-list-title" style="font-family:var(--font-display);font-size:16px;font-weight:700;margin:0">Followers</h3>
-          <button class="modal-close" id="follow-list-close">&times;</button>
+          <button id="follow-list-close" style="background:none;border:none;font-size:22px;color:var(--text-muted);cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.15s" onmouseover="this.style.color='var(--text-primary)';this.style.background='var(--hover-bg)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='none'">&times;</button>
         </div>
         <div id="follow-list-body" style="max-height:400px;overflow-y:auto;padding:8px 0"></div>
       </div>
@@ -1254,7 +1254,7 @@
   <script src="/js/tree.js?v=18"></script>
   <script src="/js/monsters.js?v=18"></script>
   <script src="/js/editor.js?v=18"></script>
-  <script src="/js/app.js?v=27"></script>
-  <script src="/js/stories.js?v=4"></script>
+  <script src="/js/app.js?v=28"></script>
+  <script src="/js/stories.js?v=5"></script>
 </body>
 </html>

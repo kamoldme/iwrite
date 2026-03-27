@@ -532,6 +532,11 @@ app.get('/api/users/lookup/:username', async (req, res) => {
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
 
+// Clean profile URL: /profile/:username → serve app.html (SPA handles routing)
+app.get('/profile/:username', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'app.html'));
+});
+
 // Public profile route: /u/:username → OG tags for bots, redirect for browsers
 app.get('/u/:username', async (req, res) => {
   const ua = (req.headers['user-agent'] || '').toLowerCase();
@@ -539,7 +544,7 @@ app.get('/u/:username', async (req, res) => {
   const username = req.params.username;
 
   if (!isBot) {
-    return res.redirect(302, `/app#user-profile/${encodeURIComponent(username)}`);
+    return res.redirect(302, `/profile/${encodeURIComponent(username)}`);
   }
 
   const { findOne } = require('./utils/storage');
@@ -567,7 +572,7 @@ app.get('/u/:username', async (req, res) => {
     <meta name="twitter:title" content="${name} — iWrite4.me">
     <meta name="twitter:description" content="${desc}">
     <meta name="twitter:image" content="${ogImage}">
-    <meta http-equiv="refresh" content="0;url=/app#user-profile/${encodeURIComponent(username)}">
+    <meta http-equiv="refresh" content="0;url=/profile/${encodeURIComponent(username)}">
   </head><body></body></html>`);
 });
 

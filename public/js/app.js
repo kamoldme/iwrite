@@ -66,17 +66,22 @@ const App = {
     }
 
     const token = API.getToken();
+
+    // Detect /profile/:username path
+    const pathMatch = location.pathname.match(/^\/profile\/([^/]+)/);
+    const profileUsername = pathMatch ? decodeURIComponent(pathMatch[1]) : null;
+
     if (!token) {
       // Allow public profile viewing without login
       const hash = location.hash.replace('#', '');
       const [hashBase, hashParam] = hash.split('/', 2);
-      if (hashBase === 'user-profile' && hashParam) {
+      const pubUsername = profileUsername || (hashBase === 'user-profile' && hashParam ? decodeURIComponent(hashParam) : null);
+      if (pubUsername) {
         document.getElementById('auth-view').style.display = 'none';
         document.getElementById('app-view').style.display = 'block';
         document.querySelectorAll('.sidebar').forEach(s => s.style.display = 'none');
         document.querySelector('.main-content').style.marginLeft = '0';
-        this.switchView('user-profile');
-        this.loadUserProfile(decodeURIComponent(hashParam));
+        this.switchView('user-profile', { username: pubUsername });
         return;
       }
       this.showAuth();
@@ -219,23 +224,28 @@ const App = {
     // Try to resume session in background (non-blocking)
     Editor.resumeSession().then(sessionResumed => {
       if (!sessionResumed) {
-        const hashView = location.hash.replace('#', '');
-        const [hashBase, hashParam] = hashView.split('/', 2);
-        if (hashBase === 'user-profile' && hashParam) {
-          this.switchView('user-profile');
-          this.loadUserProfile(decodeURIComponent(hashParam));
+        if (profileUsername) {
+          this.switchView('user-profile', { username: profileUsername });
         } else {
-          const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
-          if (!this._openPendingStory()) this.switchView(savedView);
+          const hashView = location.hash.replace('#', '');
+          const [hashBase, hashParam] = hashView.split('/', 2);
+          if (hashBase === 'user-profile' && hashParam) {
+            this.switchView('user-profile', { username: decodeURIComponent(hashParam) });
+          } else {
+            const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
+            if (!this._openPendingStory()) this.switchView(savedView);
+          }
         }
       }
     }).catch(() => {
-      const hashView = location.hash.replace('#', '');
-      const [hashBase, hashParam] = hashView.split('/', 2);
-      if (hashBase === 'user-profile' && hashParam) {
-        this.switchView('user-profile');
-        this.loadUserProfile(decodeURIComponent(hashParam));
+      if (profileUsername) {
+        this.switchView('user-profile', { username: profileUsername });
       } else {
+        const hashView = location.hash.replace('#', '');
+        const [hashBase, hashParam] = hashView.split('/', 2);
+        if (hashBase === 'user-profile' && hashParam) {
+          this.switchView('user-profile', { username: decodeURIComponent(hashParam) });
+        } else {
         const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
         if (!this._openPendingStory()) this.switchView(savedView);
       }
@@ -369,19 +379,33 @@ const App = {
 
     document.getElementById('logout-btn').addEventListener('click', () => API.logout());
 
-    // Hash-based navigation (anchor clicks, back/forward)
-    const handleHash = () => {
+    // Navigation (hash changes, back/forward, clean /profile/ URLs)
+    const handleNav = () => {
+      // Check /profile/:username path first
+      const pathMatch = location.pathname.match(/^\/profile\/([^/]+)/);
+      if (pathMatch) {
+        this.switchView('user-profile', { fromHash: true, username: decodeURIComponent(pathMatch[1]) });
+        return;
+      }
       const hash = location.hash.replace('#', '');
       const [hashBase, hashParam] = hash.split('/', 2);
       if (hashBase === 'user-profile' && hashParam) {
-        this.switchView('user-profile', { fromHash: true });
-        this.loadUserProfile(decodeURIComponent(hashParam));
+        this.switchView('user-profile', { fromHash: true, username: decodeURIComponent(hashParam) });
       } else if (hash && hash !== this.currentView && document.getElementById(`view-${hash}`)) {
         this.switchView(hash, { fromHash: true });
       }
     };
-    window.addEventListener('popstate', handleHash);
-    window.addEventListener('hashchange', handleHash);
+    window.addEventListener('popstate', handleNav);
+    window.addEventListener('hashchange', handleNav);
+
+    // Intercept /profile/ link clicks for SPA navigation
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('a[href^="/profile/"]');
+      if (!a) return;
+      e.preventDefault();
+      const match = a.getAttribute('href').match(/^\/profile\/([^/]+)/);
+      if (match) this.switchView('user-profile', { username: decodeURIComponent(match[1]) });
+    });
 
     // Pricing modal
     document.getElementById('user-info-btn').addEventListener('click', () => this.switchView('settings'));
@@ -775,11 +799,21 @@ const App = {
     // Don't persist user-profile or my-profile as default view (they require data loading)
     if (view !== 'user-profile') localStorage.setItem('iwrite_view', view);
 
-    // Update hash in URL for browser back/forward navigation
-    const hashValue = (view === 'user-profile' && username) ? `user-profile/${username}` : view;
-    const currentHash = location.hash.replace('#', '');
-    if (!fromHash && currentHash !== hashValue) {
-      history.pushState(null, '', '#' + hashValue);
+    // Update URL for browser back/forward navigation
+    if (!fromHash) {
+      if (view === 'user-profile' && username) {
+        const cleanUrl = `/profile/${encodeURIComponent(username)}`;
+        if (location.pathname !== cleanUrl) history.pushState(null, '', cleanUrl);
+      } else {
+        const hashValue = view;
+        const currentHash = location.hash.replace('#', '');
+        // If we're on a /profile/ path, go back to /app with hash
+        if (location.pathname.startsWith('/profile/')) {
+          history.pushState(null, '', `/app#${hashValue}`);
+        } else if (currentHash !== hashValue) {
+          history.pushState(null, '', '#' + hashValue);
+        }
+      }
     }
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     document.getElementById(`view-${view}`).style.display = 'block';
@@ -1752,7 +1786,7 @@ const App = {
           ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
           <div class="podium-avatar">${avatarContent}</div>
           <div class="podium-name">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span> ' : ''}${this.escapeHtml(entry.name)}</div>
-          ${entry.username ? `<div class="podium-username"><a href="#user-profile/${this.escapeHtml(entry.username)}" class="username-link" data-username="${this.escapeHtml(entry.username)}">@${this.escapeHtml(entry.username)}</a></div>` : ''}
+          ${entry.username ? `<div class="podium-username"><a href="/profile/${this.escapeHtml(entry.username)}" class="username-link" data-username="${this.escapeHtml(entry.username)}">@${this.escapeHtml(entry.username)}</a></div>` : ''}
           <div class="podium-words">${statLine}</div>
           <div class="podium-pedestal" style="height:${heights[i]}">
             <span class="podium-medal">${medals[i]}</span>
@@ -1768,7 +1802,7 @@ const App = {
       const timeStr = this._formatWritingTime(entry.minutesWritten);
 
       const nameCell = entry.username
-        ? `<a href="#user-profile/${this.escapeHtml(entry.username)}" class="lb-name-link username-link" data-username="${this.escapeHtml(entry.username)}">${this.escapeHtml(entry.name)} <span class="lb-username">@${this.escapeHtml(entry.username)}</span></a>`
+        ? `<a href="/profile/${this.escapeHtml(entry.username)}" class="lb-name-link username-link" data-username="${this.escapeHtml(entry.username)}">${this.escapeHtml(entry.name)} <span class="lb-username">@${this.escapeHtml(entry.username)}</span></a>`
         : this.escapeHtml(entry.name);
       const youBadge = isMe ? ' <span class="lb-you">YOU</span>' : '';
 
@@ -3008,7 +3042,7 @@ const App = {
 
     try {
       const data = await API.request(`/follow/${encodeURIComponent(userId)}/${type}?limit=50`);
-      const list = data.users || data;
+      const list = data[type] || data.users || [];
       if (!list.length) {
         body.innerHTML = `<div class="follow-list-empty">No ${type} yet.</div>`;
         return;
@@ -3018,7 +3052,7 @@ const App = {
         const avatar = u.avatar
           ? `<img src="${esc(u.avatar)}${u.avatarUpdatedAt ? '?t=' + u.avatarUpdatedAt : ''}" class="fl-avatar" alt="">`
           : `<span class="fl-avatar-fallback">${esc((u.name || '?').charAt(0).toUpperCase())}</span>`;
-        const uname = u.username ? `<div class="fl-username"><a href="#user-profile/${esc(u.username)}" class="username-link" data-username="${esc(u.username)}">@${esc(u.username)}</a></div>` : '';
+        const uname = u.username ? `<div class="fl-username"><a href="/profile/${esc(u.username)}" class="username-link" data-username="${esc(u.username)}">@${esc(u.username)}</a></div>` : '';
         const pro = u.plan === 'premium' ? ' <span class="pro-inline-badge" style="font-size:9px;padding:1px 4px">PRO</span>' : '';
         return `<div class="follow-list-item">${avatar}<div class="fl-info"><div class="fl-name">${esc(u.name)}${pro}</div>${uname}</div></div>`;
       }).join('');
@@ -3603,7 +3637,7 @@ const App = {
       const cards = friends.map(f => {
         const fl = this.calcXPLevel(f.xp || 0);
         const fPro = f.plan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
-        const fHandle = f.username ? ` <a href="#user-profile/${this.escapeHtml(f.username)}" class="friend-handle username-link" data-username="${this.escapeHtml(f.username)}">@${this.escapeHtml(f.username)}</a>` : '';
+        const fHandle = f.username ? ` <a href="/profile/${this.escapeHtml(f.username)}" class="friend-handle username-link" data-username="${this.escapeHtml(f.username)}">@${this.escapeHtml(f.username)}</a>` : '';
         return `
         <div class="doc-card friend-card">
           <div class="doc-card-info">
