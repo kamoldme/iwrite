@@ -2671,7 +2671,6 @@ const App = {
     document.getElementById('up-stats').textContent = '';
     document.getElementById('up-actions').innerHTML = '';
     document.getElementById('up-posts').innerHTML = '<div class="up-skeleton-cards"><div class="up-skeleton-card"></div><div class="up-skeleton-card"></div></div>';
-    document.getElementById('up-activity').innerHTML = '';
     document.getElementById('up-about').innerHTML = '';
 
     try {
@@ -2837,7 +2836,7 @@ const App = {
     try {
       const activity = await API.request(`/profiles/${encodeURIComponent(username)}/activity`);
       if (!activity || activity.every(d => d.sessionCount === 0)) {
-        container.innerHTML = '<div class="up-empty" style="padding:12px">No writing sessions in the last 30 days.</div>';
+        container.innerHTML = '<div class="up-empty" style="padding:12px">No writing sessions in the last 60 days.</div>';
         return;
       }
       const maxCount = Math.max(...activity.map(d => d.sessionCount), 1);

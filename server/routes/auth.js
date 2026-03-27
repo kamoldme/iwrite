@@ -494,20 +494,23 @@ router.post('/banner', authenticate, upload.single('banner'), async (req, res) =
     const bannersDir = path.join(__dirname, '../data/banners');
     if (!fs.existsSync(bannersDir)) fs.mkdirSync(bannersDir, { recursive: true });
 
-    // Delete old banner file first to avoid stale cache from filesystem
-    const oldPath = path.join(bannersDir, `${req.user.id}.jpg`);
-    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    // Delete ALL old banner files for this user (handles timestamped filenames)
+    const files = fs.readdirSync(bannersDir);
+    files.filter(f => f.startsWith(req.user.id)).forEach(f => {
+      try { fs.unlinkSync(path.join(bannersDir, f)); } catch (_) {}
+    });
 
-    // Write to a temp file first, then rename (atomic on same filesystem)
-    const tmpPath = path.join(bannersDir, `${req.user.id}.tmp.jpg`);
+    // Use timestamped filename so every upload is a unique URL (defeats all caching layers)
+    const ts = Date.now();
+    const filename = `${req.user.id}-${ts}.jpg`;
+    const filepath = path.join(bannersDir, filename);
     await sharp(req.file.buffer)
       .resize(1200, 300, { fit: 'cover', position: 'center' })
       .jpeg({ quality: 75 })
-      .toFile(tmpPath);
-    fs.renameSync(tmpPath, oldPath);
+      .toFile(filepath);
 
-    const bannerUrl = `/uploads/banners/${req.user.id}.jpg`;
-    const bannerUpdatedAt = Date.now();
+    const bannerUrl = `/uploads/banners/${filename}`;
+    const bannerUpdatedAt = ts;
     const updated = await updateOne('users.json', u => u.id === req.user.id, { banner: bannerUrl, bannerUpdatedAt });
     const { password: _, ...safeUser } = updated;
     res.json(safeUser);
@@ -519,8 +522,13 @@ router.post('/banner', authenticate, upload.single('banner'), async (req, res) =
 
 router.delete('/banner', authenticate, async (req, res) => {
   try {
-    const filepath = path.join(__dirname, '../data/banners', `${req.user.id}.jpg`);
-    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    // Delete all banner files for this user (handles timestamped filenames)
+    const bannersDir = path.join(__dirname, '../data/banners');
+    if (fs.existsSync(bannersDir)) {
+      fs.readdirSync(bannersDir).filter(f => f.startsWith(req.user.id)).forEach(f => {
+        try { fs.unlinkSync(path.join(bannersDir, f)); } catch (_) {}
+      });
+    }
     const updated = await updateOne('users.json', u => u.id === req.user.id, { banner: null, bannerUpdatedAt: null });
     const { password: _, ...safeUser } = updated;
     res.json(safeUser);

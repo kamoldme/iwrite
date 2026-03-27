@@ -253,6 +253,54 @@ router.post('/users/:id/subscription', async (req, res) => {
   res.json(safeUser);
 });
 
+// Revoke Pro — cancel Stripe subscription + downgrade to free
+router.post('/users/:id/revoke-pro', async (req, res) => {
+  try {
+    const user = await findOne('users.json', u => u.id === req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.plan !== 'premium') return res.status(400).json({ error: 'User is not a Pro subscriber' });
+
+    // Cancel Stripe subscription if one exists
+    let stripeCancelled = false;
+    if (user.stripeSubscriptionId) {
+      try {
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+        stripeCancelled = true;
+      } catch (stripeErr) {
+        console.error('Stripe cancel error:', stripeErr.message);
+        // Continue with downgrade even if Stripe cancel fails (sub may already be cancelled)
+      }
+    }
+
+    // Downgrade user
+    const updated = await updateOne('users.json', u => u.id === req.params.id, {
+      plan: 'free',
+      planDuration: null,
+      planStartedAt: null,
+      planExpiresAt: null,
+      planExpired: false,
+      stripeSubscriptionId: null,
+      stripeCustomerId: user.stripeCustomerId || null // keep customer ID for records
+    });
+
+    const { password, ...safeUser } = updated;
+
+    logAction('pro_revoked', {
+      userId: req.params.id,
+      userName: user.name,
+      stripeCancelled,
+      hadStripeSubscription: !!user.stripeSubscriptionId,
+      revokedBy: req.user.id
+    }, req.user.id);
+
+    res.json({ ...safeUser, stripeCancelled });
+  } catch (err) {
+    console.error('Revoke pro error:', err);
+    res.status(500).json({ error: 'Failed to revoke Pro' });
+  }
+});
+
 router.delete('/users/:id', async (req, res) => {
   if (req.params.id === req.user.id) {
     return res.status(400).json({ error: 'Cannot delete yourself' });

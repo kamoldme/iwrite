@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.5.10</span>
+            <span class="version-tag" style="margin-top:0">v2.5.19</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -1356,7 +1356,7 @@
               <div class="user-detail-stat"><div class="label">Email</div><div class="value" style="font-size:13px;word-break:break-all">${esc(u.email)}</div></div>
               <div class="user-detail-stat"><div class="label">Username</div><div class="value" style="font-size:13px">${u.username ? '@' + esc(u.username) : '<em style="color:var(--text-muted)">None</em>'}</div></div>
               <div class="user-detail-stat"><div class="label">Role</div><div class="value"><span class="badge badge-${u.role}">${u.role}</span></div></div>
-              <div class="user-detail-stat"><div class="label">Plan</div><div class="value"><span class="badge badge-${u.plan}">${u.plan === 'premium' ? 'Pro' : 'Free'}</span>${u.plan === 'premium' && u.planExpiresAt ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${u.planExpiresAt === 'infinite' ? '∞ Lifetime' : 'Expires ' + new Date(u.planExpiresAt).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</div>` : ''}</div></div>
+              <div class="user-detail-stat"><div class="label">Plan</div><div class="value"><span class="badge badge-${u.plan}">${u.plan === 'premium' ? 'Pro' : 'Free'}</span>${u.plan === 'premium' && u.planExpiresAt ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${u.planExpiresAt === 'infinite' ? '∞ Lifetime' : 'Expires ' + new Date(u.planExpiresAt).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</div>` : ''}${u.plan === 'premium' ? `<button class="admin-btn" style="margin-top:6px;background:var(--danger);color:#fff;font-size:11px;padding:4px 10px" onclick="revokePro('${u.id}','${esc(u.name)}')">Revoke Pro</button>` : ''}</div></div>
               <div class="user-detail-stat"><div class="label">Joined</div><div class="value" style="font-size:13px">${new Date(u.createdAt).toLocaleDateString()}</div></div>
             </div>
           </div>
@@ -1576,6 +1576,18 @@
         loadUsers();
         loadOverview();
       } catch (err) { toast(err.message || 'Failed', 'error'); }
+    }
+
+    async function revokePro(userId, userName) {
+      const ok = await adminConfirm(`Revoke Pro from ${userName}? This will cancel their Stripe subscription and downgrade them to Free.`);
+      if (!ok) return;
+      try {
+        const result = await adminRequest(`/admin/users/${userId}/revoke-pro`, { method: 'POST' });
+        const msg = result.stripeCancelled ? 'Pro revoked & Stripe cancelled' : 'Pro revoked (no active Stripe subscription)';
+        toast(msg, 'success');
+        viewUser(userId); // refresh detail panel
+        loadUsers();
+      } catch (err) { toast(err.message || 'Failed to revoke Pro', 'error'); }
     }
 
     // ===== DOCUMENTS (merged with lost files) =====

@@ -83,7 +83,7 @@ router.get('/:username', async (req, res) => {
   }
 });
 
-// GET /api/profiles/:username/activity — writing history for heatmap (last 30 days)
+// GET /api/profiles/:username/activity — writing history for heatmap (last 60 days)
 router.get('/:username/activity', async (req, res) => {
   try {
     const user = await findOne('users.json', u => u.username && u.username.toLowerCase() === req.params.username.toLowerCase());
@@ -91,21 +91,21 @@ router.get('/:username/activity', async (req, res) => {
 
     const docs = await findMany('documents.json', d => d.userId === user.id);
     const now = new Date();
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixtyDaysAgo = new Date(now);
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
     // Count sessions per day
     const dayCounts = {};
     for (const doc of docs) {
       const created = new Date(doc.createdAt);
-      if (created < thirtyDaysAgo) continue;
+      if (created < sixtyDaysAgo) continue;
       const dayKey = created.toISOString().slice(0, 10); // YYYY-MM-DD
       dayCounts[dayKey] = (dayCounts[dayKey] || 0) + 1;
     }
 
-    // Build array for last 30 days
+    // Build array for last 60 days
     const activity = [];
-    for (let i = 29; i >= 0; i--) {
+    for (let i = 59; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const key = d.toISOString().slice(0, 10);
