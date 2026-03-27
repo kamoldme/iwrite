@@ -2363,10 +2363,10 @@ const App = {
   },
 
   loadProfile() {
-    const nameEl = document.getElementById('profile-name');
-    const emailEl = document.getElementById('profile-email');
-    if (nameEl) nameEl.value = this.user.name;
-    if (emailEl) emailEl.value = this.user.email;
+    const profNameEl = document.getElementById('profile-name');
+    const profEmailEl = document.getElementById('profile-email');
+    if (profNameEl) profNameEl.value = this.user.name;
+    if (profEmailEl) profEmailEl.value = this.user.email;
     const usernameEl = document.getElementById('profile-username');
     if (usernameEl) usernameEl.value = this.user.username || '';
     // Bio
