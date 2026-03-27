@@ -26,7 +26,7 @@ router.get('/stats', async (req, res) => {
   // Get active users count from the in-memory tracker on the main app
   const activeUsersMap = req.app.get('activeUsers');
   const activeNow = activeUsersMap ? activeUsersMap.size : 0;
-  const writingCutoff = Date.now() - 30000; // 30s window
+  const writingCutoff = Date.now() - 60000; // 60s window
   let writingNow = 0;
   if (activeUsersMap) {
     for (const [, data] of activeUsersMap) {
@@ -53,6 +53,35 @@ router.get('/stats', async (req, res) => {
     });
   }
 
+  // Daily user visits (pageviews) over last 7 days — unique users per day
+  const visitsByDay = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayEnd = dayStart + 86400000;
+    const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    // Count pageview logs for this day
+    const pageviews = logs.filter(l => {
+      if (l.action !== 'pageview') return false;
+      const t = new Date(l.timestamp).getTime();
+      return t >= dayStart && t < dayEnd;
+    }).length;
+    // Count unique users active this day (from login/session logs)
+    const uniqueUserIds = new Set();
+    logs.forEach(l => {
+      if (!l.userId) return;
+      const t = new Date(l.timestamp).getTime();
+      if (t >= dayStart && t < dayEnd) uniqueUserIds.add(l.userId);
+    });
+    visitsByDay.push({
+      day: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()],
+      label: dayLabel,
+      pageviews,
+      uniqueUsers: uniqueUserIds.size
+    });
+  }
+
   res.json({
     activeNow,
     writingNow,
@@ -66,7 +95,8 @@ router.get('/stats', async (req, res) => {
     openTickets: support.filter(t => t.status === 'open').length,
     totalLogs: logs.length,
     sessionOutcomes: { completed, failed, empty, total: docs.length },
-    weekActivity
+    weekActivity,
+    visitsByDay
   });
 });
 
@@ -717,9 +747,12 @@ router.get('/referrals', async (req, res) => {
 // All promo codes live in Stripe — we're a thin wrapper around the Stripe API
 
 router.get('/promo-codes', async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Stripe is not configured' });
+  }
   try {
     const Stripe = require('stripe');
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-12-18.acacia' });
 
     const promotionCodes = await stripe.promotionCodes.list({
       limit: 50,
@@ -750,9 +783,12 @@ router.get('/promo-codes', async (req, res) => {
 });
 
 router.post('/promo-codes', async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Stripe is not configured' });
+  }
   try {
     const Stripe = require('stripe');
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-12-18.acacia' });
 
     const { code, percentOff, duration, durationInMonths, maxRedemptions } = req.body;
 
@@ -760,16 +796,24 @@ router.post('/promo-codes', async (req, res) => {
       return res.status(400).json({ error: 'Code and percentOff are required' });
     }
 
+    const pct = parseFloat(percentOff);
+    if (isNaN(pct) || pct < 1 || pct > 100) {
+      return res.status(400).json({ error: 'percentOff must be between 1 and 100' });
+    }
+
     // Create a coupon first
     const couponConfig = {
-      percent_off: parseFloat(percentOff),
-      duration: duration || 'once'
+      percent_off: pct,
+      duration: duration || 'once',
+      name: `${code.toUpperCase()} — ${pct}% off`
     };
     if (duration === 'repeating' && durationInMonths) {
       couponConfig.duration_in_months = parseInt(durationInMonths);
     }
 
+    console.log('Creating Stripe coupon:', couponConfig);
     const coupon = await stripe.coupons.create(couponConfig);
+    console.log('Coupon created:', coupon.id);
 
     // Then create a promotion code with the specified code string
     const promoConfig = {
@@ -780,11 +824,13 @@ router.post('/promo-codes', async (req, res) => {
       promoConfig.max_redemptions = parseInt(maxRedemptions);
     }
 
+    console.log('Creating Stripe promotion code:', promoConfig);
     const promotionCode = await stripe.promotionCodes.create(promoConfig);
+    console.log('Promotion code created:', promotionCode.code);
 
     logAction('promo_code_created', {
       code: promotionCode.code,
-      percentOff,
+      percentOff: pct,
       duration
     }, req.user.id);
 
@@ -795,15 +841,19 @@ router.post('/promo-codes', async (req, res) => {
       percentOff: coupon.percent_off
     });
   } catch (err) {
-    console.error('Promo code create error:', err);
-    res.status(500).json({ error: err.message || 'Failed to create promo code' });
+    console.error('Promo code create error:', err.type, err.message, err.raw?.message);
+    const msg = err.raw?.message || err.message || 'Failed to create promo code';
+    res.status(500).json({ error: msg });
   }
 });
 
 router.post('/promo-codes/:id/deactivate', async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Stripe is not configured' });
+  }
   try {
     const Stripe = require('stripe');
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-12-18.acacia' });
 
     const promotionCode = await stripe.promotionCodes.update(req.params.id, {
       active: false

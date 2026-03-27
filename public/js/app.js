@@ -67,6 +67,18 @@ const App = {
 
     const token = API.getToken();
     if (!token) {
+      // Allow public profile viewing without login
+      const hash = location.hash.replace('#', '');
+      const [hashBase, hashParam] = hash.split('/', 2);
+      if (hashBase === 'user-profile' && hashParam) {
+        document.getElementById('auth-view').style.display = 'none';
+        document.getElementById('app-view').style.display = 'block';
+        document.querySelectorAll('.sidebar').forEach(s => s.style.display = 'none');
+        document.querySelector('.main-content').style.marginLeft = '0';
+        this.switchView('user-profile');
+        this.loadUserProfile(decodeURIComponent(hashParam));
+        return;
+      }
       this.showAuth();
       return;
     }
@@ -89,9 +101,18 @@ const App = {
         localStorage.removeItem('iwrite_stripe_session');
         this._verifyStripeSession(pendingSession);
       }
-    } catch {
-      API.clearToken();
-      this.showAuth();
+    } catch (err) {
+      // Only clear token on 401 (expired/invalid) — NOT on network errors
+      // so users stay logged in during deploys/restarts
+      if (err && err.status === 401) {
+        API.clearToken();
+        this.showAuth();
+      } else {
+        // Network error or server down — retry after 3s, keep token
+        console.warn('Server unreachable, retrying...', err);
+        setTimeout(() => this.init(), 3000);
+        return;
+      }
     }
 
     // Analytics pageview
@@ -198,18 +219,33 @@ const App = {
     // Try to resume session in background (non-blocking)
     Editor.resumeSession().then(sessionResumed => {
       if (!sessionResumed) {
-        const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
-        if (!this._openPendingStory()) this.switchView(savedView);
+        const hashView = location.hash.replace('#', '');
+        const [hashBase, hashParam] = hashView.split('/', 2);
+        if (hashBase === 'user-profile' && hashParam) {
+          this.switchView('user-profile');
+          this.loadUserProfile(decodeURIComponent(hashParam));
+        } else {
+          const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
+          if (!this._openPendingStory()) this.switchView(savedView);
+        }
       }
     }).catch(() => {
-      const savedView = localStorage.getItem('iwrite_view') || 'dashboard';
-      if (!this._openPendingStory()) this.switchView(savedView);
+      const hashView = location.hash.replace('#', '');
+      const [hashBase, hashParam] = hashView.split('/', 2);
+      if (hashBase === 'user-profile' && hashParam) {
+        this.switchView('user-profile');
+        this.loadUserProfile(decodeURIComponent(hashParam));
+      } else {
+        const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
+        if (!this._openPendingStory()) this.switchView(savedView);
+      }
     });
 
     this.bindAppEvents();
     this.startNotifPolling();
     this._applyProLocks();
     this._startMaintenancePolling();
+    this._initHoverCards();
     this._checkInviteParam();
     this._updatePaymentFailedBanner();
   },
@@ -332,8 +368,20 @@ const App = {
 
     document.getElementById('logout-btn').addEventListener('click', () => API.logout());
 
+    // Browser back/forward navigation via hash routes
+    window.addEventListener('popstate', () => {
+      const hash = location.hash.replace('#', '');
+      const [hashBase, hashParam] = hash.split('/', 2);
+      if (hashBase === 'user-profile' && hashParam) {
+        this.switchView('user-profile', { fromHash: true });
+        this.loadUserProfile(decodeURIComponent(hashParam));
+      } else if (hash && hash !== this.currentView && document.getElementById(`view-${hash}`)) {
+        this.switchView(hash, { fromHash: true });
+      }
+    });
+
     // Pricing modal
-    document.getElementById('user-info-btn').addEventListener('click', () => this.openPricing());
+    document.getElementById('user-info-btn').addEventListener('click', () => this.switchView('settings'));
     document.getElementById('pricing-close').addEventListener('click', () => this.closePricing());
     document.getElementById('pricing-overlay').addEventListener('click', (e) => {
       if (e.target === e.currentTarget) this.closePricing();
@@ -356,6 +404,8 @@ const App = {
     };
 
     mobileSidebarToggle.addEventListener('click', () => {
+      // When in story-back-mode, the stories.js handler takes over via onclick
+      if (mobileSidebarToggle.classList.contains('story-back-mode')) return;
       sidebar.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar();
     });
     mobileSidebarOverlay.addEventListener('click', closeMobileSidebar);
@@ -396,6 +446,9 @@ const App = {
       this._confirmDocName(name || 'Untitled');
     });
     document.getElementById('doc-name-skip').addEventListener('click', () => this._confirmDocName('Untitled'));
+    document.getElementById('doc-name-back').addEventListener('click', () => {
+      document.getElementById('doc-name-modal').classList.remove('active');
+    });
     document.getElementById('doc-name-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const name = document.getElementById('doc-name-input').value.trim();
@@ -713,23 +766,45 @@ const App = {
     document.getElementById('editor-comment-history-btn').addEventListener('click', () => this.openCommentHistory());
   },
 
-  switchView(view) {
+  switchView(view, opts = {}) {
+    const { fromHash, username } = typeof opts === 'string' ? { username: opts } : opts;
     this.currentView = view;
-    localStorage.setItem('iwrite_view', view);
+    // Don't persist user-profile or my-profile as default view (they require data loading)
+    if (view !== 'user-profile') localStorage.setItem('iwrite_view', view);
+
+    // Update hash in URL for browser back/forward navigation
+    const hashValue = (view === 'user-profile' && username) ? `user-profile/${username}` : view;
+    const currentHash = location.hash.replace('#', '');
+    if (!fromHash && currentHash !== hashValue) {
+      history.pushState(null, '', '#' + hashValue);
+    }
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     document.getElementById(`view-${view}`).style.display = 'block';
     document.querySelectorAll('.sidebar-nav-item[data-view]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.view === view);
     });
 
+    // Restore hamburger if leaving stories while in story-back-mode
+    if (view !== 'stories') {
+      const toggle = document.getElementById('mobile-sidebar-toggle');
+      if (toggle && toggle.classList.contains('story-back-mode')) {
+        toggle.classList.remove('story-back-mode');
+        toggle.innerHTML = '<span></span><span></span><span></span>';
+        toggle.onclick = null;
+        toggle._storyBackHandler = null;
+      }
+    }
+
     if (view === 'dashboard') this.loadDashboard();
     if (view === 'documents') this.loadDocuments();
     if (view === 'leaderboard') this.loadLeaderboard();
-    if (view === 'profile') this.loadProfile();
+    if (view === 'settings') this.loadProfile();
+    if (view === 'my-profile') this.loadMyProfile();
     if (view === 'friends') this.loadFriends();
     if (view === 'support') this.loadSupport();
     if (view === 'analytics') this.loadAnalytics();
     if (view === 'upgrade') this.loadUpgrade();
+    if (view === 'user-profile' && username) this.loadUserProfile(username);
     if (view === 'duels') {
       this.loadDuelsView();
       // Auto-refresh duels tab every 10 seconds while viewing
@@ -755,6 +830,14 @@ const App = {
       avatarEl.textContent = this.user.name.charAt(0).toUpperCase();
     }
 
+    // Update sidebar profile nav label
+    const profileNavLabel = document.getElementById('my-profile-nav-label');
+    if (profileNavLabel) {
+      const uname = this.user.username || '';
+      profileNavLabel.textContent = uname ? (uname.length > 14 ? uname.slice(0, 14) + '...' : uname) : 'Profile';
+      if (uname.length > 14) profileNavLabel.title = uname;
+    }
+
     const badge = document.getElementById('plan-badge');
     if (badge) {
       const isPro = this.user.plan === 'premium';
@@ -776,16 +859,21 @@ const App = {
       badge.className = 'plan-badge' + (isPro ? ' pro' : '');
     }
 
-    // Hide Upgrade nav + dividers for Pro users, show profile-support divider instead
+    // Update Upgrade nav label for Pro users
     const upgradeNav = document.getElementById('upgrade-nav-btn');
     const upgradeDivTop = document.getElementById('upgrade-divider-top');
     const upgradeDivBottom = document.getElementById('upgrade-divider-bottom');
     const proProfileDiv = document.getElementById('pro-profile-divider');
-    const hideUpgrade = this.user.plan === 'premium';
-    if (upgradeNav) upgradeNav.style.display = hideUpgrade ? 'none' : '';
-    if (upgradeDivTop) upgradeDivTop.style.display = hideUpgrade ? 'none' : '';
-    if (upgradeDivBottom) upgradeDivBottom.style.display = hideUpgrade ? 'none' : '';
-    if (proProfileDiv) proProfileDiv.style.display = hideUpgrade ? '' : 'none';
+    const isPremium = this.user.plan === 'premium';
+    if (upgradeNav) {
+      const label = upgradeNav.childNodes;
+      // Update text content (last text node after the SVG)
+      const textSpan = upgradeNav.querySelector('.upgrade-nav-label');
+      if (textSpan) {
+        textSpan.textContent = isPremium ? 'Manage Subscription' : 'Upgrade to Pro';
+      }
+    }
+    if (proProfileDiv) proProfileDiv.style.display = isPremium ? '' : 'none';
 
     if (this.user.streak > 0) {
       document.getElementById('streak-badge').style.display = 'flex';
@@ -1571,64 +1659,136 @@ const App = {
     } catch {}
   },
 
+  _lbData: null,
+  _lbTab: 'streaks',
+
   async loadLeaderboard() {
     const tbody = document.querySelector('#leaderboard-table tbody');
     const podium = document.getElementById('leaderboard-podium');
 
+    // Wire up tab buttons once
+    if (!this._lbTabsWired) {
+      this._lbTabsWired = true;
+      document.querySelectorAll('.lb-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          this._lbTab = btn.dataset.lbTab;
+          document.querySelectorAll('.lb-tab').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          if (this._lbData) this._renderLeaderboard(this._lbData);
+        });
+      });
+    }
+
     try {
-      const data = await API.getLeaderboard();
+      this._lbData = await API.getLeaderboard();
+      this._renderLeaderboard(this._lbData);
+    } catch {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Failed to load leaderboard</td></tr>';
+    }
+  },
 
-      // Podium for top 3
-      const top3 = data.slice(0, 3);
-      const podiumOrder = [top3[1], top3[0], top3[2]]; // silver, gold, bronze
-      const medals = ['&#x1F948;', '&#x1F947;', '&#x1F949;'];
-      const podiumLabels = ['2nd', '1st', '3rd'];
-      const heights = ['160px', '200px', '140px'];
+  _renderLeaderboard(rawData) {
+    const tbody = document.querySelector('#leaderboard-table tbody');
+    const podium = document.getElementById('leaderboard-podium');
+    const thead = document.getElementById('leaderboard-thead');
+    const isTime = this._lbTab === 'time';
 
-      podium.innerHTML = podiumOrder.map((entry, i) => {
-        if (!entry) return '<div class="podium-slot empty"></div>';
-        const isFirst = podiumLabels[i] === '1st';
-        const avatarContent = entry.avatar
-          ? `<img src="${entry.avatar}?t=${entry.avatarUpdatedAt || ''}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-          : entry.name.charAt(0).toUpperCase();
-        return `
-          <div class="podium-slot">
-            ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
-            <div class="podium-avatar">${avatarContent}</div>
-            <div class="podium-name">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span> ' : ''}${this.escapeHtml(entry.name)}</div>
-            ${entry.username ? `<div class="podium-username">@${this.escapeHtml(entry.username)}</div>` : ''}
-            <div class="podium-words">${entry.streak ? '&#x1F525; ' + entry.streak + ' day streak' : 'No streak'}</div>
-            <div class="podium-pedestal" style="height:${heights[i]}">
-              <span class="podium-medal">${medals[i]}</span>
-              <span class="podium-rank">${podiumLabels[i]}</span>
-            </div>
-          </div>`;
-      }).join('');
+    // Toggle tab class on leaderboard view for mobile column visibility
+    const lbView = document.getElementById('view-leaderboard');
+    if (lbView) {
+      lbView.classList.toggle('lb-tab-time', isTime);
+      lbView.classList.toggle('lb-tab-streaks', !isTime);
+    }
 
-      // Full table
-      tbody.innerHTML = data.map((entry, i) => {
-        const rankEmoji = i === 0 ? '&#x1F947;' : i === 1 ? '&#x1F948;' : i === 2 ? '&#x1F949;' : `${i + 1}`;
-        const isMe = this.user && (entry.id === this.user.id || entry.name === this.user.name);
+    // Sort based on active tab
+    const data = [...rawData].sort((a, b) => {
+      if (isTime) return (b.minutesWritten || 0) - (a.minutesWritten || 0) || (b.totalWords || 0) - (a.totalWords || 0);
+      return (b.streak || 0) - (a.streak || 0) || (b.totalWords || 0) - (a.totalWords || 0);
+    });
+
+    // Update thead
+    if (isTime) {
+      thead.innerHTML = `<tr><th>Rank</th><th class="lb-pro-col"></th><th>Writer</th><th class="lb-col-time">Writing Time</th><th class="lb-col-words">Words</th><th class="lb-col-streak">Streak</th><th class="lb-col-sessions">Sessions</th><th class="lb-col-level">Level</th></tr>`;
+    } else {
+      thead.innerHTML = `<tr><th>Rank</th><th class="lb-pro-col"></th><th>Writer</th><th class="lb-col-streak">Streak</th><th class="lb-col-words">Words</th><th class="lb-col-sessions">Sessions</th><th class="lb-col-time">Time</th><th class="lb-col-level">Level</th></tr>`;
+    }
+
+    // Podium for top 3
+    const top3 = data.slice(0, 3);
+    const podiumOrder = [top3[1], top3[0], top3[2]];
+    const medals = ['&#x1F948;', '&#x1F947;', '&#x1F949;'];
+    const podiumLabels = ['2nd', '1st', '3rd'];
+    const heights = ['160px', '200px', '140px'];
+
+    podium.innerHTML = podiumOrder.map((entry, i) => {
+      if (!entry) return '<div class="podium-slot empty"></div>';
+      const isFirst = podiumLabels[i] === '1st';
+      const avatarContent = entry.avatar
+        ? `<img src="${entry.avatar}?t=${entry.avatarUpdatedAt || ''}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        : entry.name.charAt(0).toUpperCase();
+      const statLine = isTime
+        ? `${this._formatWritingTime(entry.minutesWritten)}`
+        : `${entry.streak ? '&#x1F525; ' + entry.streak + ' day streak' : 'No streak'}`;
+      return `
+        <div class="podium-slot">
+          ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
+          <div class="podium-avatar">${avatarContent}</div>
+          <div class="podium-name">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span> ' : ''}${this.escapeHtml(entry.name)}</div>
+          ${entry.username ? `<div class="podium-username"><a href="#" class="profile-link" data-username="${this.escapeHtml(entry.username)}" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(entry.username)}'})">@${this.escapeHtml(entry.username)}</a></div>` : ''}
+          <div class="podium-words">${statLine}</div>
+          <div class="podium-pedestal" style="height:${heights[i]}">
+            <span class="podium-medal">${medals[i]}</span>
+            <span class="podium-rank">${podiumLabels[i]}</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Full table
+    tbody.innerHTML = data.map((entry, i) => {
+      const rankEmoji = i === 0 ? '&#x1F947;' : i === 1 ? '&#x1F948;' : i === 2 ? '&#x1F949;' : `${i + 1}`;
+      const isMe = this.user && (entry.id === this.user.id || entry.name === this.user.name);
+      const timeStr = this._formatWritingTime(entry.minutesWritten);
+
+      if (isTime) {
         return `
           <tr class="${isMe ? 'leaderboard-me' : ''}">
             <td class="lb-rank">${rankEmoji}</td>
             <td class="lb-pro-col">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span>' : ''}</td>
-            <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <span class="lb-username">@${this.escapeHtml(entry.username)}</span>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
-            <td>${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
-            <td class="lb-col-words"><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
+            <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <a href="#" class="lb-username profile-link" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(entry.username)}'})">@${this.escapeHtml(entry.username)}</a>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
+            <td class="lb-col-time"><strong>${timeStr}</strong></td>
+            <td class="lb-col-words">${(entry.totalWords || 0).toLocaleString()}</td>
+            <td class="lb-col-streak">${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
             <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
-            <td class="lb-col-time">${entry.minutesWritten || 0}m</td>
             <td class="lb-col-level"><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
           </tr>`;
-      }).join('');
-
-      if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">No writers yet. Be the first!</td></tr>';
-        podium.innerHTML = '';
       }
-    } catch {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Failed to load leaderboard</td></tr>';
+      return `
+        <tr class="${isMe ? 'leaderboard-me' : ''}">
+          <td class="lb-rank">${rankEmoji}</td>
+          <td class="lb-pro-col">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span>' : ''}</td>
+          <td class="lb-name">${this.escapeHtml(entry.name)}${entry.username ? ` <a href="#" class="lb-username profile-link" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(entry.username)}'})">@${this.escapeHtml(entry.username)}</a>` : ''} ${isMe ? '<span class="lb-you">YOU</span>' : ''}</td>
+          <td class="lb-col-streak">${entry.streak ? '&#x1F525; ' + entry.streak : '-'}</td>
+          <td class="lb-col-words"><strong>${(entry.totalWords || 0).toLocaleString()}</strong></td>
+          <td class="lb-col-sessions">${entry.totalSessions || 0}</td>
+          <td class="lb-col-time">${timeStr}</td>
+          <td class="lb-col-level"><span class="lb-level">Lv.${this.calcXPLevel(entry.xp || 0).level}</span></td>
+        </tr>`;
+    }).join('');
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">No writers yet. Be the first!</td></tr>';
+      podium.innerHTML = '';
     }
+  },
+
+  _formatWritingTime(minutes) {
+    if (!minutes) return '0m';
+    if (minutes >= 60) {
+      const h = Math.floor(minutes / 60);
+      const m = Math.round(minutes % 60);
+      return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    }
+    return `${Math.round(minutes)}m`;
   },
 
   // ===== PASSWORD CHANGE =====
@@ -2196,6 +2356,68 @@ const App = {
     document.getElementById('profile-email').value = this.user.email;
     const usernameEl = document.getElementById('profile-username');
     if (usernameEl) usernameEl.value = this.user.username || '';
+    // Bio
+    const bioEl = document.getElementById('profile-bio');
+    if (bioEl) {
+      bioEl.value = this.user.bio || '';
+      const countEl = document.getElementById('profile-bio-count');
+      if (countEl) countEl.textContent = `${(this.user.bio || '').length}/160`;
+      bioEl.oninput = () => { if (countEl) countEl.textContent = `${bioEl.value.length}/160`; };
+    }
+    // Banner
+    const bannerPreview = document.getElementById('profile-banner-preview');
+    const removeBannerBtn = document.getElementById('remove-banner-btn');
+    if (bannerPreview) {
+      const bannerPlaceholder = document.getElementById('profile-banner-placeholder');
+      if (this.user.banner) {
+        bannerPreview.style.backgroundImage = `url(${this.user.banner}?t=${this.user.bannerUpdatedAt || ''})`;
+        if (removeBannerBtn) removeBannerBtn.style.display = 'inline-flex';
+        if (bannerPlaceholder) bannerPlaceholder.style.display = 'none';
+      } else {
+        bannerPreview.style.backgroundImage = '';
+        if (removeBannerBtn) removeBannerBtn.style.display = 'none';
+        if (bannerPlaceholder) bannerPlaceholder.style.display = '';
+      }
+    }
+    // Banner upload handler
+    const bannerInput = document.getElementById('banner-file-input');
+    if (bannerInput && !bannerInput._bound) {
+      bannerInput._bound = true;
+      bannerInput.addEventListener('change', async () => {
+        if (!bannerInput.files[0]) return;
+        const fd = new FormData();
+        fd.append('banner', bannerInput.files[0]);
+        try {
+          const res = await fetch('/api/auth/banner', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${API.getToken()}` },
+            body: fd
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          this.user = data;
+          this.loadProfile();
+          this.toast('Banner updated!', 'success');
+        } catch (e) { this.toast(e.message || 'Failed to upload banner', 'error'); }
+        bannerInput.value = '';
+      });
+    }
+    if (removeBannerBtn && !removeBannerBtn._bound) {
+      removeBannerBtn._bound = true;
+      removeBannerBtn.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/api/auth/banner', {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${API.getToken()}` }
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          this.user = data;
+          this.loadProfile();
+          this.toast('Banner removed', 'success');
+        } catch (e) { this.toast(e.message || 'Failed to remove banner', 'error'); }
+      });
+    }
     // Show username change info (Free: 1/30 days, Pro: 3/month)
     const usernameInfo = document.getElementById('profile-username-info');
     const isPro = this.user && this.user.plan === 'premium';
@@ -2353,6 +2575,444 @@ const App = {
     }
   },
 
+  // ===== MY PROFILE (own public profile view) =====
+  async loadMyProfile() {
+    if (!this.user || !this.user.username) {
+      // No username set — redirect to settings to set one
+      this.switchView('settings');
+      this.toast('Set a username first to view your profile.', 'info');
+      return;
+    }
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const initialsFor = n => (n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+
+    try {
+      const p = await API.request(`/profiles/${encodeURIComponent(this.user.username)}`);
+
+      // Banner
+      const bannerEl = document.getElementById('mp-banner');
+      if (p.banner) {
+        bannerEl.style.backgroundImage = `url(${p.banner})`;
+        bannerEl.innerHTML = '';
+      } else {
+        bannerEl.style.backgroundImage = '';
+        bannerEl.innerHTML = '<span class="up-banner-placeholder">No banner yet</span>';
+      }
+      bannerEl.className = 'up-banner';
+
+      // Avatar
+      const avatarEl = document.getElementById('mp-avatar');
+      if (p.avatar) {
+        avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${esc(p.avatar)}" alt="${esc(p.name)}'s photo"></div>`;
+      } else {
+        avatarEl.innerHTML = `<div class="up-avatar-circle"><span>${esc(initialsFor(p.name))}</span></div>`;
+      }
+
+      // Name + badge
+      document.getElementById('mp-name').textContent = p.name;
+      document.getElementById('mp-pro-badge').style.display = p.plan === 'premium' ? 'inline-block' : 'none';
+
+      // Username + bio
+      document.getElementById('mp-username').textContent = `@${p.username}`;
+      const bioEl = document.getElementById('mp-bio');
+      bioEl.textContent = p.bio || '';
+      bioEl.style.display = p.bio ? 'block' : 'none';
+
+      // Stats
+      document.getElementById('mp-stats').innerHTML = `
+        <span><strong>${p.followerCount}</strong> followers</span>
+        <span><strong>${p.followingCount}</strong> following</span>
+        <span><strong>${p.storyCount}</strong> stories</span>
+        <span>Joined ${new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+      `;
+
+      // Tabs
+      this._setupMyProfileTabs(p);
+      this._renderProfileAbout(p, 'mp-about');
+    } catch (err) {
+      document.getElementById('mp-banner').className = 'up-banner';
+      document.getElementById('mp-name').textContent = 'Error loading profile';
+    }
+  },
+
+  _setupMyProfileTabs(profile) {
+    document.querySelectorAll('[data-mptab]').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('[data-mptab]').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        document.getElementById('mp-posts').style.display = 'none';
+        document.getElementById('mp-about').style.display = 'none';
+        const t = tab.dataset.mptab;
+        document.getElementById(`mp-${t}`).style.display = 'block';
+        if (t === 'posts') this._renderProfilePosts(profile, 'mp-posts');
+        if (t === 'about') this._renderProfileAbout(profile, 'mp-about');
+      };
+    });
+  },
+
+  // ===== PUBLIC USER PROFILE =====
+  _profileCache: {},
+
+  async loadUserProfile(username) {
+    if (!username) return;
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    // Show skeleton
+    document.getElementById('up-banner').className = 'up-banner up-skeleton';
+    document.getElementById('up-avatar').innerHTML = '<div class="up-avatar-circle up-skeleton-circle"></div>';
+    document.getElementById('up-name').textContent = '';
+    document.getElementById('up-username').textContent = '';
+    document.getElementById('up-bio').textContent = '';
+    document.getElementById('up-stats').textContent = '';
+    document.getElementById('up-actions').innerHTML = '';
+    document.getElementById('up-posts').innerHTML = '<div class="up-skeleton-cards"><div class="up-skeleton-card"></div><div class="up-skeleton-card"></div></div>';
+    document.getElementById('up-activity').innerHTML = '';
+    document.getElementById('up-about').innerHTML = '';
+
+    try {
+      const profile = await API.request(`/profiles/${encodeURIComponent(username)}`);
+      this._profileCache[username] = profile;
+      this._renderUserProfile(profile);
+    } catch (err) {
+      if (err.status === 404) {
+        document.getElementById('up-banner').className = 'up-banner';
+        document.getElementById('up-banner').style.backgroundImage = '';
+        document.getElementById('up-avatar').innerHTML = '<div class="up-avatar-circle"><span style="font-size:40px;color:var(--text-muted)">?</span></div>';
+        document.getElementById('up-name').textContent = 'Writer not found';
+        document.getElementById('up-username').textContent = `@${username} doesn't exist`;
+        document.getElementById('up-posts').innerHTML = '';
+      } else {
+        document.getElementById('up-name').textContent = 'Error loading profile';
+        document.getElementById('up-posts').innerHTML = '<div class="up-empty">Couldn\'t load profile. <a href="javascript:void(0)" onclick="App.loadUserProfile(\'' + esc(username) + '\')">Try again</a></div>';
+      }
+    }
+  },
+
+  _renderUserProfile(p) {
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const initialsFor = n => (n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+
+    // Banner
+    const bannerEl = document.getElementById('up-banner');
+    bannerEl.className = 'up-banner';
+    if (p.banner) {
+      bannerEl.style.backgroundImage = `url(${p.banner})`;
+      bannerEl.innerHTML = '';
+    } else {
+      bannerEl.style.backgroundImage = '';
+      bannerEl.innerHTML = '<span class="up-banner-placeholder">No banner yet</span>';
+    }
+
+    // Avatar
+    const avatarEl = document.getElementById('up-avatar');
+    if (p.avatar) {
+      avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${esc(p.avatar)}" alt="${esc(p.name)}'s photo"></div>`;
+    } else {
+      avatarEl.innerHTML = `<div class="up-avatar-circle"><span>${esc(initialsFor(p.name))}</span></div>`;
+    }
+
+    // Name + badge
+    document.getElementById('up-name').textContent = p.name;
+    const proBadge = document.getElementById('up-pro-badge');
+    proBadge.style.display = p.plan === 'premium' ? 'inline-block' : 'none';
+
+    // Username + bio
+    document.getElementById('up-username').textContent = `@${p.username}`;
+    const bioEl = document.getElementById('up-bio');
+    bioEl.textContent = p.bio || '';
+    bioEl.style.display = p.bio ? 'block' : 'none';
+
+    // Actions — follow button or edit profile
+    const actionsEl = document.getElementById('up-actions');
+    if (p.isOwnProfile) {
+      actionsEl.innerHTML = `<button class="btn btn-ghost btn-small" onclick="App.switchView('settings')">Edit Profile</button>`;
+    } else if (this.user) {
+      const isFollowing = p.isFollowing;
+      actionsEl.innerHTML = `<button class="up-follow-btn ${isFollowing ? 'following' : ''}" id="up-follow-btn" data-userid="${esc(p.id)}" data-following="${isFollowing}" aria-label="${isFollowing ? 'Unfollow' : 'Follow'} ${esc(p.name)}">${isFollowing ? 'Following' : 'Follow'}</button>`;
+      document.getElementById('up-follow-btn').addEventListener('click', (e) => this._toggleFollow(e.target, p));
+    } else {
+      actionsEl.innerHTML = `<a href="/app#stories" class="btn btn-primary btn-small">Sign up to follow</a>`;
+    }
+
+    // Stats
+    document.getElementById('up-stats').innerHTML = `
+      <span><strong>${p.followerCount}</strong> followers</span>
+      <span><strong>${p.followingCount}</strong> following</span>
+      <span><strong>${p.storyCount}</strong> stories</span>
+      <span>Joined ${new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+    `;
+
+    // Tabs
+    this._setupProfileTabs(p);
+
+    // Default: render About tab
+    this._renderProfileAbout(p);
+  },
+
+  _setupProfileTabs(profile) {
+    document.querySelectorAll('.up-tab').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('.up-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        document.getElementById('up-posts').style.display = 'none';
+        document.getElementById('up-about').style.display = 'none';
+        const t = tab.dataset.uptab;
+        document.getElementById(`up-${t}`).style.display = 'block';
+        if (t === 'posts') this._renderProfilePosts(profile);
+        if (t === 'about') this._renderProfileAbout(profile);
+      };
+    });
+  },
+
+  _renderProfilePosts(p, targetId) {
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const el = document.getElementById(targetId || 'up-posts');
+    if (!p.stories || p.stories.length === 0) {
+      el.innerHTML = p.isOwnProfile
+        ? '<div class="up-empty">You haven\'t published any stories yet. <a href="javascript:void(0)" onclick="App.switchView(\'stories\')">Write your first story →</a></div>'
+        : '<div class="up-empty">No published stories yet.</div>';
+      return;
+    }
+    el.innerHTML = p.stories.map(s => `
+      <div class="up-story-card" onclick="window.location.hash='stories';setTimeout(()=>Stories.openStory&&Stories.openStory('${esc(s.id)}'),100)">
+        <h3 class="up-story-title">${esc(s.title)}</h3>
+        <p class="up-story-excerpt">${esc(s.excerpt || '')}</p>
+        <div class="up-story-meta">
+          <span>${new Date(s.publishedAt || s.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+          <span>${s.readTimeMinutes || 1} min read</span>
+          <span>❤ ${s.likeCount || 0}</span>
+          <span>💬 ${s.commentCount || 0}</span>
+        </div>
+      </div>
+    `).join('');
+  },
+
+  async _renderProfileActivity(p, targetId) {
+    const el = document.getElementById(targetId || 'up-activity');
+    const { level, xpInLevel, xpForNextLevel } = this.calcXPLevel ? this.calcXPLevel(p.xp || 0) : { level: p.level || 0, xpInLevel: 0, xpForNextLevel: 100 };
+
+    // Stats cards
+    const prefix = targetId ? targetId.replace('-activity', '') : 'up';
+    el.innerHTML = `
+      <div class="up-activity-stats">
+        <div class="up-stat-card"><div class="up-stat-value">${(p.totalWords || 0).toLocaleString()}</div><div class="up-stat-label">Total Words</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${p.totalSessions || 0}</div><div class="up-stat-label">Sessions</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${p.streak || 0}</div><div class="up-stat-label">Day Streak</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${p.longestStreak || 0}</div><div class="up-stat-label">Best Streak</div></div>
+        <div class="up-stat-card"><div class="up-stat-value">${level}</div><div class="up-stat-label">Level</div></div>
+      </div>
+      <div id="${prefix}-heatmap" style="margin-top:20px"></div>
+      <div class="up-achievements-section" style="margin-top:20px">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">Achievements</h3>
+        <div class="up-achievements-grid" id="${prefix}-achievements-grid"></div>
+      </div>
+    `;
+
+    // Render heatmap
+    this._renderProfileHeatmap(p.username, `${prefix}-heatmap`);
+
+    // Render all achievements (earned + unearned) with descriptions
+    const grid = document.getElementById(`${prefix}-achievements-grid`);
+    if (grid) {
+      const allAch = this._getProfileAchievements(p);
+      grid.innerHTML = allAch.map(a => `
+        <div class="achievement-card ${a.earned ? 'earned' : ''}">
+          <div class="achievement-icon">${a.icon}</div>
+          <h3>${a.name}</h3>
+          <p>${a.description}</p>
+        </div>
+      `).join('');
+    }
+  },
+
+  async _renderProfileHeatmap(username, containerId) {
+    const container = document.getElementById(containerId || 'up-heatmap');
+    if (!container) return;
+    try {
+      const activity = await API.request(`/profiles/${encodeURIComponent(username)}/activity`);
+      if (!activity || activity.every(d => d.sessionCount === 0)) {
+        container.innerHTML = '<div class="up-empty" style="padding:12px">No writing sessions in the last 30 days.</div>';
+        return;
+      }
+      const maxCount = Math.max(...activity.map(d => d.sessionCount), 1);
+      const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      // Build grid: 7 columns (Mon-Sun), ~5 rows
+      let html = '<div class="streak-heatmap"><div class="heatmap-grid">';
+      activity.forEach((d, i) => {
+        const date = new Date(d.date);
+        const level = d.sessionCount === 0 ? 0 : d.sessionCount === 1 ? 1 : 2;
+        const title = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${d.sessionCount} session${d.sessionCount !== 1 ? 's' : ''}`;
+        html += `<div class="heatmap-cell level-${level}" title="${title}"></div>`;
+      });
+      html += '</div>';
+      html += '<div class="heatmap-legend"><span>Less</span><div class="heatmap-cell level-0"></div><div class="heatmap-cell level-1"></div><div class="heatmap-cell level-2"></div><span>More</span></div>';
+      html += '</div>';
+      container.innerHTML = html;
+    } catch {
+      container.innerHTML = '<div class="up-empty" style="padding:12px">Couldn\'t load activity.</div>';
+    }
+  },
+
+  _renderProfileAbout(p, targetId) {
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const el = document.getElementById(targetId || 'up-about');
+    const prefix = targetId ? targetId.replace('-about', '') : 'up';
+    const bio = p.bio ? `<p class="up-about-bio">${esc(p.bio)}</p>` : (p.isOwnProfile ? '<p class="up-about-bio" style="color:var(--text-muted)">You haven\'t written a bio yet. <a href="javascript:void(0)" onclick="App.switchView(\'settings\')">Add a bio →</a></p>' : '<p class="up-about-bio" style="color:var(--text-muted)">This writer hasn\'t written a bio yet.</p>');
+    const joinDate = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const { level } = this.calcXPLevel ? this.calcXPLevel(p.xp || 0) : { level: p.level || 0 };
+    // Format total writing time
+    const totalSecs = p.totalWritingTime || 0;
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+    const achievements = this._getProfileAchievements(p);
+    const earnedAch = achievements.filter(a => a.earned);
+    const unearnedAch = achievements.filter(a => !a.earned);
+    el.innerHTML = `
+      ${bio}
+      <div class="up-about-stats">
+        <div class="up-about-detail"><strong>Member since</strong> ${joinDate}</div>
+        <div class="up-about-detail"><strong>Level</strong> ${level}</div>
+        <div class="up-about-detail"><strong>XP</strong> ${(p.xp || 0).toLocaleString()}</div>
+        <div class="up-about-detail"><strong>Writing Time</strong> ${timeStr}</div>
+      </div>
+      <div class="up-activity-stats" style="margin-top:16px">
+        <div class="up-stat-card"><div class="up-stat-emoji">&#x1F4DD;</div><div class="up-stat-value">${(p.totalWords || 0).toLocaleString()}</div><div class="up-stat-label">Total Words</div></div>
+        <div class="up-stat-card"><div class="up-stat-emoji">&#x270D;&#xFE0F;</div><div class="up-stat-value">${p.totalSessions || 0}</div><div class="up-stat-label">Sessions</div></div>
+        <div class="up-stat-card"><div class="up-stat-emoji">&#x1F525;</div><div class="up-stat-value">${p.streak || 0}</div><div class="up-stat-label">Day Streak</div></div>
+        <div class="up-stat-card"><div class="up-stat-emoji">&#x1F3C6;</div><div class="up-stat-value">${p.longestStreak || 0}</div><div class="up-stat-label">Best Streak</div></div>
+      </div>
+      <div class="up-about-achievements">
+        <h3 class="up-about-achievements-title">Achievements</h3>
+        <div class="up-achievements-grid">
+          ${earnedAch.map(a => `
+            <div class="achievement-card earned">
+              <div class="achievement-icon">${a.icon}</div>
+              <h3>${a.name}</h3>
+              <p>${a.description}</p>
+            </div>
+          `).join('')}
+          ${unearnedAch.map(a => `
+            <div class="achievement-card">
+              <div class="achievement-icon">${a.icon}</div>
+              <h3>${a.name}</h3>
+              <p>${a.description}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  },
+
+  async _toggleFollow(btn, profile) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const isFollowing = btn.dataset.following === 'true';
+    try {
+      if (isFollowing) {
+        await API.request(`/follow/${profile.id}`, { method: 'DELETE' });
+        btn.dataset.following = 'false';
+        btn.classList.remove('following');
+        btn.textContent = 'Follow';
+        btn.setAttribute('aria-label', `Follow ${profile.name}`);
+        const countEl = document.querySelector('.up-stats strong');
+        if (countEl) countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
+      } else {
+        const res = await API.request(`/follow/${profile.id}`, { method: 'POST' });
+        btn.dataset.following = 'true';
+        btn.classList.add('following');
+        btn.textContent = 'Following';
+        btn.setAttribute('aria-label', `Unfollow ${profile.name}`);
+        const countEl = document.querySelector('.up-stats strong');
+        if (countEl) countEl.textContent = res.followerCount;
+      }
+    } catch (err) {
+      this.toast(err.message || 'Failed', 'error');
+    }
+    btn.disabled = false;
+  },
+
+  // ===== HOVER CARD =====
+  _hoverCardEl: null,
+  _hoverCardTimeout: null,
+
+  _initHoverCards() {
+    if (this._hoverCardEl) return;
+    const card = document.createElement('div');
+    card.className = 'profile-hover-card';
+    card.style.display = 'none';
+    document.body.appendChild(card);
+    this._hoverCardEl = card;
+
+    card.addEventListener('mouseenter', () => clearTimeout(this._hoverCardTimeout));
+    card.addEventListener('mouseleave', () => {
+      this._hoverCardTimeout = setTimeout(() => { card.style.display = 'none'; }, 200);
+    });
+
+    // Delegate hover events on username links
+    document.addEventListener('mouseenter', async (e) => {
+      const link = e.target.closest('.username-link');
+      if (!link) return;
+      const username = link.dataset.username;
+      if (!username) return;
+      clearTimeout(this._hoverCardTimeout);
+      this._hoverCardTimeout = setTimeout(async () => {
+        try {
+          let data = this._profileCache[username];
+          if (!data) {
+            data = await API.request(`/profiles/${encodeURIComponent(username)}`);
+            this._profileCache[username] = data;
+          }
+          this._showHoverCard(data, link);
+        } catch {}
+      }, 300);
+    }, true);
+
+    document.addEventListener('mouseleave', (e) => {
+      const link = e.target.closest('.username-link');
+      if (!link) return;
+      this._hoverCardTimeout = setTimeout(() => { card.style.display = 'none'; }, 200);
+    }, true);
+  },
+
+  _showHoverCard(profile, anchor) {
+    const card = this._hoverCardEl;
+    const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const initialsFor = n => (n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const avatar = profile.avatar
+      ? `<img src="${esc(profile.avatar)}" alt="" class="hc-avatar-img">`
+      : `<span class="hc-avatar-fallback">${esc(initialsFor(profile.name))}</span>`;
+
+    card.innerHTML = `
+      <div class="hc-header">
+        <div class="hc-avatar">${avatar}</div>
+        <div class="hc-info">
+          <div style="display:flex;align-items:center;gap:6px"><strong>${esc(profile.name)}</strong>${profile.plan === 'premium' ? '<span class="pro-nav-badge" style="font-size:8px;padding:1px 4px">PRO</span>' : ''}</div>
+          <div style="color:var(--text-muted);font-size:12px">@${esc(profile.username)}</div>
+        </div>
+      </div>
+      <div class="hc-stats">
+        <span>Lvl ${profile.level || 0}</span>
+        <span>${profile.streak || 0}d streak</span>
+        <span>${profile.storyCount || 0} stories</span>
+        <span>${profile.followerCount || 0} followers</span>
+      </div>
+    `;
+
+    // Position
+    const rect = anchor.getBoundingClientRect();
+    card.style.display = 'block';
+    const cardRect = card.getBoundingClientRect();
+    let top = rect.bottom + 8;
+    let left = rect.left;
+    if (top + cardRect.height > window.innerHeight) top = rect.top - cardRect.height - 8;
+    if (left + cardRect.width > window.innerWidth) left = window.innerWidth - cardRect.width - 8;
+    card.style.top = `${top}px`;
+    card.style.left = `${Math.max(8, left)}px`;
+  },
+
   // Stripe pricing data
   _stripePricing: {
     '1m': { price: '1.99', period: '/mo', uzs: '~25,000 UZS', savings: null },
@@ -2449,11 +3109,33 @@ const App = {
       </div>
     `;
 
-    // Bind duration tab clicks
+    // Bind duration tab clicks — update price inline, don't re-render everything
     el.querySelectorAll('.upgrade-duration-pill').forEach(pill => {
       pill.addEventListener('click', () => {
         this._selectedDuration = pill.dataset.duration;
-        this.loadUpgrade();
+        const d = this._stripePricing[this._selectedDuration];
+        // Update active pill
+        el.querySelectorAll('.upgrade-duration-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        // Update price display
+        const priceDisplay = document.getElementById('upgrade-price-display');
+        if (priceDisplay) {
+          priceDisplay.innerHTML = `<span class="upgrade-price-dollar">$</span><span class="upgrade-price-amount">${d.price}</span><span class="upgrade-price-period">${d.period}</span>`;
+        }
+        // Update savings line
+        const savingsEl = priceDisplay && priceDisplay.nextElementSibling;
+        if (savingsEl && savingsEl.classList.contains('upgrade-price-savings')) {
+          if (d.savings) { savingsEl.textContent = d.savings; savingsEl.style.display = ''; }
+          else { savingsEl.style.display = 'none'; }
+        } else if (d.savings && priceDisplay) {
+          const s = document.createElement('div');
+          s.className = 'upgrade-price-savings';
+          s.textContent = d.savings;
+          priceDisplay.insertAdjacentElement('afterend', s);
+        }
+        // Update UZS line
+        const uzsEl = el.querySelector('.upgrade-price-uzs');
+        if (uzsEl) uzsEl.textContent = d.uzs;
       });
     });
 
@@ -2477,7 +3159,62 @@ const App = {
   },
 
   async _startCheckout(isTrial) {
-    this.toast('Payment method is coming soon!', 'info');
+    try {
+      const purchaseBtn = document.getElementById('purchase-plan-btn');
+      const trialLink = document.getElementById('start-trial-link');
+      if (purchaseBtn) { purchaseBtn.disabled = true; purchaseBtn.textContent = 'Opening checkout...'; }
+      if (trialLink) { trialLink.style.pointerEvents = 'none'; trialLink.style.opacity = '0.5'; }
+
+      const res = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API.getToken()}`
+        },
+        body: JSON.stringify({ duration: this._selectedDuration, trial: isTrial })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        this.toast(data.error || 'Failed to start checkout', 'error');
+        if (purchaseBtn) { purchaseBtn.disabled = false; purchaseBtn.textContent = 'Purchase plan'; }
+        if (trialLink) { trialLink.style.pointerEvents = ''; trialLink.style.opacity = ''; }
+        return;
+      }
+
+      // Open Stripe checkout in new tab
+      window.open(data.url, '_blank');
+
+      // Update button to show waiting state
+      if (purchaseBtn) { purchaseBtn.textContent = 'Waiting for payment...'; }
+      this.toast('Complete your payment in the new tab. This page will update automatically.', 'info', 8000);
+
+      // Poll for plan upgrade every 3s (stops after 10 min or when upgraded)
+      this._checkoutPollCount = 0;
+      this._checkoutPoller = setInterval(async () => {
+        this._checkoutPollCount++;
+        if (this._checkoutPollCount > 200) {
+          clearInterval(this._checkoutPoller);
+          if (purchaseBtn) { purchaseBtn.disabled = false; purchaseBtn.textContent = 'Purchase plan'; }
+          return;
+        }
+        try {
+          const me = await API.getMe();
+          if (me.plan === 'premium' && (!this.user || this.user.plan !== 'premium')) {
+            clearInterval(this._checkoutPoller);
+            this.user = me;
+            this.updateUserUI();
+            this._applyProLocks();
+            this._showProCelebration();
+            this.loadUpgrade();
+          }
+        } catch {}
+      }, 3000);
+    } catch (err) {
+      this.toast('Failed to start checkout. Please try again.', 'error');
+      const purchaseBtn = document.getElementById('purchase-plan-btn');
+      if (purchaseBtn) { purchaseBtn.disabled = false; purchaseBtn.textContent = 'Purchase plan'; }
+    }
   },
 
   async _openBillingPortal() {
@@ -2592,10 +3329,37 @@ const App = {
       { icon: '&#x1F31F;', name: 'Shining Bright', description: 'Reach Level 10', earned: (u.level || 0) >= 10 },
       { icon: '&#x1F48E;', name: 'Diamond Writer', description: 'Reach Level 25', earned: (u.level || 0) >= 25 },
       // Special
-      { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode session', earned: (u.achievements || []).includes('danger_zone') },
+      { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode', earned: (u.achievements || []).includes('danger_zone') },
       { icon: '&#x1F333;', name: 'Forest', description: 'Grow your tree to max stage', earned: (u.treeStage || 0) >= 11 },
       { icon: '&#x1F91D;', name: 'Social Writer', description: 'Add your first friend', earned: (u.friends || []).length >= 1 },
       { icon: '&#x1F465;', name: 'Writing Circle', description: 'Have 5 friends', earned: (u.friends || []).length >= 5 },
+    ];
+  },
+
+  _getProfileAchievements(p) {
+    return [
+      { icon: '&#x1F331;', name: 'First Seed', description: 'Complete your first session', earned: (p.totalSessions || 0) >= 1 },
+      { icon: '&#x270D;&#xFE0F;', name: 'Getting Started', description: 'Complete 5 sessions', earned: (p.totalSessions || 0) >= 5 },
+      { icon: '&#x1F4DD;', name: 'Regular Writer', description: 'Complete 25 sessions', earned: (p.totalSessions || 0) >= 25 },
+      { icon: '&#x1F58B;&#xFE0F;', name: 'Session Master', description: 'Complete 100 sessions', earned: (p.totalSessions || 0) >= 100 },
+      { icon: '&#x1F525;', name: 'On Fire', description: '3-day writing streak', earned: (p.longestStreak || 0) >= 3 },
+      { icon: '&#x1F3AF;', name: 'Consistent', description: '7-day writing streak', earned: (p.longestStreak || 0) >= 7 },
+      { icon: '&#x1F4AA;', name: 'Dedicated', description: '14-day writing streak', earned: (p.longestStreak || 0) >= 14 },
+      { icon: '&#x1F3C6;', name: 'Legend', description: '30-day writing streak', earned: (p.longestStreak || 0) >= 30 },
+      { icon: '&#x1F451;', name: 'Unstoppable', description: '60-day writing streak', earned: (p.longestStreak || 0) >= 60 },
+      { icon: '&#x1F30D;', name: 'World Writer', description: '100-day writing streak', earned: (p.longestStreak || 0) >= 100 },
+      { icon: '&#x26A1;', name: 'Speed Writer', description: 'Write 500 total words', earned: (p.totalWords || 0) >= 500 },
+      { icon: '&#x1F4D6;', name: 'Storyteller', description: 'Write 2,500 total words', earned: (p.totalWords || 0) >= 2500 },
+      { icon: '&#x1F4DA;', name: 'Prolific', description: 'Write 10,000 total words', earned: (p.totalWords || 0) >= 10000 },
+      { icon: '&#x1F4D5;', name: 'Novelist', description: 'Write 50,000 total words', earned: (p.totalWords || 0) >= 50000 },
+      { icon: '&#x1F3DB;&#xFE0F;', name: 'Epic Author', description: 'Write 100,000 total words', earned: (p.totalWords || 0) >= 100000 },
+      { icon: '&#x2B50;', name: 'Rising Star', description: 'Reach Level 5', earned: (p.level || 0) >= 5 },
+      { icon: '&#x1F31F;', name: 'Shining Bright', description: 'Reach Level 10', earned: (p.level || 0) >= 10 },
+      { icon: '&#x1F48E;', name: 'Diamond Writer', description: 'Reach Level 25', earned: (p.level || 0) >= 25 },
+      { icon: '&#x1F480;', name: 'Danger Zone', description: 'Complete a Dangerous mode', earned: (p.achievements || []).includes('danger_zone') },
+      { icon: '&#x1F333;', name: 'Forest', description: 'Grow your tree to max stage', earned: (p.treeStage || 0) >= 11 },
+      { icon: '&#x1F91D;', name: 'Social Writer', description: 'Add your first friend', earned: (p.friends || []).length >= 1 },
+      { icon: '&#x1F465;', name: 'Writing Circle', description: 'Have 5 friends', earned: (p.friends || []).length >= 5 },
     ];
   },
 
@@ -2699,7 +3463,7 @@ const App = {
       const cards = friends.map(f => {
         const fl = this.calcXPLevel(f.xp || 0);
         const fPro = f.plan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
-        const fHandle = f.username ? ` <span class="friend-handle">@${this.escapeHtml(f.username)}</span>` : '';
+        const fHandle = f.username ? ` <a href="#" class="friend-handle profile-link" onclick="event.preventDefault();App.switchView('user-profile',{username:'${this.escapeHtml(f.username)}'})">@${this.escapeHtml(f.username)}</a>` : '';
         return `
         <div class="doc-card friend-card">
           <div class="doc-card-info">
@@ -2909,6 +3673,34 @@ const App = {
         this.toast(`New duel challenge received! ⚔️`, 'info');
       }
       this._lastDuelRequestCount = duelRequests.length;
+
+      // Notification badge (comment replies)
+      try {
+        const notifResult = await API.getUnreadNotifCount();
+        const notifBadge = document.getElementById('notif-badge');
+        if (notifBadge) {
+          if (notifResult.count > 0) {
+            notifBadge.textContent = notifResult.count;
+            notifBadge.style.display = 'inline-flex';
+          } else {
+            notifBadge.style.display = 'none';
+          }
+        }
+      } catch {}
+
+      // Community new-story green dot
+      try {
+        const lastSeen = localStorage.getItem('iwrite_community_seen') || '1970-01-01T00:00:00.000Z';
+        const latest = await API.getLatestPublished(lastSeen);
+        const dot = document.getElementById('community-new-dot');
+        if (dot) {
+          if (latest.newCount > 0) {
+            dot.style.display = 'inline-block';
+          } else {
+            dot.style.display = 'none';
+          }
+        }
+      } catch {}
     } catch {}
   },
 
@@ -3306,6 +4098,9 @@ const App = {
     if (usernameEl && usernameEl.value !== (this.user.username || '')) {
       updates.username = usernameEl.value;
     }
+    // Bio
+    const bioEl = document.getElementById('profile-bio');
+    if (bioEl) updates.bio = bioEl.value;
 
     try {
       const updated = await API.request('/auth/me', { method: 'PATCH', body: JSON.stringify(updates) });
@@ -3838,7 +4633,7 @@ const App = {
     });
   },
 
-  toast(message, type = '') {
+  toast(message, type = '', duration = 3000) {
     if (this.toastTimer) clearTimeout(this.toastTimer);
     const el = document.getElementById('toast');
     // Replace "Pro" with styled orange gradient badge
@@ -3848,7 +4643,7 @@ const App = {
     this.toastTimer = setTimeout(() => {
       el.className = 'toast';
       this.toastTimer = null;
-    }, 3000);
+    }, duration);
   },
 
   // ===== ANALYTICS =====

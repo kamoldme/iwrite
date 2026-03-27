@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(step);
   }
 
-  let currentStats = { totalWords: 0, totalSessions: 0, totalWriters: 0 };
+  let currentStats = { totalWords: 0, totalHours: 0, totalWriters: 0 };
   let statsVisible = false;
 
   async function fetchStats() {
@@ -48,11 +48,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (statsVisible) {
         animateValue(wordEl, currentStats.totalWords, data.totalWords, 800);
-        animateValue(sessionEl, currentStats.totalSessions, data.totalSessions, 800);
+        animateValue(sessionEl, currentStats.totalHours, data.totalHours, 800);
         animateValue(writerEl, currentStats.totalWriters, data.totalWriters, 800);
       } else {
         wordEl.textContent = data.totalWords.toLocaleString();
-        sessionEl.textContent = data.totalSessions.toLocaleString();
+        sessionEl.textContent = data.totalHours.toLocaleString();
         writerEl.textContent = data.totalWriters.toLocaleString();
       }
 

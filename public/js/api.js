@@ -24,7 +24,11 @@ const API = {
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Request failed');
+    if (!res.ok) {
+      const err = new Error(data.error || 'Request failed');
+      err.status = res.status;
+      throw err;
+    }
     return data;
   },
 
@@ -54,10 +58,10 @@ const API = {
     return this.request('/documents');
   },
 
-  async createDocument(title, content, mode) {
+  async createDocument(title, content, mode, prompt) {
     return this.request('/documents', {
       method: 'POST',
-      body: JSON.stringify({ title, content, mode })
+      body: JSON.stringify({ title, content, mode, prompt: prompt || '' })
     });
   },
 
@@ -348,6 +352,11 @@ const API = {
     return this.request(`/stories?filter=${encodeURIComponent(filter)}&sort=${encodeURIComponent(sort)}`);
   },
 
+  async getLatestPublished(since) {
+    const q = since ? `?since=${encodeURIComponent(since)}` : '';
+    return this.request(`/stories/latest-published${q}`);
+  },
+
   async getStory(id) {
     return this.request(`/stories/${id}`);
   },
@@ -409,16 +418,37 @@ const API = {
     return this.request(`/stories/public/${id}/comments`);
   },
 
-  async addStoryComment(id, text) {
+  async addStoryComment(id, text, parentCommentId = null) {
     return this.request(`/stories/${id}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text, parentCommentId })
     });
   },
 
   async deleteStoryComment(storyId, commentId) {
     return this.request(`/stories/${storyId}/comments/${commentId}`, {
       method: 'DELETE'
+    });
+  },
+
+  async toggleCommentLike(storyId, commentId) {
+    return this.request(`/stories/${storyId}/comments/${commentId}/like`, {
+      method: 'POST'
+    });
+  },
+
+  async getNotifications() {
+    return this.request('/stories/notifications');
+  },
+
+  async getUnreadNotifCount() {
+    return this.request('/stories/notifications/unread-count');
+  },
+
+  async markNotifsRead(ids = []) {
+    return this.request('/stories/notifications/mark-read', {
+      method: 'POST',
+      body: JSON.stringify({ ids })
     });
   },
 

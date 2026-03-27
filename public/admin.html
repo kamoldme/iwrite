@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.3.39</span>
+            <span class="version-tag" style="margin-top:0">v2.4.69</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -303,6 +303,7 @@
           <button class="admin-nav-item" data-tab="stories">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
             Community
+            <span class="nav-count" id="moderation-count" style="display:none;background:#f59e0b22;color:#f59e0b">0</span>
           </button>
           <button class="admin-nav-item" data-tab="lostfiles">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
@@ -638,11 +639,15 @@
                 </div>
                 <div>
                   <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Duration</label>
-                  <select id="promo-duration-select" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:13px">
+                  <select id="promo-duration-select" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:13px" onchange="document.getElementById('promo-months-wrap').style.display=this.value==='repeating'?'block':'none'">
                     <option value="once">Once</option>
                     <option value="forever">Forever</option>
                     <option value="repeating">Repeating</option>
                   </select>
+                </div>
+                <div id="promo-months-wrap" style="display:none">
+                  <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Months</label>
+                  <input id="promo-months-input" type="number" min="1" max="24" placeholder="3" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:13px;width:70px">
                 </div>
                 <div>
                   <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px">Max Uses</label>
@@ -741,6 +746,23 @@
       <button class="admin-btn admin-btn-ghost" id="story-view-close">&times; Close</button>
     </div>
     <div class="user-detail-body" id="story-view-body" style="max-height:calc(100vh - 80px);overflow-y:auto"></div>
+  </div>
+
+  <!-- Moderation Note Modal -->
+  <div class="user-detail-overlay" id="mod-note-overlay" style="display:none"></div>
+  <div class="user-detail-panel" id="mod-note-panel" style="display:none;width:480px">
+    <div class="user-detail-header">
+      <h3 id="mod-note-title" style="font-size:16px;font-weight:700">Request Changes</h3>
+      <button class="admin-btn admin-btn-ghost" onclick="closeModNote()">&times;</button>
+    </div>
+    <div class="user-detail-body" style="padding:20px">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Write a note to the author explaining what needs to change. They'll see this in their My Stories tab.</p>
+      <textarea id="mod-note-textarea" rows="5" style="width:100%;border:1px solid var(--border);border-radius:10px;background:var(--bg-elevated);color:var(--text-primary);padding:12px 14px;font-size:14px;resize:vertical;font-family:inherit" placeholder="Describe the changes needed..."></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button class="admin-btn admin-btn-ghost" onclick="closeModNote()">Cancel</button>
+        <button class="admin-btn admin-btn-success" id="mod-note-submit">Submit</button>
+      </div>
+    </div>
   </div>
 
   <!-- IN-APP CONFIRM DIALOG -->
@@ -1132,7 +1154,7 @@
       document.getElementById('admin-panel').style.display = 'block';
       const savedTab = localStorage.getItem('iwrite_admin_tab') || 'overview';
       switchAdminTab(savedTab);
-      await Promise.all([loadOverview(), loadUsers(), loadDocs(), loadLogs(), loadSupport(), loadDuels()]);
+      await Promise.all([loadOverview(), loadUsers(), loadDocs(), loadLogs(), loadSupport(), loadDuels(), loadStoriesAdmin()]);
       renderAdminCharts();
     }
 
@@ -1151,7 +1173,11 @@
             </div>
             <div id="active-users-list" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;max-height:200px;overflow-y:auto"></div>
           </div>
-          <div class="admin-stat-card"><div class="label">Writing Now</div><div class="value" style="color:#f59e0b">${stats.writingNow || 0}</div></div>
+          <div class="admin-stat-card" style="position:relative">
+            <div class="label">Writing Now</div>
+            <div class="value" style="color:#f59e0b" id="writing-now-count">${stats.writingNow || 0}</div>
+            <button class="admin-btn admin-btn-ghost" style="font-size:11px;padding:4px 12px;position:absolute;bottom:12px;right:12px" onclick="refreshWritingNow()" id="refresh-writing-btn" title="Check who is writing right now">↻</button>
+          </div>
           <div class="admin-stat-card"><div class="label">Users</div><div class="value">${stats.totalUsers}</div></div>
           <div class="admin-stat-card"><div class="label">Documents</div><div class="value">${stats.totalDocuments}</div></div>
           <div class="admin-stat-card"><div class="label">Active Docs</div><div class="value" style="color:var(--success)">${stats.activeDocuments}</div></div>
@@ -1195,6 +1221,26 @@
         el.style.transition = 'color 0.2s';
         el.style.color = '#4ade80';
         setTimeout(() => { el.style.color = '#22c55e'; }, 400);
+      } catch { toast('Failed to refresh', 'error'); }
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.textContent = '↻';
+    }
+
+    async function refreshWritingNow() {
+      const btn = document.getElementById('refresh-writing-btn');
+      const el = document.getElementById('writing-now-count');
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.textContent = '⟳';
+      try {
+        const data = await adminRequest('/active-users');
+        const writingCount = (data.users || []).filter(u => u.writing).length;
+        el.textContent = writingCount;
+        // Brief amber flash to confirm update
+        el.style.transition = 'color 0.2s';
+        el.style.color = '#fbbf24';
+        setTimeout(() => { el.style.color = '#f59e0b'; }, 400);
       } catch { toast('Failed to refresh', 'error'); }
       btn.disabled = false;
       btn.style.opacity = '1';
@@ -1678,8 +1724,8 @@
             ${doc.failedAt ? `<div class="user-detail-stat"><div class="label">Lost At</div><div class="value" style="font-size:12px;color:var(--danger)">${new Date(doc.failedAt).toLocaleString()}</div></div>` : ''}
             ${doc.failReason ? `<div class="user-detail-stat"><div class="label">Reason</div><div class="value" style="font-size:13px">${esc(doc.failReason)}</div></div>` : ''}
           </div>
-          ${doc.prompt ? `<h4 style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Prompt / Question</h4>
-          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;font-size:14px;line-height:1.6;margin-bottom:16px;font-style:italic;color:var(--text-secondary)">${esc(doc.prompt)}</div>` : ''}
+          <h4 style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Prompt / Topic</h4>
+          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;font-size:14px;line-height:1.6;margin-bottom:16px;font-style:italic;color:${doc.prompt ? 'var(--text-secondary)' : 'var(--text-muted)'}">${doc.prompt ? esc(doc.prompt) : 'NaN'}</div>
           <h4 style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Content</h4>
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;font-size:14px;line-height:1.7;max-height:400px;overflow-y:auto">${doc.content || '<em style="color:var(--text-muted)">Empty document</em>'}</div>
         `;
@@ -1745,6 +1791,17 @@
         .filter(story => story.status === 'pending_review')
         .sort((a, b) => new Date(b.submittedAt || b.updatedAt || 0) - new Date(a.submittedAt || a.updatedAt || 0));
 
+      // Update moderation badge in sidebar
+      const modBadge = document.getElementById('moderation-count');
+      if (modBadge) {
+        if (moderationStories.length > 0) {
+          modBadge.textContent = moderationStories.length;
+          modBadge.style.display = 'inline-block';
+        } else {
+          modBadge.style.display = 'none';
+        }
+      }
+
       moderationTbody.innerHTML = moderationStories.length ? moderationStories.map(story => `
         <tr>
           <td><strong>${esc(story.title)}</strong><div style="font-size:11px;color:var(--text-muted)">${story.sourceDocumentId ? 'From session' : 'Standalone story'}</div></td>
@@ -1774,22 +1831,60 @@
           <td>${story.likeCount || 0}</td>
           <td>${story.commentCount || 0}</td>
           <td class="actions">
+            <button class="admin-btn admin-btn-ghost" onclick="viewStoryAdmin('${story.id}')">View</button>
             ${story.status === 'published' ? `<button class="admin-btn admin-btn-ghost" onclick="setStoryStatus('${story.id}','hidden')">Hide</button>` : `<button class="admin-btn admin-btn-success" onclick="setStoryStatus('${story.id}','published')">Republish</button>`}
+            <button class="admin-btn admin-btn-ghost" style="color:#f59e0b" onclick="setStoryStatus('${story.id}','changes_requested')">Request Changes</button>
             <button class="admin-btn admin-btn-danger" onclick="deleteStoryAdmin('${story.id}')">Delete</button>
           </td>
         </tr>
       `).join('') : '<tr><td colspan="7" class="admin-empty">No published stories match this filter.</td></tr>';
     }
 
-    async function setStoryStatus(id, status) {
+    let _modNoteStoryId = null;
+    let _modNoteStatus = null;
+
+    function openModNote(storyId, status) {
+      _modNoteStoryId = storyId;
+      _modNoteStatus = status;
+      document.getElementById('mod-note-title').textContent = status === 'rejected' ? 'Reject Story' : 'Request Changes';
+      document.getElementById('mod-note-textarea').value = '';
+      openPanel('mod-note-panel', 'mod-note-overlay');
+      setTimeout(() => document.getElementById('mod-note-textarea').focus(), 100);
+    }
+
+    function closeModNote() {
+      document.getElementById('mod-note-panel').style.display = 'none';
+      document.getElementById('mod-note-overlay').style.display = 'none';
+      _modNoteStoryId = null;
+      _modNoteStatus = null;
+    }
+
+    document.getElementById('mod-note-overlay').addEventListener('click', closeModNote);
+    document.getElementById('mod-note-submit').addEventListener('click', async () => {
+      if (!_modNoteStoryId) return;
+      const note = document.getElementById('mod-note-textarea').value.trim();
       try {
-        let moderationNote = '';
-        if (status === 'changes_requested' || status === 'rejected') {
-          moderationNote = window.prompt('Optional moderation note for the writer:') || '';
-        }
+        await adminRequest(`/admin/stories/${_modNoteStoryId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: _modNoteStatus, moderationNote: note })
+        });
+        toast('Story updated', 'success');
+        closeModNote();
+        loadStoriesAdmin();
+      } catch (err) {
+        toast(err.message || 'Failed to update story', 'error');
+      }
+    });
+
+    async function setStoryStatus(id, status) {
+      if (status === 'changes_requested' || status === 'rejected') {
+        openModNote(id, status);
+        return;
+      }
+      try {
         await adminRequest(`/admin/stories/${id}`, {
           method: 'PATCH',
-          body: JSON.stringify({ status, moderationNote })
+          body: JSON.stringify({ status, moderationNote: '' })
         });
         toast('Story updated', 'success');
         loadStoriesAdmin();
@@ -2238,6 +2333,7 @@
           </div>`;
         }).join('');
       }
+
     }
 
     // ===== MAINTENANCE =====
@@ -2457,14 +2553,16 @@
       const code = document.getElementById('promo-code-input').value.trim();
       const percentOff = document.getElementById('promo-percent-input').value;
       const duration = document.getElementById('promo-duration-select').value;
+      const durationInMonths = document.getElementById('promo-months-input')?.value;
       const maxRedemptions = document.getElementById('promo-max-input').value;
 
       if (!code || !percentOff) { toast('Code and % off are required', 'error'); return; }
+      if (duration === 'repeating' && !durationInMonths) { toast('Months is required for repeating duration', 'error'); return; }
 
       try {
         await adminRequest('/admin/promo-codes', {
           method: 'POST',
-          body: JSON.stringify({ code, percentOff, duration, maxRedemptions: maxRedemptions || null })
+          body: JSON.stringify({ code, percentOff, duration, durationInMonths: durationInMonths || null, maxRedemptions: maxRedemptions || null })
         });
         toast(`Promo code ${code.toUpperCase()} created!`, 'success');
         document.getElementById('promo-code-input').value = '';

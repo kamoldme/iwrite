@@ -8,6 +8,7 @@ const Editor = {
   timerInterval: null,
   dangerInterval: null,
   sessionSaveInterval: null,
+  _heartbeatInterval: null,
   lastKeystroke: null,
   dangerThreshold: 6000,
   tabLeftTime: null,
@@ -64,6 +65,13 @@ const Editor = {
     } catch {}
   },
 
+  async _sendHeartbeat() {
+    if (!this.active) return;
+    try {
+      await API.request('/documents/heartbeat', { method: 'POST' });
+    } catch {}
+  },
+
   _getSessionState() {
     try {
       const data = localStorage.getItem('editor_session');
@@ -88,7 +96,7 @@ const Editor = {
     if (typeof CommentSystem !== 'undefined') CommentSystem.destroy();
 
     try {
-      const doc = await API.createDocument(this.titleInput.value || 'Untitled', '', mode);
+      const doc = await API.createDocument(this.titleInput.value || 'Untitled', '', mode, this.sessionTopic);
       this.documentId = doc.id;
     } catch {
       App.toast('Failed to create document', 'error');
@@ -193,6 +201,10 @@ const Editor = {
     // Save session state periodically so it survives page refresh
     this.sessionSaveInterval = setInterval(() => this._saveSessionState(), 5000);
     this._saveSessionState();
+
+    // Heartbeat: tell server this user is actively writing (for "Writing Now" counter)
+    this._heartbeatInterval = setInterval(() => this._sendHeartbeat(), 5000);
+    this._sendHeartbeat();
 
     // Show topic bar if set
     const topicBar = document.getElementById('editor-topic-bar');
@@ -1064,6 +1076,8 @@ const Editor = {
       this.timerInterval = setInterval(() => this.updateTimer(), 100);
       this.autoSaveInterval = setInterval(() => this.autoSave(), 10000);
       this.sessionSaveInterval = setInterval(() => this._saveSessionState(), 5000);
+      this._heartbeatInterval = setInterval(() => this._sendHeartbeat(), 5000);
+      this._sendHeartbeat();
 
       this.textarea.addEventListener('input', this.onInput);
       this.textarea.addEventListener('keydown', this.onKeydown);
@@ -1717,6 +1731,7 @@ const Editor = {
     clearInterval(this.dangerInterval);
     clearInterval(this.tabCountdown);
     clearInterval(this.sessionSaveInterval);
+    clearInterval(this._heartbeatInterval);
     if (this._duelPollInterval) clearInterval(this._duelPollInterval);
     this._clearSessionState();
     this.container.classList.remove('dangerous-active');

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,900&family=Instrument+Sans:wght@400;500;600;700&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="/iWrite logo.png">
-  <link rel="stylesheet" href="/css/style.css?v=27">
+  <link rel="stylesheet" href="/css/style.css?v=28">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -48,7 +48,7 @@
         <div class="sidebar-header">
           <div style="display:flex;flex-direction:column">
             <a href="/" class="logo">iWrite4.me</a>
-            <span class="version-tag">v2.3.39</span>
+            <span class="version-tag">v2.5.7</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="streak-indicator" id="streak-badge" style="display:none;cursor:pointer" onclick="App.openStreakPopup()">
@@ -72,6 +72,8 @@
           <button class="sidebar-nav-item" data-view="stories">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
             Community
+            <span class="notif-badge" id="notif-badge" style="display:none"></span>
+            <span class="community-new-dot" id="community-new-dot" style="display:none;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:auto;flex-shrink:0"></span>
           </button>
           <button class="sidebar-nav-item" data-view="leaderboard">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 21h8M12 17v4"/><path d="M7 4h10l-1 9H8L7 4z"/><path d="M7 8H4l1 4h2M17 8h3l-1 4h-2"/></svg>
@@ -92,17 +94,21 @@
             Analytics
             <span class="pro-nav-badge" style="font-size:9px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:1px 5px;border-radius:8px;margin-left:auto">PRO</span>
           </button>
-          <button class="sidebar-nav-item" data-view="profile">
+          <button class="sidebar-nav-item" data-view="my-profile" id="my-profile-nav-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            Profile
+            <span id="my-profile-nav-label">Profile</span>
           </button>
           <div class="sidebar-divider" id="pro-profile-divider" style="display:none"></div>
           <div class="sidebar-divider" id="upgrade-divider-top"></div>
           <button class="sidebar-nav-item" data-view="upgrade" id="upgrade-nav-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            Upgrade to Pro
+            <span class="upgrade-nav-label">Upgrade to Pro</span>
           </button>
           <div class="sidebar-divider" id="upgrade-divider-bottom"></div>
+          <button class="sidebar-nav-item" data-view="settings" id="settings-nav-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            Settings
+          </button>
           <button class="sidebar-nav-item" data-view="support">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             Support
@@ -113,7 +119,7 @@
           </button>
         </nav>
         <div class="sidebar-footer">
-          <div class="user-info" id="user-info-btn" style="cursor:pointer" title="View plans">
+          <div class="user-info" id="user-info-btn" style="cursor:pointer" title="Settings">
             <div class="user-avatar" id="user-avatar">?</div>
             <div class="user-details">
               <div class="user-name-row">
@@ -262,17 +268,19 @@
 
         <!-- STORIES VIEW -->
         <div id="view-stories" class="view stories-view stories-mode-feed" style="display:none">
-          <div class="stories-topbar">
-            <div class="stories-filter-row stories-primary-tabs">
-              <button class="stories-filter-btn active" data-story-tab="feed">Feed</button>
-              <button class="stories-filter-btn" data-story-tab="mine">My Stories</button>
+          <div class="stories-header-row">
+            <div class="stories-navbar">
+              <div class="stories-filter-row stories-primary-tabs">
+                <button class="stories-filter-btn active" data-story-tab="feed">Feed</button>
+                <button class="stories-filter-btn" data-story-tab="mine">My Stories</button>
+              </div>
             </div>
-            <div class="stories-topbar-actions">
+            <div class="stories-topbar">
               <div class="stories-topbar-filters">
                 <div class="stories-filter-row" id="stories-feed-sort-row">
                   <button class="stories-filter-btn active" data-story-sort="newest">Newest</button>
                   <button class="stories-filter-btn" data-story-sort="oldest">Oldest</button>
-                  <button class="stories-filter-btn" data-story-sort="popular">Most Popular</button>
+                  <button class="stories-filter-btn" data-story-sort="popular">Popular</button>
                 </div>
                 <div class="stories-filter-row" id="stories-mine-filter-row" style="display:none">
                   <button class="stories-filter-btn active" data-story-mine-filter="drafts">Drafts</button>
@@ -308,11 +316,15 @@
             <h1>&#x1F3C6; Leaderboard</h1>
             <p>See who's writing the most. Climb the ranks!</p>
           </div>
+          <div class="lb-tabs" id="lb-tabs">
+            <button class="lb-tab active" data-lb-tab="streaks">Streaks</button>
+            <button class="lb-tab" data-lb-tab="time">Writing Time</button>
+          </div>
           <div class="leaderboard-container" id="leaderboard-container">
             <div class="leaderboard-podium" id="leaderboard-podium"></div>
             <div class="leaderboard-table-wrap">
               <table class="leaderboard-table" id="leaderboard-table">
-                <thead>
+                <thead id="leaderboard-thead">
                   <tr>
                     <th>Rank</th>
                     <th class="lb-pro-col"></th>
@@ -416,88 +428,153 @@
         </div>
 
         <!-- PROFILE VIEW (now last) -->
-        <div id="view-profile" class="view" style="display:none">
-          <div class="dashboard-header">
-            <h1>&#x1F464; Profile</h1>
+        <!-- MY PROFILE (own public profile) -->
+        <div id="view-my-profile" class="view" style="display:none">
+          <div class="up-banner" id="mp-banner"></div>
+          <div class="up-header">
+            <div class="up-avatar-wrap" id="mp-avatar"></div>
+            <div class="up-header-info">
+              <div class="up-name-row">
+                <h1 class="up-name" id="mp-name"></h1>
+                <span class="pro-nav-badge up-pro-badge" id="mp-pro-badge" style="display:none">PRO</span>
+              </div>
+              <div class="up-username" id="mp-username"></div>
+              <div class="up-bio" id="mp-bio"></div>
+            </div>
+            <div class="up-actions">
+              <button class="btn btn-ghost btn-small" onclick="App.switchView('settings')" id="mp-edit-btn" style="display:inline-flex;align-items:center;gap:6px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="flex-shrink:0"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit Profile
+              </button>
+            </div>
           </div>
-          <div class="profile-layout">
-            <!-- Left column: settings (sticky) -->
-            <div class="profile-left">
-              <div class="profile-left-inner">
-                <!-- Avatar Upload -->
-                <div class="profile-section profile-avatar-section">
-                  <div class="profile-avatar-wrap">
-                    <div class="profile-avatar-circle" id="profile-avatar-circle">
-                      <span id="profile-avatar-letter"></span>
-                      <img id="profile-avatar-img" src="" alt="" style="display:none">
-                      <label class="profile-avatar-overlay" for="avatar-file-input" title="Upload photo">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                      </label>
-                      <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
+          <div class="up-stats" id="mp-stats"></div>
+          <div class="up-tabs" role="tablist">
+            <button class="up-tab active" data-mptab="about" role="tab" aria-selected="true">About</button>
+            <button class="up-tab" data-mptab="posts" role="tab" aria-selected="false">Posts</button>
+          </div>
+          <div class="up-tab-content">
+            <div id="mp-about" role="tabpanel"></div>
+            <div id="mp-posts" role="tabpanel" style="display:none"></div>
+          </div>
+        </div>
+        <!-- SETTINGS (old Profile tab content) -->
+        <div id="view-settings" class="view" style="display:none">
+          <div class="dashboard-header">
+            <h1>&#x2699;&#xFE0F; Settings</h1>
+          </div>
+          <div class="profile-layout settings-layout">
+            <!-- Column 1: Avatar, Banner, Referral -->
+            <div class="settings-col">
+              <div class="profile-section profile-avatar-section">
+                <div class="profile-avatar-wrap">
+                  <div class="profile-avatar-circle" id="profile-avatar-circle">
+                    <span id="profile-avatar-letter"></span>
+                    <img id="profile-avatar-img" src="" alt="" style="display:none">
+                    <label class="profile-avatar-overlay" for="avatar-file-input" title="Upload photo">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    </label>
+                    <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
+                  </div>
+                  <div class="profile-avatar-info">
+                    <div class="profile-avatar-name" id="profile-avatar-name"></div>
+                    <div class="profile-avatar-username" id="profile-avatar-username"></div>
+                    <div class="profile-avatar-actions">
+                      <button class="btn btn-ghost btn-small" id="remove-avatar-btn" style="display:none">Remove photo</button>
                     </div>
-                    <div class="profile-avatar-info">
-                      <div class="profile-avatar-name" id="profile-avatar-name"></div>
-                      <div class="profile-avatar-username" id="profile-avatar-username"></div>
-                      <div class="profile-avatar-actions">
-                        <button class="btn btn-ghost btn-small" id="remove-avatar-btn" style="display:none">Remove photo</button>
-                      </div>
-                    </div>
-                    <div class="profile-plan-info" id="profile-plan-info"></div>
                   </div>
-                </div>
-
-                <div class="profile-section">
-                  <h3 class="profile-section-title">Account Details</h3>
-                  <div class="auth-field">
-                    <label>Name</label>
-                    <input type="text" id="profile-name">
-                  </div>
-                  <div class="auth-field">
-                    <label>Username <span style="font-weight:400;color:var(--text-muted)">(can change once/month)</span></label>
-                    <input type="text" id="profile-username" maxlength="30" minlength="3" placeholder="your_username">
-                    <div id="profile-username-info" style="display:none;font-size:11px;color:var(--text-muted);margin-top:4px"></div>
-                  </div>
-                  <div class="auth-field">
-                    <label>Email</label>
-                    <input type="email" id="profile-email" disabled>
-                  </div>
-                  <div class="auth-field">
-                    <label>Member Since</label>
-                    <input type="text" id="profile-since" disabled>
-                  </div>
-                  <button class="btn btn-primary btn-small" id="save-profile-btn" style="margin-top:8px">Save Changes</button>
-                </div>
-
-                <div class="profile-section" id="referral-section"></div>
-
-                <div class="profile-section" id="change-password-section">
-                  <h3 class="profile-section-title">&#x1F512; Change Password</h3>
-                  <div class="auth-error" id="password-error"></div>
-                  <div class="auth-field">
-                    <label>Current Password</label>
-                    <input type="password" id="current-password" placeholder="Enter current password">
-                  </div>
-                  <div class="auth-field">
-                    <label>New Password</label>
-                    <input type="password" id="new-password" placeholder="Min 6 characters">
-                  </div>
-                  <div class="auth-field">
-                    <label>Confirm New Password</label>
-                    <input type="password" id="confirm-password" placeholder="Re-enter new password">
-                  </div>
-                  <div class="auth-error" id="password-success" style="color:var(--success)"></div>
-                  <button class="btn btn-primary btn-small" id="change-password-btn" style="margin-top:8px">Update Password</button>
+                  <div class="profile-plan-info" id="profile-plan-info"></div>
                 </div>
               </div>
-            </div>
 
-            <!-- Right column: achievements -->
-            <div class="profile-right">
               <div class="profile-section">
-                <h3 class="profile-section-title">&#x1F3C5; Achievements</h3>
-                <div id="achievements-list" class="achievements-grid"></div>
+                <h3 class="profile-section-title">Profile Banner</h3>
+                <div class="profile-banner-preview" id="profile-banner-preview" style="width:100%;height:80px;border-radius:var(--radius-sm);background:linear-gradient(135deg,#1a1a2e,#16213e);margin-bottom:8px;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center">
+                  <span class="profile-banner-placeholder" id="profile-banner-placeholder" style="font-size:12px;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase;font-weight:600">No banner yet</span>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <label class="btn btn-ghost btn-small" for="banner-file-input" style="cursor:pointer">Upload Banner</label>
+                  <input type="file" id="banner-file-input" accept="image/*" style="display:none">
+                  <button class="btn btn-ghost btn-small" id="remove-banner-btn" style="display:none">Remove</button>
+                </div>
+              </div>
+
+              <div class="profile-section" id="referral-section"></div>
+            </div>
+
+            <!-- Column 2: Account Details, Change Password -->
+            <div class="settings-col">
+              <div class="profile-section">
+                <h3 class="profile-section-title">Account Details</h3>
+                <div class="auth-field">
+                  <label>Name</label>
+                  <input type="text" id="profile-name">
+                </div>
+                <div class="auth-field">
+                  <label>Username <span style="font-weight:400;color:var(--text-muted)">(can change once/month)</span></label>
+                  <input type="text" id="profile-username" maxlength="30" minlength="3" placeholder="your_username">
+                  <div id="profile-username-info" style="display:none;font-size:11px;color:var(--text-muted);margin-top:4px"></div>
+                </div>
+                <div class="auth-field">
+                  <label>Email</label>
+                  <input type="email" id="profile-email" disabled>
+                </div>
+                <div class="auth-field">
+                  <label>Bio <span style="font-weight:400;color:var(--text-muted)">(max 160 characters)</span></label>
+                  <textarea id="profile-bio" maxlength="160" rows="2" placeholder="A short bio about yourself" style="resize:vertical;min-height:48px"></textarea>
+                  <div id="profile-bio-count" style="font-size:11px;color:var(--text-muted);text-align:right;margin-top:2px">0/160</div>
+                </div>
+                <div class="auth-field">
+                  <label>Member Since</label>
+                  <input type="text" id="profile-since" disabled>
+                </div>
+                <button class="btn btn-primary btn-small" id="save-profile-btn" style="margin-top:8px">Save Changes</button>
+              </div>
+
+              <div class="profile-section" id="change-password-section">
+                <h3 class="profile-section-title">&#x1F512; Change Password</h3>
+                <div class="auth-error" id="password-error"></div>
+                <div class="auth-field">
+                  <label>Current Password</label>
+                  <input type="password" id="current-password" placeholder="Enter current password">
+                </div>
+                <div class="auth-field">
+                  <label>New Password</label>
+                  <input type="password" id="new-password" placeholder="Min 6 characters">
+                </div>
+                <div class="auth-field">
+                  <label>Confirm New Password</label>
+                  <input type="password" id="confirm-password" placeholder="Re-enter new password">
+                </div>
+                <div class="auth-error" id="password-success" style="color:var(--success)"></div>
+                <button class="btn btn-primary btn-small" id="change-password-btn" style="margin-top:8px">Update Password</button>
               </div>
             </div>
+          </div>
+        </div>
+        <!-- USER PROFILE VIEW (public, reached via clicking @username) -->
+        <div id="view-user-profile" class="view" style="display:none">
+          <div class="up-banner" id="up-banner"></div>
+          <div class="up-header">
+            <div class="up-avatar-wrap" id="up-avatar"></div>
+            <div class="up-header-info">
+              <div class="up-name-row">
+                <h1 class="up-name" id="up-name"></h1>
+                <span class="pro-nav-badge up-pro-badge" id="up-pro-badge" style="display:none">PRO</span>
+              </div>
+              <div class="up-username" id="up-username"></div>
+              <div class="up-bio" id="up-bio"></div>
+            </div>
+            <div class="up-actions" id="up-actions"></div>
+          </div>
+          <div class="up-stats" id="up-stats"></div>
+          <div class="up-tabs" role="tablist">
+            <button class="up-tab active" data-uptab="about" role="tab" aria-selected="true">About</button>
+            <button class="up-tab" data-uptab="posts" role="tab" aria-selected="false">Posts</button>
+          </div>
+          <div class="up-tab-content">
+            <div id="up-about" role="tabpanel"></div>
+            <div id="up-posts" role="tabpanel" style="display:none"></div>
           </div>
         </div>
         <!-- ANALYTICS VIEW -->
@@ -921,6 +998,9 @@
     <!-- DOCUMENT NAME MODAL -->
     <div class="modal-overlay" id="doc-name-modal">
       <div class="modal" style="max-width:400px">
+        <button class="modal-back-btn" id="doc-name-back" title="Go back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
         <h2>Name Your Document</h2>
         <p>Give your writing a title before you begin.</p>
         <div class="modal-field">

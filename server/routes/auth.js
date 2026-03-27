@@ -136,6 +136,11 @@ router.post('/register', async (req, res) => {
       planSource: null,
       trialUsed: false,
       planPaymentFailed: false,
+      bio: '',
+      followers: [],
+      following: [],
+      banner: null,
+      bannerUpdatedAt: null,
       createdAt: new Date().toISOString()
     };
 
@@ -276,6 +281,12 @@ router.patch('/me', authenticate, async (req, res) => {
 
       updates.username = req.body.username;
       updates.lastUsernameChange = new Date().toISOString();
+    }
+
+    // Bio update (max 160 chars)
+    if (req.body.bio !== undefined) {
+      const bio = String(req.body.bio).replace(/<[^>]*>/g, '').trim().slice(0, 160);
+      updates.bio = bio;
     }
 
     // Clear needsProfile flag
@@ -473,6 +484,40 @@ router.delete('/avatar', authenticate, async (req, res) => {
     res.json(safeUser);
   } catch (err) {
     res.status(500).json({ error: 'Failed to remove avatar' });
+  }
+});
+
+// ===== BANNER =====
+router.post('/banner', authenticate, upload.single('banner'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const bannersDir = path.join(__dirname, '../data/banners');
+    if (!fs.existsSync(bannersDir)) fs.mkdirSync(bannersDir, { recursive: true });
+    const filepath = path.join(bannersDir, `${req.user.id}.jpg`);
+    await sharp(req.file.buffer)
+      .resize(1200, 300, { fit: 'cover', position: 'center' })
+      .jpeg({ quality: 75 })
+      .toFile(filepath);
+    const bannerUrl = `/uploads/banners/${req.user.id}.jpg`;
+    const bannerUpdatedAt = Date.now();
+    const updated = await updateOne('users.json', u => u.id === req.user.id, { banner: bannerUrl, bannerUpdatedAt });
+    const { password: _, ...safeUser } = updated;
+    res.json(safeUser);
+  } catch (err) {
+    console.error('Banner upload error:', err);
+    res.status(500).json({ error: 'Failed to upload banner' });
+  }
+});
+
+router.delete('/banner', authenticate, async (req, res) => {
+  try {
+    const filepath = path.join(__dirname, '../data/banners', `${req.user.id}.jpg`);
+    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    const updated = await updateOne('users.json', u => u.id === req.user.id, { banner: null, bannerUpdatedAt: null });
+    const { password: _, ...safeUser } = updated;
+    res.json(safeUser);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove banner' });
   }
 });
 

@@ -26,7 +26,7 @@ const DURATION_DAYS = {
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
   if (!stripeClient) {
-    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
+    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-12-18.acacia' });
   }
   return stripeClient;
 }

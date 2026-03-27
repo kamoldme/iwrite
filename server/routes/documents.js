@@ -74,6 +74,20 @@ const router = express.Router();
 
 router.use(authenticate);
 
+// ===== Writing heartbeat (editor pings every 5s while session is active) =====
+router.post('/heartbeat', (req, res) => {
+  const activeUsers = req.app.get('activeUsers');
+  if (activeUsers && req.user) {
+    const entry = activeUsers.get(req.user.id);
+    if (entry) {
+      entry.writingAt = Date.now();
+    } else {
+      activeUsers.set(req.user.id, { email: req.user.email, lastSeen: Date.now(), writingAt: Date.now() });
+    }
+  }
+  res.json({ ok: true });
+});
+
 router.get('/', async (req, res) => {
   // Include system-deleted (failed) docs for history, admin-deactivated docs, but not manually deleted
   const docs = await findMany('documents.json', d => d.userId === req.user.id && (!d.deleted || d.deletedBySystem || d.deactivatedByAdmin));
@@ -81,7 +95,7 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { title, content, mode } = req.body;
+  const { title, content, mode, prompt } = req.body;
 
   // Monthly session limit (invisible): free 200/month, pro 300/month
   const user = await findOne('users.json', u => u.id === req.user.id);
@@ -110,6 +124,7 @@ router.post('/', async (req, res) => {
     title: title || 'Untitled',
     content: content || '',
     mode: mode || 'normal',
+    prompt: prompt || '',
     wordCount: (content || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter(Boolean).length,
     xpEarned: 0,
     duration: 0,

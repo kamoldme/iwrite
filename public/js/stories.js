@@ -104,6 +104,25 @@
         viewEl.classList.remove('stories-mode-feed', 'stories-mode-read', 'stories-mode-compose');
         viewEl.classList.add(`stories-mode-${mode}`);
       }
+
+      // Swap mobile hamburger → back arrow when inside a story
+      const toggle = document.getElementById('mobile-sidebar-toggle');
+      if (toggle) {
+        if (mode === 'read' || mode === 'compose') {
+          toggle.classList.add('story-back-mode');
+          toggle.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>';
+          toggle._storyBackHandler = (e) => {
+            e.stopPropagation();
+            this.openStoriesFeed();
+          };
+          toggle.onclick = toggle._storyBackHandler;
+        } else {
+          toggle.classList.remove('story-back-mode');
+          toggle.innerHTML = '<span></span><span></span><span></span>';
+          toggle.onclick = null;
+          toggle._storyBackHandler = null;
+        }
+      }
     },
 
     syncStoryControls() {
@@ -132,7 +151,10 @@
       const avatar = story.authorAvatar
         ? `<img src="${esc(story.authorAvatar)}" alt="${esc(story.authorName || 'Writer')}" class="story-author-avatar-img">`
         : `<span class="story-author-avatar-fallback">${esc(initialsFor(story.authorName || 'Writer'))}</span>`;
-      const username = story.authorUsername ? `@${esc(story.authorUsername)}` : 'Writer';
+      const usernameText = story.authorUsername ? `@${esc(story.authorUsername)}` : 'Writer';
+      const usernameHtml = story.authorUsername
+        ? `<a href="#user-profile/${esc(story.authorUsername)}" class="username-link" data-username="${esc(story.authorUsername)}" onclick="event.stopPropagation()">${usernameText}</a>`
+        : usernameText;
       const plan = story.authorPlan === 'premium'
         ? '<span class="pro-nav-badge">PRO</span>'
         : '';
@@ -142,7 +164,7 @@
           <span class="story-author-avatar">${avatar}</span>
           <span class="story-author-copy">
             <strong>${esc(story.authorName || 'Unknown')}</strong>
-            <span>${username}</span>
+            <span>${usernameHtml}</span>
           </span>
           ${plan}
         </div>
@@ -368,25 +390,76 @@
     },
 
     renderStoryComment(comment, options = {}) {
-      const deleteButton = options.canDelete
+      const depth = comment.depth || 0;
+      const maxDepth = 3;
+      const canReply = options.commentsOpen && depth < maxDepth;
+      const canDelete = options.ownerOrAdmin || comment.userId === this.user.id;
+      const deleteButton = canDelete
         ? `<button class="story-comment-delete" data-story-comment-delete="${comment.id}">Delete</button>`
         : '';
 
+      const replyingTo = comment.parentCommentId && comment._parentAuthor
+        ? `<span class="comment-replying-to">↳ Replying to @${esc(comment._parentAuthor)}</span>`
+        : '';
+
+      const replies = (comment.replies || []).map(reply => {
+        reply._parentAuthor = comment.authorUsername || comment.authorName;
+        return this.renderStoryComment(reply, options);
+      }).join('');
+
+      const hasReplies = (comment.replies || []).length > 0;
+      const replyCount = this._countReplies(comment);
+
       return `
-        <div class="story-comment-card">
-          <div class="story-comment-card-head">
-            <div class="story-comment-author-wrap">
-              <strong>${esc(comment.authorName || 'Unknown')}</strong>
-              ${comment.authorUsername ? `<span>@${esc(comment.authorUsername)}</span>` : ''}
+        <div class="story-comment-thread${depth > 0 ? ' story-comment-nested' : ''}" data-comment-id="${comment.id}" data-depth="${depth}">
+          <div class="story-comment-card">
+            ${replyingTo}
+            <div class="story-comment-card-head">
+              <div class="story-comment-author-wrap">
+                <strong>${esc(comment.authorName || 'Unknown')}</strong>
+                ${comment.authorUsername ? `<a href="#user-profile/${esc(comment.authorUsername)}" class="username-link" data-username="${esc(comment.authorUsername)}" onclick="event.stopPropagation()">@${esc(comment.authorUsername)}</a>` : ''}
+              </div>
+              <div class="story-comment-meta">
+                <span>${formatStoryDate(comment.createdAt)}</span>
+                ${deleteButton}
+              </div>
             </div>
-            <div class="story-comment-actions">
-              <span>${formatStoryDate(comment.createdAt)}</span>
-              ${deleteButton}
+            <p>${esc(comment.text)}</p>
+            <div class="story-comment-action-row">
+              <button class="comment-like-btn${comment.likedByMe ? ' liked' : ''}" data-comment-like="${comment.id}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="${comment.likedByMe ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                ${comment.likeCount ? `<span>${comment.likeCount}</span>` : ''}
+              </button>
+              ${canReply ? `<button class="comment-reply-btn" data-comment-reply="${comment.id}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Reply
+              </button>` : ''}
             </div>
           </div>
-          <p>${esc(comment.text)}</p>
+          <div class="comment-reply-form-slot" id="reply-form-${comment.id}"></div>
+          ${hasReplies ? `
+            <div class="comment-thread-controls">
+              <button class="comment-collapse-btn" data-collapse-thread="${comment.id}" aria-expanded="true" title="Collapse thread">
+                <span class="collapse-icon">−</span> ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}
+              </button>
+            </div>
+            <div class="comment-replies" id="replies-${comment.id}">
+              ${replies}
+            </div>
+            <div class="comment-collapsed-indicator" id="collapsed-${comment.id}" style="display:none">
+              <button class="comment-expand-btn" data-expand-thread="${comment.id}">[+] ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}</button>
+            </div>
+          ` : `<div class="comment-replies" id="replies-${comment.id}"></div>`}
         </div>
       `;
+    },
+
+    _countReplies(comment) {
+      let count = (comment.replies || []).length;
+      for (const r of (comment.replies || [])) {
+        count += this._countReplies(r);
+      }
+      return count;
     },
 
     async copyStoryLink(story) {
@@ -475,9 +548,10 @@
             <div class="story-comment-list">
               ${this.storyComments.length
                 ? this.storyComments.map(comment => this.renderStoryComment(comment, {
-                    canDelete: ownerOrAdmin || comment.userId === this.user.id
+                    commentsOpen: commentsOpen,
+                    ownerOrAdmin
                   })).join('')
-                : '<div class="story-empty-inline">No comments yet.</div>'}
+                : '<div class="story-empty-inline">No comments yet. Be the first to share your thoughts.</div>'}
             </div>
           </section>
         </div>
@@ -516,6 +590,38 @@
           event.stopPropagation();
           const commentId = button.dataset.storyCommentDelete;
           if (commentId) this.deleteStoryComment(story.id, commentId);
+        });
+      });
+
+      // Comment likes
+      detailEl.querySelectorAll('[data-comment-like]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleCommentLike(story.id, btn.dataset.commentLike, btn);
+        });
+      });
+
+      // Reply buttons
+      detailEl.querySelectorAll('[data-comment-reply]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openReplyForm(story.id, btn.dataset.commentReply);
+        });
+      });
+
+      // Collapse thread
+      detailEl.querySelectorAll('[data-collapse-thread]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.collapseThread(btn.dataset.collapseThread);
+        });
+      });
+
+      // Expand thread
+      detailEl.querySelectorAll('[data-expand-thread]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.expandThread(btn.dataset.expandThread);
         });
       });
     },
@@ -712,7 +818,7 @@
           </div>
 
           <div class="story-compose-canvas">
-            <input type="text" id="story-title-input" class="story-title-input story-title-input-plain" placeholder="Title" value="${esc(story.title)}">
+            <input type="text" id="story-title-input" class="story-title-input story-title-input-plain" placeholder="Give your story a title..." value="${esc(story.title)}">
             <div id="story-editor" class="story-editor" contenteditable="true"></div>
           </div>
 
@@ -903,6 +1009,16 @@
       const content = editor ? editor.innerHTML : this.storyDetail.content;
       const allowComments = commentsToggle ? commentsToggle.checked : true;
 
+      if (!title) {
+        if (titleInput) {
+          titleInput.focus();
+          titleInput.classList.add('shake');
+          setTimeout(() => titleInput.classList.remove('shake'), 500);
+        }
+        App.toast('Please add a title to your story', 'error');
+        return;
+      }
+
       try {
         const updated = await API.updateStory(this.storyDetail.id, { title, content, allowComments });
         this.storyDetail = updated;
@@ -929,7 +1045,7 @@
     async createStoryDraft() {
       try {
         const story = await API.createStory({
-          title: 'Untitled Story',
+          title: '',
           content: '<p></p>',
           allowComments: true
         });
@@ -1036,32 +1152,48 @@
 
     async toggleStoryLike(storyId) {
       try {
-        await API.toggleStoryLike(storyId);
-        const currentId = this.storySelectedId || storyId;
-        await this.loadStories();
-        await this.selectStory(currentId);
+        const result = await API.toggleStoryLike(storyId);
+        const liked = result.liked;
+        const count = result.likeCount || 0;
+        const heartSvg = renderIcon('heart', { filled: liked });
+
+        // Update both top and bottom like buttons in place
+        for (const id of ['story-like-btn', 'story-bottom-like-btn']) {
+          const btn = document.getElementById(id);
+          if (!btn) continue;
+          btn.classList.toggle('liked', liked);
+          btn.innerHTML = `${heartSvg}<span>${count}</span>`;
+        }
+
+        // Update the feed card metric too if visible
+        const story = this.storyList.find(s => s.id === storyId);
+        if (story) {
+          story.likedByMe = liked;
+          story.likeCount = count;
+        }
       } catch (err) {
         App.toast(err.message || 'Failed to update like', 'error');
       }
     },
 
-    async submitStoryComment(storyId) {
-      const input = document.getElementById('story-comment-input');
+    async submitStoryComment(storyId, parentCommentId = null) {
+      const inputId = parentCommentId ? `reply-input-${parentCommentId}` : 'story-comment-input';
+      const input = document.getElementById(inputId);
       const text = input ? input.value.trim() : '';
       if (!text) return;
 
       try {
-        await API.addStoryComment(storyId, text);
+        await API.addStoryComment(storyId, text, parentCommentId);
         if (input) input.value = '';
         await this.selectStory(storyId);
-        App.toast('Comment posted', 'success');
+        App.toast(parentCommentId ? 'Reply posted' : 'Comment posted', 'success');
       } catch (err) {
         App.toast(err.message || 'Failed to add comment', 'error');
       }
     },
 
     async deleteStoryComment(storyId, commentId) {
-      const ok = await this.showConfirm('Delete this comment?');
+      const ok = await this.showConfirm('Delete this comment and all its replies?');
       if (!ok) return;
       try {
         await API.deleteStoryComment(storyId, commentId);
@@ -1070,6 +1202,103 @@
       } catch (err) {
         App.toast(err.message || 'Failed to delete comment', 'error');
       }
+    },
+
+    async toggleCommentLike(storyId, commentId, btn) {
+      try {
+        const result = await API.toggleCommentLike(storyId, commentId);
+        // Update button in-place without re-rendering the whole page
+        const svg = btn.querySelector('svg');
+        const countSpan = btn.querySelector('span');
+        if (result.liked) {
+          btn.classList.add('liked');
+          if (svg) svg.setAttribute('fill', 'currentColor');
+        } else {
+          btn.classList.remove('liked');
+          if (svg) svg.setAttribute('fill', 'none');
+        }
+        if (result.likeCount > 0) {
+          if (countSpan) {
+            countSpan.textContent = result.likeCount;
+          } else {
+            btn.insertAdjacentHTML('beforeend', `<span>${result.likeCount}</span>`);
+          }
+        } else if (countSpan) {
+          countSpan.remove();
+        }
+      } catch (err) {
+        App.toast(err.message || 'Failed to like comment', 'error');
+      }
+    },
+
+    openReplyForm(storyId, commentId) {
+      // Close any existing reply forms
+      document.querySelectorAll('.comment-reply-form-active').forEach(el => {
+        el.innerHTML = '';
+        el.classList.remove('comment-reply-form-active');
+      });
+
+      const slot = document.getElementById(`reply-form-${commentId}`);
+      if (!slot) return;
+
+      slot.classList.add('comment-reply-form-active');
+      slot.innerHTML = `
+        <div class="story-comment-reply-form">
+          <textarea id="reply-input-${commentId}" placeholder="Write a reply..." rows="2"></textarea>
+          <div class="reply-form-actions">
+            <button class="reply-cancel-btn" type="button">Cancel</button>
+            <button class="btn btn-primary reply-submit-btn" type="button">Reply</button>
+          </div>
+        </div>
+      `;
+
+      const textarea = document.getElementById(`reply-input-${commentId}`);
+      if (textarea) textarea.focus();
+
+      slot.querySelector('.reply-cancel-btn').onclick = () => {
+        slot.innerHTML = '';
+        slot.classList.remove('comment-reply-form-active');
+      };
+
+      slot.querySelector('.reply-submit-btn').onclick = () => {
+        this.submitStoryComment(storyId, commentId);
+      };
+
+      // Submit on Ctrl+Enter
+      if (textarea) {
+        textarea.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            this.submitStoryComment(storyId, commentId);
+          }
+          if (e.key === 'Escape') {
+            slot.innerHTML = '';
+            slot.classList.remove('comment-reply-form-active');
+          }
+        });
+      }
+    },
+
+    collapseThread(commentId) {
+      const replies = document.getElementById(`replies-${commentId}`);
+      const collapsed = document.getElementById(`collapsed-${commentId}`);
+      const thread = document.querySelector(`[data-comment-id="${commentId}"]`);
+      const collapseBtn = thread?.querySelector('.comment-collapse-btn');
+      const controls = thread?.querySelector('.comment-thread-controls');
+
+      if (replies) replies.style.display = 'none';
+      if (collapsed) collapsed.style.display = 'block';
+      if (controls) controls.style.display = 'none';
+    },
+
+    expandThread(commentId) {
+      const replies = document.getElementById(`replies-${commentId}`);
+      const collapsed = document.getElementById(`collapsed-${commentId}`);
+      const thread = document.querySelector(`[data-comment-id="${commentId}"]`);
+      const controls = thread?.querySelector('.comment-thread-controls');
+
+      if (replies) replies.style.display = '';
+      if (collapsed) collapsed.style.display = 'none';
+      if (controls) controls.style.display = '';
     },
 
     async toggleStoryCommentsSetting(storyId, nextState) {
@@ -1129,6 +1358,10 @@
     if (view === 'stories') {
       this.syncStoryControls();
       this.loadStories();
+      // Mark community as seen — hide the green dot
+      localStorage.setItem('iwrite_community_seen', new Date().toISOString());
+      const dot = document.getElementById('community-new-dot');
+      if (dot) dot.style.display = 'none';
     }
   };
 })();
