@@ -368,15 +368,6 @@ const App = {
 
     document.getElementById('logout-btn').addEventListener('click', () => API.logout());
 
-    // Delegated click handler for all profile links (leaderboard, friends, podium)
-    document.addEventListener('click', (e) => {
-      const link = e.target.closest('[data-profile-username]');
-      if (link) {
-        e.preventDefault();
-        this.switchView('user-profile', { username: link.dataset.profileUsername });
-      }
-    });
-
     // Hash-based navigation (anchor clicks, back/forward)
     const handleHash = () => {
       const hash = location.hash.replace('#', '');
@@ -1760,7 +1751,7 @@ const App = {
           ${isFirst ? '<div class="podium-crown">&#x1F451;</div>' : ''}
           <div class="podium-avatar">${avatarContent}</div>
           <div class="podium-name">${entry.plan === 'premium' ? '<span class="lb-pro-badge">PRO</span> ' : ''}${this.escapeHtml(entry.name)}</div>
-          ${entry.username ? `<div class="podium-username"><a href="#user-profile/${this.escapeHtml(entry.username)}" class="profile-link" data-profile-username="${this.escapeHtml(entry.username)}">@${this.escapeHtml(entry.username)}</a></div>` : ''}
+          ${entry.username ? `<div class="podium-username"><a href="#user-profile/${this.escapeHtml(entry.username)}" class="username-link" data-username="${this.escapeHtml(entry.username)}">@${this.escapeHtml(entry.username)}</a></div>` : ''}
           <div class="podium-words">${statLine}</div>
           <div class="podium-pedestal" style="height:${heights[i]}">
             <span class="podium-medal">${medals[i]}</span>
@@ -1776,7 +1767,7 @@ const App = {
       const timeStr = this._formatWritingTime(entry.minutesWritten);
 
       const nameCell = entry.username
-        ? `<a href="#user-profile/${this.escapeHtml(entry.username)}" class="lb-name-link profile-link" data-profile-username="${this.escapeHtml(entry.username)}">${this.escapeHtml(entry.name)} <span class="lb-username">@${this.escapeHtml(entry.username)}</span></a>`
+        ? `<a href="#user-profile/${this.escapeHtml(entry.username)}" class="lb-name-link username-link" data-username="${this.escapeHtml(entry.username)}">${this.escapeHtml(entry.name)} <span class="lb-username">@${this.escapeHtml(entry.username)}</span></a>`
         : this.escapeHtml(entry.name);
       const youBadge = isMe ? ' <span class="lb-you">YOU</span>' : '';
 
@@ -3548,7 +3539,7 @@ const App = {
       const cards = friends.map(f => {
         const fl = this.calcXPLevel(f.xp || 0);
         const fPro = f.plan === 'premium' ? ' <span class="pro-inline-badge">PRO</span>' : '';
-        const fHandle = f.username ? ` <a href="#user-profile/${this.escapeHtml(f.username)}" class="friend-handle profile-link" data-profile-username="${this.escapeHtml(f.username)}">@${this.escapeHtml(f.username)}</a>` : '';
+        const fHandle = f.username ? ` <a href="#user-profile/${this.escapeHtml(f.username)}" class="friend-handle username-link" data-username="${this.escapeHtml(f.username)}">@${this.escapeHtml(f.username)}</a>` : '';
         return `
         <div class="doc-card friend-card">
           <div class="doc-card-info">
