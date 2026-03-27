@@ -827,7 +827,7 @@ const App = {
     const avatarEl = document.getElementById('user-avatar');
     if (avatarEl) {
       if (this.user.avatar) {
-        const t = this.user.avatarUpdatedAt || Date.now();
+        const t = this.user.avatarUpdatedAt || 0;
         avatarEl.innerHTML = `<img src="${this.user.avatar}?t=${t}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
       } else {
         avatarEl.innerHTML = '';
@@ -2495,7 +2495,7 @@ const App = {
     }
 
     if (this.user.avatar && imgEl && letterEl) {
-      const t = this.user.avatarUpdatedAt || Date.now();
+      const t = this.user.avatarUpdatedAt || 0;
       imgEl.src = `${this.user.avatar}?t=${t}`;
       imgEl.style.display = 'block';
       if (letterEl) letterEl.style.display = 'none';
