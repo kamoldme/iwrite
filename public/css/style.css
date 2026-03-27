@@ -9274,6 +9274,19 @@ body.editor-active .mobile-sidebar-toggle {
   gap: 32px;
 }
 
+/* Settings uses a single unified scroll — no sticky/scroll per column */
+.settings-layout {
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.settings-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .profile-left {
   min-width: 0;
 }
@@ -9814,6 +9827,11 @@ a.profile-link:hover {
   }
 
   .profile-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .settings-layout {
     display: flex;
     flex-direction: column;
     gap: 24px;
