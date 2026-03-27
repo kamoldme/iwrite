@@ -493,11 +493,19 @@ router.post('/banner', authenticate, upload.single('banner'), async (req, res) =
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const bannersDir = path.join(__dirname, '../data/banners');
     if (!fs.existsSync(bannersDir)) fs.mkdirSync(bannersDir, { recursive: true });
-    const filepath = path.join(bannersDir, `${req.user.id}.jpg`);
+
+    // Delete old banner file first to avoid stale cache from filesystem
+    const oldPath = path.join(bannersDir, `${req.user.id}.jpg`);
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+
+    // Write to a temp file first, then rename (atomic on same filesystem)
+    const tmpPath = path.join(bannersDir, `${req.user.id}.tmp.jpg`);
     await sharp(req.file.buffer)
       .resize(1200, 300, { fit: 'cover', position: 'center' })
       .jpeg({ quality: 75 })
-      .toFile(filepath);
+      .toFile(tmpPath);
+    fs.renameSync(tmpPath, oldPath);
+
     const bannerUrl = `/uploads/banners/${req.user.id}.jpg`;
     const bannerUpdatedAt = Date.now();
     const updated = await updateOne('users.json', u => u.id === req.user.id, { banner: bannerUrl, bannerUpdatedAt });

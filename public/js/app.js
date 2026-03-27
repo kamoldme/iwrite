@@ -2383,7 +2383,7 @@ const App = {
     if (bannerPreview) {
       const bannerPlaceholder = document.getElementById('profile-banner-placeholder');
       if (this.user.banner) {
-        bannerPreview.style.backgroundImage = `url(${this.user.banner}?t=${this.user.bannerUpdatedAt || Date.now()})`;
+        bannerPreview.style.backgroundImage = `url(${this.user.banner}?t=${Date.now()})`;
         if (removeBannerBtn) removeBannerBtn.style.display = 'inline-flex';
         if (bannerPlaceholder) bannerPlaceholder.style.display = 'none';
       } else {
