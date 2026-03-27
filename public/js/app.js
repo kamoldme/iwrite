@@ -2628,7 +2628,7 @@ const App = {
 
       // Tabs
       this._setupMyProfileTabs(p);
-      this._renderProfilePosts(p, 'mp-posts');
+      this._renderProfileAbout(p, 'mp-about');
     } catch (err) {
       document.getElementById('mp-banner').className = 'up-banner';
       document.getElementById('mp-name').textContent = 'Error loading profile';
@@ -2746,8 +2746,8 @@ const App = {
     // Tabs
     this._setupProfileTabs(p);
 
-    // Default: render Posts tab
-    this._renderProfilePosts(p);
+    // Default: render About tab
+    this._renderProfileAbout(p);
   },
 
   _setupProfileTabs(profile) {
@@ -2879,10 +2879,10 @@ const App = {
         <div class="up-about-detail"><strong>Writing Time</strong> ${timeStr}</div>
       </div>
       <div class="up-activity-stats" style="margin-top:16px">
-        <div class="up-stat-card"><div class="up-stat-value">${(p.totalWords || 0).toLocaleString()}</div><div class="up-stat-label">Total Words</div></div>
-        <div class="up-stat-card"><div class="up-stat-value">${p.totalSessions || 0}</div><div class="up-stat-label">Sessions</div></div>
-        <div class="up-stat-card"><div class="up-stat-value">${p.streak || 0}</div><div class="up-stat-label">Day Streak</div></div>
-        <div class="up-stat-card"><div class="up-stat-value">${p.longestStreak || 0}</div><div class="up-stat-label">Best Streak</div></div>
+        <div class="up-stat-card"><div class="up-stat-emoji">&#x1F4DD;</div><div class="up-stat-value">${(p.totalWords || 0).toLocaleString()}</div><div class="up-stat-label">Total Words</div></div>
+        <div class="up-stat-card"><div class="up-stat-emoji">&#x270D;&#xFE0F;</div><div class="up-stat-value">${p.totalSessions || 0}</div><div class="up-stat-label">Sessions</div></div>
+        <div class="up-stat-card"><div class="up-stat-emoji">&#x1F525;</div><div class="up-stat-value">${p.streak || 0}</div><div class="up-stat-label">Day Streak</div></div>
+        <div class="up-stat-card"><div class="up-stat-emoji">&#x1F3C6;</div><div class="up-stat-value">${p.longestStreak || 0}</div><div class="up-stat-label">Best Streak</div></div>
       </div>
       <div class="up-about-achievements">
         <h3 class="up-about-achievements-title">Achievements</h3>
@@ -2989,7 +2989,7 @@ const App = {
       <div class="hc-header">
         <div class="hc-avatar">${avatar}</div>
         <div class="hc-info">
-          <strong>${esc(profile.name)}</strong> ${profile.plan === 'premium' ? '<span class="pro-nav-badge" style="font-size:8px;padding:1px 4px">PRO</span>' : ''}
+          <div style="display:flex;align-items:center;gap:6px"><strong>${esc(profile.name)}</strong>${profile.plan === 'premium' ? '<span class="pro-nav-badge" style="font-size:8px;padding:1px 4px">PRO</span>' : ''}</div>
           <div style="color:var(--text-muted);font-size:12px">@${esc(profile.username)}</div>
         </div>
       </div>

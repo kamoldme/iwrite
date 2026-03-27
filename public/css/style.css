@@ -12587,6 +12587,7 @@ html {
 .up-stat-card { background: var(--bg-elevated, var(--hover-bg)); padding: 16px; border-radius: var(--radius-sm); text-align: center; }
 .up-stat-value { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--text-primary); }
 .up-stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.up-stat-emoji { font-size: 20px; margin-bottom: 4px; }
 
 /* Heatmap */
 .streak-heatmap { margin-top: 16px; }
@@ -12600,8 +12601,8 @@ html {
 /* About tab */
 .up-about-bio { font-size: 15px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px; }
 .up-about-stats { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
-.up-about-detail { font-size: 13px; color: var(--text-muted); padding: 10px 16px; background: var(--bg-elevated, var(--hover-bg)); border-radius: var(--radius-sm); }
-.up-about-detail strong { color: var(--text-secondary); }
+.up-about-detail { font-size: 13px; color: var(--text-muted); padding: 10px 16px; background: var(--bg-elevated, var(--hover-bg)); border-radius: var(--radius-sm); display: flex; gap: 8px; }
+.up-about-detail strong { color: var(--text-secondary); white-space: nowrap; }
 .up-about-achievements { margin-top: 8px; }
 .up-about-achievements-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--text-secondary); }
 
