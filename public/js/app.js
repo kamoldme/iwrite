@@ -246,8 +246,9 @@ const App = {
         if (hashBase === 'user-profile' && hashParam) {
           this.switchView('user-profile', { username: decodeURIComponent(hashParam) });
         } else {
-        const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
-        if (!this._openPendingStory()) this.switchView(savedView);
+          const savedView = (hashView && document.getElementById(`view-${hashView}`)) ? hashView : (localStorage.getItem('iwrite_view') || 'dashboard');
+          if (!this._openPendingStory()) this.switchView(savedView);
+        }
       }
     });
 
