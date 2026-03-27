@@ -281,42 +281,39 @@
       }
 
       if (this.storyTab === 'feed') {
-        // Featured story card (admin-picked)
-        let featuredHtml = '';
+        // Hero = featured story (admin pick or auto), else most popular recent story
         const feat = this._featuredStory;
-        if (feat && !list.some(s => s.id === feat.storyId && list.indexOf(s) === 0)) {
-          const fAvatar = feat.authorAvatar
-            ? `<img src="${esc(feat.authorAvatar)}?t=${feat.authorAvatarUpdatedAt || 0}" alt="" class="story-author-avatar-img">`
-            : `<span class="story-author-avatar-fallback">${esc(initialsFor(feat.authorName || 'Writer'))}</span>`;
-          const fPlan = feat.authorPlan === 'premium' ? '<span class="pro-nav-badge">PRO</span>' : '';
-          featuredHtml = `
-            <div class="story-featured-card" data-story-id="${esc(feat.storyId)}">
-              <div class="story-featured-badge">&#x2B50; Featured Story</div>
-              <h3 class="story-featured-title">${esc(feat.title)}</h3>
-              <p class="story-featured-excerpt">${esc(feat.excerpt)}</p>
-              <div class="story-featured-meta">
-                <span class="story-author-avatar" style="width:20px;height:20px">${fAvatar}</span>
-                <span>${esc(feat.authorName)}${fPlan}</span>
-                <span class="story-meta-divider">&middot;</span>
-                <span>${feat.readTimeMinutes || 1} min read</span>
-                <span class="story-meta-divider">&middot;</span>
-                <span>&#x2764; ${feat.likeCount || 0}</span>
-              </div>
-            </div>`;
+        let hero, rest;
+
+        if (feat) {
+          hero = list.find(s => s.id === feat.storyId);
+          if (!hero) {
+            // Featured story not in current page — synthesize a card-compatible object
+            hero = {
+              id: feat.storyId, title: feat.title, excerpt: feat.excerpt,
+              readTimeMinutes: feat.readTimeMinutes, likeCount: feat.likeCount,
+              viewCount: feat.viewCount, authorName: feat.authorName,
+              authorUsername: feat.authorUsername, authorAvatar: feat.authorAvatar,
+              authorAvatarUpdatedAt: feat.authorAvatarUpdatedAt,
+              authorPlan: feat.authorPlan, publishedAt: feat.featuredAt
+            };
+          }
+          rest = list.filter(s => s.id !== feat.storyId);
+        } else {
+          const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+          const recentStories = list.filter(s => {
+            const d = new Date(s.publishedAt || s.updatedAt || s.createdAt);
+            return d.getTime() >= sevenDaysAgo;
+          });
+          const heroPool = recentStories.length ? recentStories : list;
+          hero = heroPool.reduce((best, s) => (s.popularityScore || 0) > (best.popularityScore || 0) ? s : best, heroPool[0]);
+          rest = list.filter(s => s.id !== hero.id);
         }
 
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        const recentStories = list.filter(s => {
-          const d = new Date(s.publishedAt || s.updatedAt || s.createdAt);
-          return d.getTime() >= sevenDaysAgo;
-        });
-        const heroPool = recentStories.length ? recentStories : list;
-        const hero = heroPool.reduce((best, s) => (s.popularityScore || 0) > (best.popularityScore || 0) ? s : best, heroPool[0]);
-        const rest = list.filter(s => s.id !== hero.id);
         const readMoreBtn = this._storyHasMore
           ? `<button id="stories-read-more" class="btn stories-read-more-btn">Read more stories (${this._storyTotal - this.storyList.length} remaining)</button>`
           : '';
-        feedEl.innerHTML = `${featuredHtml}<div class="stories-list">${this.renderFeedStoryCard(hero, true)}${rest.map(s => this.renderFeedStoryCard(s, false)).join('')}</div>${readMoreBtn}`;
+        feedEl.innerHTML = `<div class="stories-list">${this.renderFeedStoryCard(hero, true)}${rest.map(s => this.renderFeedStoryCard(s, false)).join('')}</div>${readMoreBtn}`;
       } else {
         feedEl.innerHTML = `<div class="stories-mine-list">${list.map(story => this.renderMyStoryCard(story)).join('')}</div>`;
       }
@@ -354,11 +351,7 @@
         });
       });
 
-      // Featured card click
-      const featCard = feedEl.querySelector('.story-featured-card[data-story-id]');
-      if (featCard) {
-        featCard.addEventListener('click', () => this.selectStory(featCard.dataset.storyId));
-      }
+      // (Featured story is now rendered as the hero card — no separate click handler needed)
 
       // Read more button
       const readMoreBtn = document.getElementById('stories-read-more');
