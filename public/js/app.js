@@ -2383,7 +2383,7 @@ const App = {
     if (bannerPreview) {
       const bannerPlaceholder = document.getElementById('profile-banner-placeholder');
       if (this.user.banner) {
-        bannerPreview.style.backgroundImage = `url(${this.user.banner}?t=${Date.now()})`;
+        bannerPreview.style.backgroundImage = `url(${this.user.banner}?t=${this.user.bannerUpdatedAt || 0})`;
         if (removeBannerBtn) removeBannerBtn.style.display = 'inline-flex';
         if (bannerPlaceholder) bannerPlaceholder.style.display = 'none';
       } else {
@@ -2596,7 +2596,7 @@ const App = {
       // Banner
       const bannerEl = document.getElementById('mp-banner');
       if (p.banner) {
-        bannerEl.style.backgroundImage = `url(${p.banner}?t=${Date.now()})`;
+        bannerEl.style.backgroundImage = `url(${p.banner}?t=${p.bannerUpdatedAt || 0})`;
         bannerEl.innerHTML = '';
       } else {
         bannerEl.style.backgroundImage = '';
@@ -2607,7 +2607,7 @@ const App = {
       // Avatar
       const avatarEl = document.getElementById('mp-avatar');
       if (p.avatar) {
-        avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${esc(p.avatar)}?t=${Date.now()}" alt="${esc(p.name)}'s photo"></div>`;
+        avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${esc(p.avatar)}?t=${p.avatarUpdatedAt || 0}" alt="${esc(p.name)}'s photo"></div>`;
       } else {
         avatarEl.innerHTML = `<div class="up-avatar-circle"><span>${esc(initialsFor(p.name))}</span></div>`;
       }
@@ -2700,7 +2700,7 @@ const App = {
     const bannerEl = document.getElementById('up-banner');
     bannerEl.className = 'up-banner';
     if (p.banner) {
-      bannerEl.style.backgroundImage = `url(${p.banner}?t=${Date.now()})`;
+      bannerEl.style.backgroundImage = `url(${p.banner}?t=${p.bannerUpdatedAt || 0})`;
       bannerEl.innerHTML = '';
     } else {
       bannerEl.style.backgroundImage = '';
@@ -2710,7 +2710,7 @@ const App = {
     // Avatar
     const avatarEl = document.getElementById('up-avatar');
     if (p.avatar) {
-      avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${esc(p.avatar)}?t=${Date.now()}" alt="${esc(p.name)}'s photo"></div>`;
+      avatarEl.innerHTML = `<div class="up-avatar-circle"><img src="${esc(p.avatar)}?t=${p.avatarUpdatedAt || 0}" alt="${esc(p.name)}'s photo"></div>`;
     } else {
       avatarEl.innerHTML = `<div class="up-avatar-circle"><span>${esc(initialsFor(p.name))}</span></div>`;
     }
