@@ -377,8 +377,8 @@ const App = {
       }
     });
 
-    // Browser back/forward navigation via hash routes
-    window.addEventListener('popstate', () => {
+    // Hash-based navigation (anchor clicks, back/forward)
+    const handleHash = () => {
       const hash = location.hash.replace('#', '');
       const [hashBase, hashParam] = hash.split('/', 2);
       if (hashBase === 'user-profile' && hashParam) {
@@ -387,7 +387,9 @@ const App = {
       } else if (hash && hash !== this.currentView && document.getElementById(`view-${hash}`)) {
         this.switchView(hash, { fromHash: true });
       }
-    });
+    };
+    window.addEventListener('popstate', handleHash);
+    window.addEventListener('hashchange', handleHash);
 
     // Pricing modal
     document.getElementById('user-info-btn').addEventListener('click', () => this.switchView('settings'));
