@@ -473,7 +473,7 @@ router.get('/analytics/sessions', async (req, res) => {
   // Use user.totalSessions as source of truth (incremented on each completion)
   const totalSessions = user.totalSessions || completed.length;
   const totalWords = completed.reduce((s, d) => s + (d.wordCount || 0), 0);
-  const totalWritingTime = completed.reduce((s, d) => s + (d.duration || 0), 0);
+  const totalWritingTime = docs.filter(d => d.duration > 0).reduce((s, d) => s + (Number(d.duration) || 0), 0);
 
   // ── Personal Records ──
   // Longest session (by duration)

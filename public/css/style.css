@@ -7973,7 +7973,6 @@ body.editor-active .mobile-sidebar-toggle {
 .achievement-card {
   padding: 14px;
   background: var(--bg-card);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
   text-align: center;
   box-shadow: var(--shadow-3d);
@@ -7983,7 +7982,6 @@ body.editor-active .mobile-sidebar-toggle {
 
 .achievement-card.earned {
   opacity: 1;
-  border-color: rgba(74, 222, 128, 0.2);
 }
 
 .achievement-card.earned:hover {

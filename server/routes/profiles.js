@@ -42,9 +42,9 @@ router.get('/:username', async (req, res) => {
     // Hydrate with engagement data
     const stories = await hydrateStories(paginatedStories, viewer ? viewer.id : null);
 
-    // Calculate total writing time from completed documents
-    const userDocs = await findMany('documents.json', d => d.userId === user.id && d.status === 'completed');
-    const totalWritingTime = userDocs.reduce((sum, d) => sum + (d.duration || 0), 0);
+    // Calculate total writing time from all non-deleted documents with duration (matches leaderboard)
+    const userDocs = await findMany('documents.json', d => d.userId === user.id && !d.deleted && d.duration > 0);
+    const totalWritingTime = userDocs.reduce((sum, d) => sum + (Number(d.duration) || 0), 0);
 
     // Check follow/friend status
     const isFollowing = viewer ? (user.followers || []).includes(viewer.id) : false;
