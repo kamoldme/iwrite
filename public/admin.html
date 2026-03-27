@@ -252,6 +252,12 @@
     .info-popup-close:hover { background: var(--hover-bg); color: var(--text-primary); }
     .info-popup h3 { font-family: var(--font-display); font-size: 18px; font-weight: 800; margin-bottom: 8px; }
     .info-popup p { font-size: 13px; color: var(--text-secondary); line-height: 1.65; }
+    .admin-pager { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 16px; }
+    .pager-btn { background: var(--card-bg); border: 1px solid var(--border); color: var(--text-primary); border-radius: 6px; padding: 4px 10px; font-size: 13px; cursor: pointer; min-width: 32px; text-align: center; }
+    .pager-btn:hover:not(:disabled):not(.active) { background: var(--hover-bg); }
+    .pager-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+    .pager-btn:disabled { opacity: 0.4; cursor: default; }
+    .pager-info { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
   </style>
 </head>
 <body>
@@ -282,7 +288,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.5.29</span>
+            <span class="version-tag" style="margin-top:0">v2.5.31</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -396,6 +402,7 @@
             <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Plan</th><th>Level</th><th>XP</th><th>Streak</th><th>Words</th><th>Sessions</th><th>Docs</th><th style="font-size:11px">Joined</th><th>Actions</th></tr></thead>
             <tbody></tbody>
           </table>
+          <div id="users-pager" class="admin-pager"></div>
         </div>
 
         <!-- DOCUMENTS (merged with lost files) -->
@@ -475,6 +482,7 @@
               <thead><tr><th>Title</th><th>Owner</th><th>Published</th><th>Views</th><th>Likes</th><th>Comments</th><th>Actions</th></tr></thead>
               <tbody id="stories-published-tbody"></tbody>
             </table>
+            <div id="stories-pager" class="admin-pager"></div>
           </div>
         </div>
 
@@ -505,6 +513,7 @@
             </tr></thead>
             <tbody></tbody>
           </table>
+          <div id="lost-pager" class="admin-pager"></div>
         </div>
 
         <!-- ACTIVITY LOGS -->
@@ -514,6 +523,7 @@
             <button class="admin-btn admin-btn-danger" onclick="clearLogs()">Clear All Logs</button>
           </div>
           <div id="logs-list"></div>
+          <div id="logs-pager" class="admin-pager"></div>
         </div>
 
         <!-- SUPPORT -->
@@ -539,6 +549,7 @@
           <div id="duels-list">
             <div class="admin-empty">No duel history yet. Duels will appear here when users start battling.</div>
           </div>
+          <div id="duels-pager" class="admin-pager"></div>
         </div>
 
         <!-- MAINTENANCE -->
@@ -795,6 +806,29 @@
     let _docsTotalPages = 1;
     let _docsTotal = 0;
     let currentSupportFilter = 'all';
+
+    // ===== PAGINATION =====
+    const PAGE_SIZE = 25;
+    let _usersPage = 1;
+    let _storiesPage = 1;
+    let _lostPage = 1;
+    let _logsPage = 1;
+    let _duelsPage = 1;
+
+    function renderPager(el, page, totalPages, totalItems, onPage) {
+      if (!el || totalPages <= 1) { if (el) el.innerHTML = ''; return; }
+      const maxBtns = 5;
+      let start = Math.max(1, page - Math.floor(maxBtns / 2));
+      let end = Math.min(totalPages, start + maxBtns - 1);
+      if (end - start < maxBtns - 1) start = Math.max(1, end - maxBtns + 1);
+      let html = `<button class="pager-btn" ${page <= 1 ? 'disabled' : ''} onclick="${onPage}(${page - 1})">‹</button>`;
+      for (let i = start; i <= end; i++) {
+        html += `<button class="pager-btn${i === page ? ' active' : ''}" onclick="${onPage}(${i})">${i}</button>`;
+      }
+      html += `<button class="pager-btn" ${page >= totalPages ? 'disabled' : ''} onclick="${onPage}(${page + 1})">›</button>`;
+      html += `<span class="pager-info">${totalItems} total</span>`;
+      el.innerHTML = html;
+    }
 
     // ===== UTILITY =====
     function esc(str) {
@@ -1073,6 +1107,7 @@
 
     // ===== SEARCH =====
     document.getElementById('users-search').addEventListener('input', (e) => {
+      _usersPage = 1;
       const q = e.target.value.toLowerCase();
       renderUsersTable(allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q)));
     });
@@ -1081,6 +1116,7 @@
     if (savedSort) document.getElementById('users-sort').value = savedSort;
 
     document.getElementById('users-sort').addEventListener('change', () => {
+      _usersPage = 1;
       localStorage.setItem('admin_users_sort', document.getElementById('users-sort').value);
       const q = document.getElementById('users-search').value.toLowerCase();
       const filtered = q ? allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q)) : allUsers;
@@ -1091,8 +1127,8 @@
       clearTimeout(_docsSearchTimer);
       _docsSearchTimer = setTimeout(() => loadDocs(1), 300);
     });
-    document.getElementById('published-stories-search').addEventListener('input', () => renderStoriesAdmin());
-    document.getElementById('published-stories-sort').addEventListener('change', () => renderStoriesAdmin());
+    document.getElementById('published-stories-search').addEventListener('input', () => { _storiesPage = 1; renderStoriesAdmin(); });
+    document.getElementById('published-stories-sort').addEventListener('change', () => { _storiesPage = 1; renderStoriesAdmin(); });
     function applyDocsFilter() {
       const raw = (document.getElementById('docs-search').value || '').trim();
       if (!raw) { renderDocsTable(allDocs); return; }
@@ -1313,10 +1349,15 @@
       return filtered;
     }
 
+    function goUsersPage(p) { _usersPage = p; renderUsersTable(allUsers); }
     function renderUsersTable(users) {
       const sorted = sortAndFilterUsers(users);
+      const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+      if (_usersPage > totalPages) _usersPage = totalPages;
+      const paged = sorted.slice((_usersPage - 1) * PAGE_SIZE, _usersPage * PAGE_SIZE);
+      renderPager(document.getElementById('users-pager'), _usersPage, totalPages, sorted.length, 'goUsersPage');
       const tbody = document.querySelector('#users-table tbody');
-      tbody.innerHTML = sorted.map(u => `
+      tbody.innerHTML = paged.map(u => `
         <tr style="cursor:pointer" onclick="viewUser('${u.id}')">
           <td style="display:flex;align-items:center;gap:8px">${u.avatar
             ? `<img src="${esc(u.avatar)}${u.avatarUpdatedAt ? '?t=' + esc(u.avatarUpdatedAt) : ''}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0">`
@@ -1828,6 +1869,7 @@
       return stories;
     }
 
+    function goStoriesPage(p) { _storiesPage = p; renderStoriesAdmin(); }
     function renderStoriesAdmin() {
       const moderationTbody = document.getElementById('stories-moderation-tbody');
       const publishedTbody = document.getElementById('stories-published-tbody');
@@ -1867,7 +1909,11 @@
         </tr>
       `).join('') : '<tr><td colspan="5" class="admin-empty">No stories waiting for approval.</td></tr>';
 
-      const publishedStories = getPublishedStoriesAdmin();
+      const allPublished = getPublishedStoriesAdmin();
+      const pubTotalPages = Math.max(1, Math.ceil(allPublished.length / PAGE_SIZE));
+      if (_storiesPage > pubTotalPages) _storiesPage = pubTotalPages;
+      const publishedStories = allPublished.slice((_storiesPage - 1) * PAGE_SIZE, _storiesPage * PAGE_SIZE);
+      renderPager(document.getElementById('stories-pager'), _storiesPage, pubTotalPages, allPublished.length, 'goStoriesPage');
       publishedTbody.innerHTML = publishedStories.length ? publishedStories.map(story => {
         const isFeat = _currentFeaturedId === story.id;
         const featBtn = story.status === 'published'
@@ -2044,6 +2090,7 @@
     function getLostDocs() {
       return allDocs.filter(d => getDocStatus(d) === 'lost' || getDocStatus(d) === 'deleted');
     }
+    function goLostPage(p) { _lostPage = p; renderLostFiles(); }
     function renderLostFiles() {
       lostDocs = getLostDocs();
       document.getElementById('lost-count').textContent = lostDocs.length;
@@ -2066,13 +2113,17 @@
         const to = new Date(dateTo + 'T23:59:59');
         filtered = filtered.filter(d => new Date(d.failedAt || d.updatedAt) <= to);
       }
+      const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+      if (_lostPage > totalPages) _lostPage = totalPages;
+      const paged = filtered.slice((_lostPage - 1) * PAGE_SIZE, _lostPage * PAGE_SIZE);
+      renderPager(document.getElementById('lost-pager'), _lostPage, totalPages, filtered.length, 'goLostPage');
       document.getElementById('lost-result-count').textContent = `Showing ${filtered.length} of ${lostDocs.length} lost/deleted files`;
       const tbody = document.querySelector('#lost-table tbody');
       if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:32px">No lost or deleted files found</td></tr>';
         return;
       }
-      tbody.innerHTML = filtered.map(d => {
+      tbody.innerHTML = paged.map(d => {
         const status = getDocStatus(d);
         const timeCol = d.failedAt || d.updatedAt;
         return `<tr>
@@ -2092,10 +2143,10 @@
         </tr>`;
       }).join('');
     }
-    document.getElementById('lost-search').addEventListener('input', renderLostFiles);
-    document.getElementById('lost-status-filter').addEventListener('change', renderLostFiles);
-    document.getElementById('lost-date-from').addEventListener('change', renderLostFiles);
-    document.getElementById('lost-date-to').addEventListener('change', renderLostFiles);
+    document.getElementById('lost-search').addEventListener('input', () => { _lostPage = 1; renderLostFiles(); });
+    document.getElementById('lost-status-filter').addEventListener('change', () => { _lostPage = 1; renderLostFiles(); });
+    document.getElementById('lost-date-from').addEventListener('change', () => { _lostPage = 1; renderLostFiles(); });
+    document.getElementById('lost-date-to').addEventListener('change', () => { _lostPage = 1; renderLostFiles(); });
     document.getElementById('lost-select-all').addEventListener('change', (e) => {
       document.querySelectorAll('.lost-check').forEach(cb => cb.checked = e.target.checked);
     });
@@ -2144,24 +2195,35 @@
     });
 
     // ===== ACTIVITY LOGS =====
+    let _allLogs = [];
+    function goLogsPage(p) { _logsPage = p; renderLogs(); }
+    function renderLogs() {
+      const el = document.getElementById('logs-list');
+      if (_allLogs.length === 0) {
+        el.innerHTML = '<div class="admin-empty">No activity logs yet.</div>';
+        document.getElementById('logs-pager').innerHTML = '';
+        return;
+      }
+      const totalPages = Math.max(1, Math.ceil(_allLogs.length / PAGE_SIZE));
+      if (_logsPage > totalPages) _logsPage = totalPages;
+      const paged = _allLogs.slice((_logsPage - 1) * PAGE_SIZE, _logsPage * PAGE_SIZE);
+      renderPager(document.getElementById('logs-pager'), _logsPage, totalPages, _allLogs.length, 'goLogsPage');
+      el.innerHTML = paged.map(l => `
+        <div class="log-entry">
+          <div class="log-dot ${l.action.includes('delete') ? 'danger' : l.action.includes('restore') || l.action.includes('activate') ? 'success' : ''}"></div>
+          <div style="flex:1">
+            <div class="log-action">${formatAction(l.action)}</div>
+            <div class="log-details">${formatLogDetails(l)}</div>
+          </div>
+          <div class="log-time">${new Date(l.timestamp).toLocaleString()}</div>
+        </div>
+      `).join('');
+    }
     async function loadLogs() {
       try {
-        const logs = await adminRequest('/admin/logs');
-        const el = document.getElementById('logs-list');
-        if (logs.length === 0) {
-          el.innerHTML = '<div class="admin-empty">No activity logs yet.</div>';
-          return;
-        }
-        el.innerHTML = logs.map(l => `
-          <div class="log-entry">
-            <div class="log-dot ${l.action.includes('delete') ? 'danger' : l.action.includes('restore') || l.action.includes('activate') ? 'success' : ''}"></div>
-            <div style="flex:1">
-              <div class="log-action">${formatAction(l.action)}</div>
-              <div class="log-details">${formatLogDetails(l)}</div>
-            </div>
-            <div class="log-time">${new Date(l.timestamp).toLocaleString()}</div>
-          </div>
-        `).join('');
+        _allLogs = await adminRequest('/admin/logs');
+        _logsPage = 1;
+        renderLogs();
       } catch { toast('Failed to load logs', 'error'); }
     }
 
@@ -2264,18 +2326,26 @@
       } catch { toast('Failed to load duels', 'error'); }
     }
 
+    let _filteredDuels = [];
+    function goDuelsPage(p) { _duelsPage = p; renderDuels(_filteredDuels); }
     function renderDuels(duels) {
+      _filteredDuels = duels || [];
       const el = document.getElementById('duels-list');
-      if (!duels || duels.length === 0) {
+      if (!_filteredDuels.length) {
         el.innerHTML = '<div class="admin-empty">No duel history yet. Duels will appear here when users start battling.</div>';
+        document.getElementById('duels-pager').innerHTML = '';
         return;
       }
+      const totalPages = Math.max(1, Math.ceil(_filteredDuels.length / PAGE_SIZE));
+      if (_duelsPage > totalPages) _duelsPage = totalPages;
+      const paged = _filteredDuels.slice((_duelsPage - 1) * PAGE_SIZE, _duelsPage * PAGE_SIZE);
+      renderPager(document.getElementById('duels-pager'), _duelsPage, totalPages, _filteredDuels.length, 'goDuelsPage');
       el.innerHTML = `
         <table class="admin-table">
           <thead><tr>
             <th>Challenger</th><th>Opponent</th><th>Duration</th><th>Winner</th><th>Status</th><th>Date</th>
           </tr></thead>
-          <tbody>${duels.map(d => {
+          <tbody>${paged.map(d => {
             const duration = d.duration ? `${d.duration} min` : '—';
             const date = d.createdAt ? new Date(d.createdAt).toLocaleDateString() : '—';
             let winnerName = '—';
@@ -2314,6 +2384,7 @@
     }
 
     function filterDuels() {
+      _duelsPage = 1;
       const q = document.getElementById('duels-search').value.toLowerCase();
       if (!q) { renderDuels(allDuels); return; }
       const filtered = allDuels.filter(d =>
