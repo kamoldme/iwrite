@@ -371,22 +371,55 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 // Public featured story (no auth required)
+// If admin picked one and it's <7 days old, show that.
+// Otherwise auto-select the best published story from the last 14 days.
 app.get('/api/featured-story', async (req, res) => {
   try {
     const settings = await findMany('app-settings.json');
     const feat = settings.find(s => s.key === 'featured_story');
-    if (!feat || !feat.storyId) return res.json({ featured: null });
+    let storyId = null;
+    let isAutoSelected = false;
 
-    // Auto-expire after 7 days
-    const age = Date.now() - new Date(feat.featuredAt).getTime();
-    if (age > 7 * 24 * 60 * 60 * 1000) return res.json({ featured: null });
+    // Check admin pick
+    if (feat && feat.storyId) {
+      const age = Date.now() - new Date(feat.featuredAt).getTime();
+      if (age <= 7 * 24 * 60 * 60 * 1000) {
+        storyId = feat.storyId;
+      }
+    }
 
-    const story = await findOne('stories.json', s => s.id === feat.storyId && s.status === 'published');
+    const allStories = await findMany('stories.json');
+    const published = allStories.filter(s => s.status === 'published');
+    const allLikes = await findMany('story-likes.json');
+    const allComments = await findMany('story-comments.json');
+
+    // Auto-select if no valid admin pick
+    if (!storyId && published.length > 0) {
+      const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+      const recent = published.filter(s => new Date(s.publishedAt || s.createdAt).getTime() >= twoWeeksAgo);
+      const pool = recent.length ? recent : published;
+
+      // Score: likes*3 + comments*2 + views*0.1 + recency bonus
+      const scored = pool.map(s => {
+        const likes = allLikes.filter(l => l.storyId === s.id).length;
+        const comments = allComments.filter(c => c.storyId === s.id).length;
+        const daysOld = Math.max(1, (Date.now() - new Date(s.publishedAt || s.createdAt).getTime()) / 86400000);
+        const recencyBonus = Math.max(0, 10 - daysOld);
+        return { id: s.id, score: likes * 3 + comments * 2 + (s.viewCount || 0) * 0.1 + recencyBonus };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      storyId = scored[0].id;
+      isAutoSelected = true;
+    }
+
+    if (!storyId) return res.json({ featured: null });
+
+    const story = published.find(s => s.id === storyId);
     if (!story) return res.json({ featured: null });
 
     const users = await findMany('users.json');
     const author = users.find(u => u.id === story.userId);
-    const likes = (await findMany('story-likes.json')).filter(l => l.storyId === story.id);
+    const likes = allLikes.filter(l => l.storyId === story.id);
 
     res.json({
       featured: {
@@ -401,7 +434,8 @@ app.get('/api/featured-story', async (req, res) => {
         authorPlan: author ? (author.plan || 'free') : 'free',
         likeCount: likes.length,
         viewCount: story.viewCount || 0,
-        featuredAt: feat.featuredAt
+        featuredAt: feat ? feat.featuredAt : null,
+        autoSelected: isAutoSelected
       }
     });
   } catch (err) {
