@@ -282,7 +282,7 @@
         <div class="admin-sidebar-header">
           <a href="/" class="logo">iWrite4.me</a>
           <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-            <span class="version-tag" style="margin-top:0">v2.4.69</span>
+            <span class="version-tag" style="margin-top:0">v2.5.10</span>
             <div class="admin-label" style="margin-top:0">Admin Panel</div>
           </div>
         </div>
@@ -1317,7 +1317,10 @@
       const tbody = document.querySelector('#users-table tbody');
       tbody.innerHTML = sorted.map(u => `
         <tr style="cursor:pointer" onclick="viewUser('${u.id}')">
-          <td><strong>${esc(u.name)}</strong>${u.username ? `<div style="font-size:11px;color:var(--text-muted)">@${esc(u.username)}</div>` : ''}</td>
+          <td style="display:flex;align-items:center;gap:8px">${u.avatar
+            ? `<img src="${esc(u.avatar)}${u.avatarUpdatedAt ? '?t=' + esc(u.avatarUpdatedAt) : ''}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+            : `<span style="display:inline-flex;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0">${esc((u.name||'?').charAt(0).toUpperCase())}</span>`
+          }<div><strong>${esc(u.name)}</strong>${u.username ? `<div style="font-size:11px;color:var(--text-muted)">@${esc(u.username)}</div>` : ''}</div></td>
           <td>${esc(u.email)}</td>
           <td><span class="badge badge-${u.role}">${u.role}</span></td>
           <td><span class="badge badge-${u.plan}">${u.plan === 'premium' ? 'Pro' : 'Free'}</span></td>
@@ -1341,7 +1344,10 @@
     async function viewUser(id) {
       try {
         const u = await adminRequest(`/admin/users/${id}`);
-        document.getElementById('detail-user-name').textContent = u.name;
+        document.getElementById('detail-user-name').innerHTML = `${u.avatar
+          ? `<img src="${esc(u.avatar)}${u.avatarUpdatedAt ? '?t=' + esc(u.avatarUpdatedAt) : ''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;margin-right:10px;vertical-align:middle">`
+          : `<span style="display:inline-flex;width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;align-items:center;justify-content:center;font-weight:700;font-size:15px;margin-right:10px;vertical-align:middle">${esc((u.name||'?').charAt(0).toUpperCase())}</span>`
+        }${esc(u.name)}`;
         const body = document.getElementById('user-detail-body');
         body.innerHTML = `
           <div class="user-detail-section">
