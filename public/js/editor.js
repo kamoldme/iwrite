@@ -132,12 +132,13 @@ const Editor = {
     const isDuel = !!sessionStorage.getItem('activeDuel');
     const saveBtn = document.getElementById('editor-save-btn');
     saveBtn.style.display = (mode === 'dangerous' || isDuel) ? 'none' : 'inline-flex';
-    // Gray out Complete button if early complete limit reached (skip during maintenance)
+    // Gray out Complete button if early complete limit reached (skip during maintenance and word limit)
     const currentMonth = new Date().toISOString().slice(0, 7);
     const maintenanceActive = App._maintActive;
     const earlyUsed = (App.user.earlyCompletesMonth === currentMonth) ? (App.user.earlyCompletes || 0) : 0;
     const earlyLimit = App.user.plan === 'premium' ? 15 : 3;
-    if (earlyUsed >= earlyLimit && !maintenanceActive) {
+    const atWordLimit = this.getWordCount() >= this.getWordLimit();
+    if (earlyUsed >= earlyLimit && !maintenanceActive && !atWordLimit) {
       saveBtn.classList.add('btn-disabled');
       saveBtn.style.opacity = '0.4';
     } else {
@@ -809,6 +810,12 @@ const Editor = {
           limitIndicator.className = 'word-limit-indicator limit-reached';
           limitIndicator.style.display = 'block';
         }
+        // Un-gray Complete button — word limit reached = free complete
+        const saveBtn = document.getElementById('editor-save-btn');
+        if (saveBtn && saveBtn.classList.contains('btn-disabled')) {
+          saveBtn.classList.remove('btn-disabled');
+          saveBtn.style.opacity = '';
+        }
       } else if (words >= limit - 100) {
         if (limitIndicator) {
           limitIndicator.textContent = `${words.toLocaleString()}/${limit.toLocaleString()} words`;
@@ -1120,8 +1127,10 @@ const Editor = {
 
     // Check early complete limit (only when user clicks Complete, not when timer expires)
     // Bypass during maintenance — unlimited saves/copies
+    // Bypass when word limit is reached — user can't write more, don't punish them
     const maintenanceActive = App._maintActive;
-    const isEarly = !timerExpired && !this._isTimerExpired();
+    const atWordLimit = this.getWordCount() >= this.getWordLimit();
+    const isEarly = !timerExpired && !this._isTimerExpired() && !atWordLimit;
     if (isEarly && !maintenanceActive) {
       const user = App.user;
       const currentMonth = new Date().toISOString().slice(0, 7); // "2026-03"
@@ -1779,12 +1788,13 @@ const Editor = {
   async abort() {
     // Active writing session
     if (this.active) {
-      // Check if early complete is available
+      // Check if early complete is available (always allowed at word limit)
       const user = App.user;
       const currentMonth = new Date().toISOString().slice(0, 7);
       const usedThisMonth = (user.earlyCompletesMonth === currentMonth) ? (user.earlyCompletes || 0) : 0;
       const earlyMax = user.plan === 'premium' ? 15 : 3;
-      const canEarlyComplete = usedThisMonth < earlyMax;
+      const atWordLimit = this.getWordCount() >= this.getWordLimit();
+      const canEarlyComplete = atWordLimit || usedThisMonth < earlyMax;
 
       if (canEarlyComplete) {
         const ok = await App.showConfirm('Are you sure? Leaving will save your current progress but end the session early.');
