@@ -114,7 +114,15 @@ async function sendStatsCard() {
     const totalDocs = docs.length;
     const activeDocs = docs.filter(d => !d.deleted && d.status !== 'abandoned').length;
     const totalWords = users.reduce((sum, u) => sum + (u.totalWords || 0), 0);
-    const totalMinutes = Math.round(docs.reduce((sum, d) => sum + (Number(d.duration) || 0), 0) / 60);
+
+    // Anti-gaming: cap credited time per session by words written (min 3 WPM)
+    const MIN_WPM = 3;
+    const effectiveMinutes = (d) => {
+      const actualMin = (Number(d.duration) || 0) / 60;
+      const wordCap = (d.wordCount || 0) / MIN_WPM;
+      return Math.min(actualMin, wordCap);
+    };
+    const totalMinutes = Math.round(docs.reduce((sum, d) => sum + effectiveMinutes(d), 0));
     const totalHours = Math.floor(totalMinutes / 60);
     const remainingMins = totalMinutes % 60;
 
@@ -141,7 +149,7 @@ async function sendStatsCard() {
       .filter(u => u.role !== 'admin')
       .map(u => {
         const userDocs = docs.filter(d => d.userId === u.id && !d.deleted && d.duration > 0);
-        const mins = Math.round(userDocs.reduce((sum, d) => sum + (d.duration / 60), 0));
+        const mins = Math.round(userDocs.reduce((sum, d) => sum + effectiveMinutes(d), 0));
         return { name: u.name, username: u.username, minutes: mins, words: u.totalWords || 0 };
       })
       .sort((a, b) => b.minutes - a.minutes || b.words - a.words)

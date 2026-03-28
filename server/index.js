@@ -324,9 +324,16 @@ app.get('/api/stats/public', async (req, res) => {
   try {
     const users = await findMany('users.json');
     const docs = await findMany('documents.json');
+    // Anti-gaming: cap credited time per session (min 3 WPM)
+    const MIN_WPM = 3;
+    const totalSeconds = docs.reduce((sum, d) => {
+      const actualSec = Number(d.duration) || 0;
+      const wordCapSec = ((d.wordCount || 0) / MIN_WPM) * 60;
+      return sum + Math.min(actualSec, wordCapSec);
+    }, 0);
     res.json({
       totalWords: users.reduce((sum, u) => sum + (u.totalWords || 0), 0),
-      totalHours: Math.round(docs.reduce((sum, d) => sum + (Number(d.duration) || 0), 0) / 3600),
+      totalHours: Math.round(totalSeconds / 3600),
       totalWriters: users.filter(u => u.role !== 'admin').length,
       activeNow: activeUsers.size
     });
@@ -340,11 +347,20 @@ app.get('/api/leaderboard', async (req, res) => {
     const users = await findMany('users.json');
     const docs = await findMany('documents.json');
 
+    // Anti-gaming: cap credited time per session by words written
+    // If someone writes 2 words in 30 min, they get ~0.7 min credit, not 30 min
+    const MIN_WPM = 3; // very generous floor — even slow writers hit 5-10 WPM
+    const effectiveMinutes = (d) => {
+      const actualMin = (d.duration || 0) / 60;
+      const wordCap = (d.wordCount || 0) / MIN_WPM;
+      return Math.min(actualMin, wordCap);
+    };
+
     const all = users
       .filter(u => u.role !== 'admin')
       .map(u => {
         const userDocs = docs.filter(d => d.userId === u.id && !d.deleted && d.duration > 0);
-        const minutesWritten = Math.round(userDocs.reduce((sum, d) => sum + (d.duration / 60), 0) * 10) / 10;
+        const minutesWritten = Math.round(userDocs.reduce((sum, d) => sum + effectiveMinutes(d), 0) * 10) / 10;
         return {
           id: u.id,
           name: u.name,
