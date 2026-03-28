@@ -84,9 +84,98 @@ function init() {
       }
     });
 
+    // Periodic stats card every 5 hours
+    const FIVE_HOURS = 5 * 60 * 60 * 1000;
+    setTimeout(() => sendStatsCard(), 10000); // first one 10s after boot
+    setInterval(() => sendStatsCard(), FIVE_HOURS);
+
+    // /stats command — manual stats card
+    bot.onText(/\/stats/, (msg) => {
+      if (msg.chat.id.toString() !== chatId) return;
+      sendStatsCard();
+    });
+
     console.log(`[Telegram] Bot started${chatId ? ` (admin: ${chatId})` : ' (no admin chat ID — send /start to the bot)'}`);
   } catch (err) {
     console.error('[Telegram] Failed to start bot:', err.message);
+  }
+}
+
+async function sendStatsCard() {
+  if (!bot || !chatId) return;
+  try {
+    const { findMany } = require('./utils/storage');
+    const users = await findMany('users.json');
+    const docs = await findMany('documents.json');
+
+    const totalUsers = users.filter(u => u.role !== 'admin').length;
+    const totalDocs = docs.length;
+    const activeDocs = docs.filter(d => !d.deleted && d.status !== 'abandoned').length;
+    const totalWords = users.reduce((sum, u) => sum + (u.totalWords || 0), 0);
+    const totalMinutes = Math.round(docs.reduce((sum, d) => sum + (Number(d.duration) || 0), 0) / 60);
+    const totalHours = Math.floor(totalMinutes / 60);
+    const remainingMins = totalMinutes % 60;
+
+    // Get active users from Express app
+    let onlineNow = 0;
+    try {
+      const app = require('./index');
+      const activeUsers = app.get && app.get('activeUsers');
+      if (activeUsers) onlineNow = activeUsers.size;
+    } catch {}
+
+    // Leaderboard — top 3 by streak, top 3 by time
+    const liveStreak = (u) => {
+      if (!u.lastWritingDate) return 0;
+      const last = new Date(u.lastWritingDate);
+      const today = new Date();
+      const diffDays = Math.floor((today - last) / 86400000);
+      if (diffDays > 1) return 0;
+      return u.streak || 0;
+    };
+
+    const byStreak = users
+      .filter(u => u.role !== 'admin')
+      .map(u => ({ name: u.name, username: u.username, streak: liveStreak(u), words: u.totalWords || 0 }))
+      .sort((a, b) => b.streak - a.streak || b.words - a.words)
+      .slice(0, 3);
+
+    const byTime = users
+      .filter(u => u.role !== 'admin')
+      .map(u => {
+        const userDocs = docs.filter(d => d.userId === u.id && !d.deleted && d.duration > 0);
+        const mins = Math.round(userDocs.reduce((sum, d) => sum + (d.duration / 60), 0));
+        return { name: u.name, username: u.username, minutes: mins, words: u.totalWords || 0 };
+      })
+      .sort((a, b) => b.minutes - a.minutes || b.words - a.words)
+      .slice(0, 3);
+
+    const medals = ['🥇', '🥈', '🥉'];
+
+    const streakBoard = byStreak.map((u, i) =>
+      `${medals[i]} ${esc(u.name)} (@${esc(u.username || '?')}) — ${u.streak} day streak`
+    ).join('\n');
+
+    const timeBoard = byTime.map((u, i) =>
+      `${medals[i]} ${esc(u.name)} (@${esc(u.username || '?')}) — ${u.minutes} min`
+    ).join('\n');
+
+    const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent', dateStyle: 'medium', timeStyle: 'short' });
+
+    send(
+      `📊 <b>iWrite Stats Card</b>\n` +
+      `${now}\n\n` +
+      `🟢 Online: <b>${onlineNow}</b>\n` +
+      `👤 Users: <b>${totalUsers.toLocaleString()}</b>\n` +
+      `📄 Documents: <b>${totalDocs.toLocaleString()}</b>\n` +
+      `📝 Active Docs: <b>${activeDocs.toLocaleString()}</b>\n` +
+      `⏱ Total Time: <b>${totalHours}h ${remainingMins}m</b>\n` +
+      `✍️ Total Words: <b>${totalWords.toLocaleString()}</b>\n\n` +
+      `🔥 <b>Top 3 — Streaks</b>\n${streakBoard}\n\n` +
+      `⏰ <b>Top 3 — Time Written</b>\n${timeBoard}`
+    );
+  } catch (err) {
+    console.error('[Telegram] Stats card error:', err.message);
   }
 }
 
