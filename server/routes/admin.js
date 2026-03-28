@@ -919,6 +919,33 @@ router.post('/promo-codes/:id/deactivate', async (req, res) => {
   }
 });
 
+router.delete('/promo-codes/:id', async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Stripe is not configured' });
+  }
+  try {
+    const Stripe = require('stripe');
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-12-18.acacia' });
+
+    // First deactivate the promotion code
+    const promotionCode = await stripe.promotionCodes.update(req.params.id, { active: false });
+
+    // Then delete the underlying coupon (removes it from Stripe entirely)
+    await stripe.coupons.del(promotionCode.coupon.id || promotionCode.coupon);
+
+    logAction('promo_code_deleted', {
+      promoId: req.params.id,
+      code: promotionCode.code,
+      couponId: promotionCode.coupon.id || promotionCode.coupon
+    }, req.user.id);
+
+    res.json({ success: true, deleted: true });
+  } catch (err) {
+    console.error('Promo code delete error:', err);
+    res.status(500).json({ error: err.raw?.message || err.message || 'Failed to delete promo code' });
+  }
+});
+
 // ===== FEATURED STORY =====
 router.get('/featured-story', async (req, res) => {
   try {

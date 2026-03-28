@@ -2665,7 +2665,10 @@
             <td>${maxUses}</td>
             <td>${status}</td>
             <td style="font-size:12px">${created}</td>
-            <td>${c.active ? `<button class="admin-btn admin-btn-ghost" style="font-size:11px;padding:4px 10px" onclick="deactivatePromo('${c.id}')">Deactivate</button>` : ''}</td>
+            <td>
+              ${c.active ? `<button class="admin-btn admin-btn-ghost" style="font-size:11px;padding:4px 10px" onclick="deactivatePromo('${c.id}')">Deactivate</button>` : ''}
+              <button class="admin-btn admin-btn-ghost" style="font-size:11px;padding:4px 10px;color:var(--danger)" onclick="deletePromo('${c.id}','${esc(c.code)}')">Delete</button>
+            </td>
           </tr>`;
         }).join('');
       } catch (e) { toast('Failed to load promo codes: ' + e.message, 'error'); }
@@ -2700,6 +2703,16 @@
       try {
         await adminRequest(`/admin/promo-codes/${id}/deactivate`, { method: 'POST' });
         toast('Promo code deactivated', 'success');
+        loadPromoCodes();
+      } catch (e) { toast('Failed: ' + e.message, 'error'); }
+    }
+
+    async function deletePromo(id, code) {
+      const confirmed = await adminConfirm(`Permanently delete promo code "${code}"? This will also delete the underlying coupon in Stripe. This cannot be undone.`);
+      if (!confirmed) return;
+      try {
+        await adminRequest(`/admin/promo-codes/${id}`, { method: 'DELETE' });
+        toast('Promo code deleted permanently', 'success');
         loadPromoCodes();
       } catch (e) { toast('Failed: ' + e.message, 'error'); }
     }
