@@ -21,8 +21,7 @@ function init() {
     // /start command — reveals chat ID for setup
     bot.onText(/\/start/, (msg) => {
       const id = msg.chat.id;
-      bot.sendMessage(id, `👋 Your chat ID is: \`${id}\`\n\nSet this as \`TELEGRAM_ADMIN_CHAT_ID\` in Railway env vars to receive admin notifications.`, { parse_mode: 'Markdown' });
-      // Auto-set if not configured yet
+      bot.sendMessage(id, `Your chat ID is: <code>${id}</code>\n\nSet this as <code>TELEGRAM_ADMIN_CHAT_ID</code> in Railway env vars to receive admin notifications.`, { parse_mode: 'HTML' });
       if (!chatId) {
         chatId = id.toString();
         console.log(`[Telegram] Admin chat ID auto-set to ${chatId}`);
@@ -32,7 +31,7 @@ function init() {
     // /status command — quick health check
     bot.onText(/\/status/, (msg) => {
       if (msg.chat.id.toString() !== chatId) return;
-      bot.sendMessage(chatId, `✅ Bot is running\n📡 Chat ID: \`${chatId}\`\n⏰ ${new Date().toISOString()}`, { parse_mode: 'Markdown' });
+      bot.sendMessage(chatId, `✅ Bot is running\n📡 Chat ID: <code>${chatId}</code>\n⏰ ${new Date().toISOString()}`, { parse_mode: 'HTML' });
     });
 
     // Handle inline button callbacks (moderation approve/reject)
@@ -95,14 +94,13 @@ function init() {
 
 function send(text, opts = {}) {
   if (!bot || !chatId) return;
-  bot.sendMessage(chatId, text, { parse_mode: 'Markdown', disable_web_page_preview: true, ...opts }).catch(err => {
+  bot.sendMessage(chatId, text, { parse_mode: 'HTML', disable_web_page_preview: true, ...opts }).catch(err => {
     console.error('[Telegram] Send error:', err.message);
   });
 }
 
 function esc(text) {
-  // Escape Markdown special characters
-  return String(text || '').replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+  return String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ===== PUBLIC NOTIFICATION FUNCTIONS =====
@@ -110,7 +108,7 @@ function esc(text) {
 function notifyUserRegistered(user, method) {
   const ref = user.referredBy ? `\n🔗 Referred by: ${esc(user.referredBy)}` : '';
   send(
-    `👤 *New User Registered*\n\n` +
+    `👤 <b>New User Registered</b>\n\n` +
     `Name: ${esc(user.name)}\n` +
     `Email: ${esc(user.email)}\n` +
     `Username: @${esc(user.username)}\n` +
@@ -122,7 +120,7 @@ function notifyUserRegistered(user, method) {
 function notifyDocumentCreated(user, doc) {
   const mode = doc.mode === 'dangerous' ? '🔴 Dangerous' : '🟢 Normal';
   send(
-    `📝 *New Document*\n\n` +
+    `📝 <b>New Document</b>\n\n` +
     `Writer: ${esc(user.name)} (@${esc(user.username)})\n` +
     `Title: ${esc(doc.title || 'Untitled')}\n` +
     `Mode: ${mode}\n` +
@@ -133,7 +131,7 @@ function notifyDocumentCreated(user, doc) {
 function notifySupportTicket(user, ticket) {
   const typeEmoji = { bug: '🐛', feedback: '💬', suggestion: '💡' };
   send(
-    `🎫 *New Support Ticket*\n\n` +
+    `🎫 <b>New Support Ticket</b>\n\n` +
     `From: ${esc(user.name)} (@${esc(user.username)})\n` +
     `Type: ${typeEmoji[ticket.type] || '📩'} ${esc(ticket.type)}\n` +
     `Subject: ${esc(ticket.subject)}\n` +
@@ -144,7 +142,7 @@ function notifySupportTicket(user, ticket) {
 function notifyStripeSubscription(user, details) {
   const trial = details.isTrial ? ' (Trial)' : '';
   send(
-    `💳 *New Subscription*${trial}\n\n` +
+    `💳 <b>New Subscription</b>${trial}\n\n` +
     `User: ${esc(user.name)} (@${esc(user.username)})\n` +
     `Email: ${esc(user.email)}\n` +
     `Duration: ${esc(details.duration)}\n` +
@@ -154,7 +152,7 @@ function notifyStripeSubscription(user, details) {
 
 function notifyStripeRenewal(user, details) {
   send(
-    `🔄 *Subscription Renewed*\n\n` +
+    `🔄 <b>Subscription Renewed</b>\n\n` +
     `User: ${esc(user.name)} (@${esc(user.username)})\n` +
     `Duration: ${esc(details.duration)}\n` +
     `New expiry: ${esc(details.expiresAt || 'N/A')}`
@@ -163,7 +161,7 @@ function notifyStripeRenewal(user, details) {
 
 function notifyStripeFailed(user) {
   send(
-    `⚠️ *Payment Failed*\n\n` +
+    `⚠️ <b>Payment Failed</b>\n\n` +
     `User: ${esc(user.name)} (@${esc(user.username)})\n` +
     `Email: ${esc(user.email)}`
   );
@@ -171,16 +169,16 @@ function notifyStripeFailed(user) {
 
 function notifyStripeCancelled(user) {
   send(
-    `🚫 *Subscription Cancelled*\n\n` +
+    `🚫 <b>Subscription Cancelled</b>\n\n` +
     `User: ${esc(user.name)} (@${esc(user.username)})\n` +
     `Email: ${esc(user.email)}`
   );
 }
 
 function notifyReferral(newUser, referrer, referralCount) {
-  const bonus = referralCount % 5 === 0 ? `\n🎉 *${esc(referrer.name)} earned FREE PRO* (${referralCount} referrals!)` : '';
+  const bonus = referralCount % 5 === 0 ? `\n🎉 <b>${esc(referrer.name)} earned FREE PRO</b> (${referralCount} referrals!)` : '';
   send(
-    `🔗 *New Referral*\n\n` +
+    `🔗 <b>New Referral</b>\n\n` +
     `New user: ${esc(newUser.name)} (@${esc(newUser.username)})\n` +
     `Referred by: ${esc(referrer.name)} (@${esc(referrer.username)})\n` +
     `Total referrals: ${referralCount}${bonus}`
@@ -190,7 +188,7 @@ function notifyReferral(newUser, referrer, referralCount) {
 function notifyStorySubmitted(user, story) {
   const preview = (story.content || '').replace(/<[^>]*>/g, '').slice(0, 200);
   send(
-    `📖 *Story Submitted for Review*\n\n` +
+    `📖 <b>Story Submitted for Review</b>\n\n` +
     `Author: ${esc(user.name)} (@${esc(user.username)})\n` +
     `Title: ${esc(story.title)}\n` +
     `Words: ${story.wordCount || '?'}\n` +

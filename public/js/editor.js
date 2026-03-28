@@ -122,6 +122,7 @@ const Editor = {
 
     this.container.classList.add('active');
     document.body.classList.add('editor-active');
+    this.titleInput.value = '';
     this.textarea.innerHTML = '';
     this.textarea.contentEditable = 'true';
     this.textarea.focus();
