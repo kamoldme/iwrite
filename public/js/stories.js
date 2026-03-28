@@ -157,7 +157,7 @@
         : `<span class="story-author-avatar-fallback">${esc(initialsFor(story.authorName || 'Writer'))}</span>`;
       const usernameText = story.authorUsername ? `@${esc(story.authorUsername)}` : 'Writer';
       const usernameHtml = story.authorUsername
-        ? `<a href="/profile/${esc(story.authorUsername)}" class="username-link" data-username="${esc(story.authorUsername)}" onclick="event.stopPropagation()">${usernameText}</a>`
+        ? `<a href="/app/profile/${encodeURIComponent(story.authorUsername)}" class="username-link" data-username="${esc(story.authorUsername)}" onclick="event.stopPropagation()">${usernameText}</a>`
         : usernameText;
       const plan = story.authorPlan === 'premium'
         ? '<span class="pro-nav-badge">PRO</span>'
@@ -493,7 +493,7 @@
             <div class="story-comment-card-head">
               <div class="story-comment-author-wrap">
                 <strong>${esc(comment.authorName || 'Unknown')}</strong>
-                ${comment.authorUsername ? `<a href="/profile/${esc(comment.authorUsername)}" class="username-link" data-username="${esc(comment.authorUsername)}" onclick="event.stopPropagation()">@${esc(comment.authorUsername)}</a>` : ''}
+                ${comment.authorUsername ? `<a href="/app/profile/${encodeURIComponent(comment.authorUsername)}" class="username-link" data-username="${esc(comment.authorUsername)}" onclick="event.stopPropagation()">@${esc(comment.authorUsername)}</a>` : ''}
               </div>
               <div class="story-comment-meta">
                 <span>${formatStoryDate(comment.createdAt)}</span>
@@ -1429,8 +1429,8 @@
   };
 
   const baseSwitchView = App.switchView.bind(App);
-  App.switchView = function (view) {
-    baseSwitchView(view);
+  App.switchView = function (view, opts) {
+    baseSwitchView(view, opts);
     if (view === 'stories') {
       this.syncStoryControls();
       this.loadStories();

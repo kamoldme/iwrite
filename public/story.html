@@ -178,7 +178,7 @@
                 </span>
                 <span class="story-author-copy">
                   <strong>${escapeHtml(story.authorName || 'Unknown')}</strong>
-                  <span>${story.authorUsername ? `<a href="/u/${encodeURIComponent(story.authorUsername)}" class="username-link" style="color:inherit;text-decoration:none">@${escapeHtml(story.authorUsername)}</a>` : 'Writer'}</span>
+                  <span>${story.authorUsername ? `<a href="/app/profile/${encodeURIComponent(story.authorUsername)}" class="username-link" style="color:inherit;text-decoration:none">@${escapeHtml(story.authorUsername)}</a>` : 'Writer'}</span>
                 </span>
               </div>
               <div class="story-reader-author-meta">
@@ -228,7 +228,7 @@
                   <div class="story-comment-card-head">
                     <div class="story-comment-author-wrap">
                       <strong>${escapeHtml(comment.authorName || 'Unknown')}</strong>
-                      ${comment.authorUsername ? `<a href="/u/${encodeURIComponent(comment.authorUsername)}" class="username-link" style="color:inherit;text-decoration:none">@${escapeHtml(comment.authorUsername)}</a>` : ''}
+                      ${comment.authorUsername ? `<a href="/app/profile/${encodeURIComponent(comment.authorUsername)}" class="username-link" style="color:inherit;text-decoration:none">@${escapeHtml(comment.authorUsername)}</a>` : ''}
                     </div>
                     <div class="story-comment-actions">
                       <span>${formatStoryDate(comment.createdAt)}</span>

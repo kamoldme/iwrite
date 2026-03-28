@@ -12596,6 +12596,14 @@ html {
 }
 
 /* ===== USER PROFILE (PUBLIC) ===== */
+.up-back-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border);
+  background: var(--bg-elevated); color: var(--text-primary); cursor: pointer;
+  margin-bottom: 12px; transition: background 0.15s, border-color 0.15s;
+}
+.up-back-btn:hover { background: var(--hover-bg); border-color: var(--border-hover); }
+
 .up-banner {
   width: 100%; height: 200px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
   background-size: cover; background-position: center; border-radius: 0 0 var(--radius) var(--radius);
@@ -12619,14 +12627,14 @@ html {
 .up-avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
 .up-skeleton-circle { animation: upPulse 1.5s ease-in-out infinite; background: var(--hover-bg); }
 
-.up-header-info { flex: 1; padding-top: 48px; min-width: 0; }
-.up-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
-.up-name { font-family: var(--font-display); font-size: 28px; font-weight: 800; margin: 0; color: var(--text-primary); }
+.up-header-info { flex: 1; padding-top: 4px; min-width: 0; }
+.up-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; margin: 0; padding: 0; }
+.up-name { font-family: var(--font-display); font-size: 28px; font-weight: 800; margin: 0; padding: 0; line-height: 1; color: var(--text-primary); }
 .up-pro-badge { font-size: 10px; margin-left: 0; padding: 3px 10px; vertical-align: middle; flex-shrink: 0; }
-.up-username { font-size: 15px; color: var(--text-muted); margin-top: 2px; }
-.up-bio { font-size: 14px; color: var(--text-secondary); margin-top: 6px; line-height: 1.5; }
+.up-username { font-size: 15px; color: var(--text-muted); margin-top: -1px; line-height: 1; }
+.up-bio { font-size: 14px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }
 
-.up-actions { flex-shrink: 0; padding-top: 52px; }
+.up-actions { flex-shrink: 0; padding-top: 8px; }
 .up-follow-btn {
   padding: 8px 24px; border-radius: var(--radius-pill); font-size: 14px; font-weight: 600;
   cursor: pointer; transition: all 0.2s; border: 1px solid var(--accent); background: transparent;
@@ -12739,6 +12747,7 @@ html {
 
 /* Mobile profile */
 @media (max-width: 768px) {
+  .up-back-btn { margin-bottom: 8px; }
   .up-banner { height: 140px; }
   .up-header { flex-direction: column; align-items: center; text-align: center; padding: 0 16px; margin-top: -30px; }
   .up-avatar-circle { width: 80px; height: 80px; font-size: 28px; }

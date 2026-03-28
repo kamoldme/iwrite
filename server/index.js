@@ -113,7 +113,7 @@ app.get('/uploads/banners/:file', (req, res) => {
 // Force no-cache on HTML/CSS/JS so deployments are instant
 app.use((req, res, next) => {
   const url = req.url.split('?')[0];
-  if (url.endsWith('.html') || url === '/' || url === '/app' || url === '/manual-login' || url.startsWith('/story/')) {
+  if (url.endsWith('.html') || url === '/' || url === '/app' || url === '/manual-login' || url.startsWith('/story/') || url.startsWith('/app/profile/')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
   } else if (url.endsWith('.css') || url.endsWith('.js')) {
@@ -532,48 +532,69 @@ app.get('/api/users/lookup/:username', async (req, res) => {
   } catch { res.status(500).json({ error: 'Server error' }); }
 });
 
-// Clean profile URL: /profile/:username → serve app.html (SPA handles routing)
-app.get('/profile/:username', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'app.html'));
-});
-
-// Public profile route: /u/:username → OG tags for bots, redirect for browsers
-app.get('/u/:username', async (req, res) => {
-  const ua = (req.headers['user-agent'] || '').toLowerCase();
-  const isBot = /bot|crawler|spider|preview|telegram|whatsapp|slack|discord|facebook|twitter|linkedin|embedly|quora|pinterest/i.test(ua);
-  const username = req.params.username;
-
-  if (!isBot) {
-    return res.redirect(302, `/profile/${encodeURIComponent(username)}`);
-  }
-
+// Shared OG tag renderer for profile pages (used by /profile/ and /u/)
+// HTML-escapes user data to prevent XSS in meta tags
+function escapeOG(str) {
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+async function renderProfileOG(username, host) {
   const { findOne } = require('./utils/storage');
   const user = await findOne('users.json', u => u.username && u.username.toLowerCase() === username.toLowerCase());
-  const name = user ? (user.name || username) : username;
+  const name = escapeOG(user ? (user.name || username) : username);
   const bio = user ? (user.bio || '') : '';
   const words = user ? (user.totalWords || 0) : 0;
   const level = user ? (user.level || 1) : 1;
   const streak = user ? liveStreak(user) : 0;
   const sessions = user ? (user.totalSessions || 0) : 0;
   const isPro = user && user.plan === 'premium';
-  const desc = bio || `${name}${isPro ? ' (PRO)' : ''} on iWrite4.me — ${words > 0 ? `${words.toLocaleString()} words written · Level ${level}${streak > 0 ? ` · ${streak}-day streak` : ''} · ${sessions} sessions.` : 'Writer on iWrite4.me'}`;
-  const origin = `https://${req.get('host') || 'iwrite4.me'}`;
+  const rawDesc = bio || `${user ? (user.name || username) : username}${isPro ? ' (PRO)' : ''} on iWrite4.me — ${words > 0 ? `${words.toLocaleString()} words written · Level ${level}${streak > 0 ? ` · ${streak}-day streak` : ''} · ${sessions} sessions.` : 'Writer on iWrite4.me'}`;
+  const desc = escapeOG(rawDesc);
+  const origin = `https://${host || 'iwrite4.me'}`;
   const ogImage = user ? `${origin}/api/profiles/${encodeURIComponent(username)}/og-image` : `${origin}/og-image.png`;
+  const canonicalUrl = `${origin}/app/profile/${encodeURIComponent(username)}`;
 
-  res.send(`<!DOCTYPE html><html><head>
+  return `<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <title>${name} — iWrite4.me</title>
     <meta property="og:title" content="${name} — iWrite4.me">
     <meta property="og:description" content="${desc}">
     <meta property="og:image" content="${ogImage}">
-    <meta property="og:url" content="${origin}/u/${encodeURIComponent(username)}">
+    <meta property="og:url" content="${canonicalUrl}">
     <meta property="og:type" content="profile">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${name} — iWrite4.me">
     <meta name="twitter:description" content="${desc}">
     <meta name="twitter:image" content="${ogImage}">
-    <meta http-equiv="refresh" content="0;url=/profile/${encodeURIComponent(username)}">
-  </head><body></body></html>`);
+    <meta http-equiv="refresh" content="0;url=/app/profile/${encodeURIComponent(username)}">
+  </head><body></body></html>`;
+}
+
+const isBot = (ua) => /bot|crawler|spider|preview|telegram|whatsapp|slack|discord|facebook|twitter|linkedin|embedly|quora|pinterest/i.test((ua || '').toLowerCase());
+
+// Canonical profile URL: /app/profile/:username → OG tags for bots, SPA for humans
+app.get('/app/profile/:username', async (req, res) => {
+  if (isBot(req.headers['user-agent'])) {
+    return res.send(await renderProfileOG(req.params.username, req.get('host')));
+  }
+  res.sendFile(path.join(__dirname, '..', 'public', 'app.html'));
+});
+
+// Legacy profile URL: /profile/:username → redirect to /app/profile/:username
+app.get('/profile/:username', async (req, res) => {
+  const username = req.params.username;
+  if (isBot(req.headers['user-agent'])) {
+    return res.send(await renderProfileOG(username, req.get('host')));
+  }
+  res.redirect(302, `/app/profile/${encodeURIComponent(username)}`);
+});
+
+// Legacy profile URL: /u/:username → redirect to /app/profile/:username
+app.get('/u/:username', async (req, res) => {
+  const username = req.params.username;
+  if (!isBot(req.headers['user-agent'])) {
+    return res.redirect(302, `/app/profile/${encodeURIComponent(username)}`);
+  }
+  res.send(await renderProfileOG(username, req.get('host')));
 });
 
 // Invite route: /invite/:username → OG tags for bots, redirect for browsers
