@@ -360,7 +360,7 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const title = (req.body.title || '').trim() || 'Untitled Story';
+    const title = (req.body.title || '').trim();
     const content = sanitizeStoryContent(req.body.content || '');
     const allowComments = req.body.allowComments !== false;
     const now = new Date().toISOString();
@@ -403,7 +403,7 @@ router.post('/from-document/:documentId', async (req, res) => {
       id: uuid(),
       userId: req.user.id,
       sourceDocumentId: doc.id,
-      title: doc.title || 'Untitled Story',
+      title: doc.title || '',
       excerpt: buildExcerpt({ content: doc.content }),
       content: sanitizeStoryContent(doc.content || ''),
       status: 'draft',
@@ -438,7 +438,7 @@ router.patch('/:id', async (req, res) => {
     const updates = {
       updatedAt: new Date().toISOString()
     };
-    if (req.body.title !== undefined) updates.title = (req.body.title || '').trim() || 'Untitled Story';
+    if (req.body.title !== undefined) updates.title = (req.body.title || '').trim();
     if (req.body.content !== undefined) updates.content = sanitizeStoryContent(req.body.content || '');
     if (req.body.allowComments !== undefined) {
       updates.allowComments = !!req.body.allowComments;

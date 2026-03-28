@@ -1164,7 +1164,7 @@
           return;
         }
 
-        const title = story.title || 'Untitled';
+        const title = story.title || 'Untitled draft';
         dialog.innerHTML = `
           <p class="confirm-message" style="margin-bottom:12px">To permanently delete <strong>"${esc(title)}"</strong>, type the full title below, then type <strong>delete</strong> to confirm.</p>
           <input type="text" id="delete-title-input" placeholder="Type story title..." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-primary);font:inherit;font-size:13px;margin-bottom:8px;box-sizing:border-box">
