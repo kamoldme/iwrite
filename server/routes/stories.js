@@ -510,7 +510,7 @@ router.post('/:id/submit', async (req, res) => {
     try {
       const author = await findOne('users.json', u => u.id === req.user.id);
       require('../telegram').notifyStorySubmitted(author || { name: 'Unknown', username: '?' }, { ...updated, wordCount: wordCountFromHtml(story.content) });
-    } catch {}
+    } catch (e) { console.error('[Telegram] Story notification error:', e.message); }
 
     const [hydrated] = await hydrateStories([updated], req.user.id);
     res.json(hydrated);

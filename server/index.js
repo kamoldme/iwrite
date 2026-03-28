@@ -340,7 +340,7 @@ app.get('/api/leaderboard', async (req, res) => {
     const users = await findMany('users.json');
     const docs = await findMany('documents.json');
 
-    const leaderboard = users
+    const all = users
       .filter(u => u.role !== 'admin')
       .map(u => {
         const userDocs = docs.filter(d => d.userId === u.id && !d.deleted && d.duration > 0);
@@ -359,10 +359,26 @@ app.get('/api/leaderboard', async (req, res) => {
           avatarUpdatedAt: u.avatarUpdatedAt || null,
           plan: u.plan || 'free'
         };
-      })
-      .sort((a, b) => b.streak - a.streak || b.totalWords - a.totalWords)
-      .slice(0, 10)
-      .map((entry, i) => ({ rank: i + 1, ...entry }));
+      });
+
+    // Top 10 by streak
+    const byStreak = [...all].sort((a, b) => b.streak - a.streak || b.totalWords - a.totalWords).slice(0, 10);
+    // Top 10 by time written
+    const byTime = [...all].sort((a, b) => b.minutesWritten - a.minutesWritten || b.totalWords - a.totalWords).slice(0, 10);
+
+    // Merge both lists (deduplicate by id)
+    const seen = new Set();
+    const merged = [];
+    for (const entry of [...byStreak, ...byTime]) {
+      if (!seen.has(entry.id)) {
+        seen.add(entry.id);
+        merged.push(entry);
+      }
+    }
+
+    // Sort merged by streak (default), frontend re-sorts per tab
+    merged.sort((a, b) => b.streak - a.streak || b.totalWords - a.totalWords);
+    const leaderboard = merged.map((entry, i) => ({ rank: i + 1, ...entry }));
 
     res.json(leaderboard);
   } catch (err) {
@@ -695,7 +711,8 @@ async function start() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`iWrite4.me running on port ${PORT}`);
     // Start Telegram bot (non-blocking, won't crash server if it fails)
-    try { require('./telegram').init(); } catch (e) { console.error('[Telegram] Init failed:', e.message); }
+    // Pass activeUsers map directly to avoid circular require
+    try { require('./telegram').init(activeUsers); } catch (e) { console.error('[Telegram] Init failed:', e.message); }
   });
 }
 

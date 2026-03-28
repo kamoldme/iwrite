@@ -6,8 +6,10 @@ const TelegramBot = require('node-telegram-bot-api');
 
 let bot = null;
 let chatId = null;
+let _activeUsers = null; // passed from index.js to avoid circular require
 
-function init() {
+function init(activeUsersMap) {
+  _activeUsers = activeUsersMap || null;
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
     console.log('[Telegram] No TELEGRAM_BOT_TOKEN set — bot disabled');
@@ -116,22 +118,17 @@ async function sendStatsCard() {
     const totalHours = Math.floor(totalMinutes / 60);
     const remainingMins = totalMinutes % 60;
 
-    // Get active users from Express app
-    let onlineNow = 0;
-    try {
-      const app = require('./index');
-      const activeUsers = app.get && app.get('activeUsers');
-      if (activeUsers) onlineNow = activeUsers.size;
-    } catch {}
+    // Get active users count (passed in during init to avoid circular require)
+    let onlineNow = _activeUsers ? _activeUsers.size : 0;
 
     // Leaderboard — top 3 by streak, top 3 by time
+    // Must match liveStreak() in index.js exactly
     const liveStreak = (u) => {
-      if (!u.lastWritingDate) return 0;
-      const last = new Date(u.lastWritingDate);
-      const today = new Date();
-      const diffDays = Math.floor((today - last) / 86400000);
-      if (diffDays > 1) return 0;
-      return u.streak || 0;
+      if (!u.lastWritingDate || !u.streak) return 0;
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      if (u.lastWritingDate === today || u.lastWritingDate === yesterday) return u.streak;
+      return 0;
     };
 
     const byStreak = users
