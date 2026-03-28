@@ -507,6 +507,11 @@ router.post('/:id/submit', async (req, res) => {
       updatedAt: new Date().toISOString()
     });
 
+    try {
+      const author = await findOne('users.json', u => u.id === req.user.id);
+      require('../telegram').notifyStorySubmitted(author || { name: 'Unknown', username: '?' }, { ...updated, wordCount: wordCountFromHtml(story.content) });
+    } catch {}
+
     const [hydrated] = await hydrateStories([updated], req.user.id);
     res.json(hydrated);
   } catch (err) {

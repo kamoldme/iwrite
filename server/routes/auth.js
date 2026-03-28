@@ -163,11 +163,13 @@ router.post('/register', async (req, res) => {
           updates.planExpiresAt = new Date(base.getTime() + 30 * 86400000).toISOString();
         }
         await updateOne('users.json', u => u.id === referrer.id, updates);
+        try { require('../telegram').notifyReferral(user, referrer, newCount); } catch {}
       }
     }
 
     await insertOne('users.json', user);
     logAction('user_registered', { name: user.name, email: user.email, referredBy: ref || null }, user.id);
+    try { require('../telegram').notifyUserRegistered(user, 'Email'); } catch {}
     const token = generateToken(user);
     const { password: _, ...safeUser } = user;
     res.status(201).json({ token, user: safeUser });
@@ -434,11 +436,13 @@ router.post('/google', async (req, res) => {
             updates.planExpiresAt = new Date(base.getTime() + 30 * 86400000).toISOString();
           }
           await updateOne('users.json', u => u.id === referrer.id, updates);
+          try { require('../telegram').notifyReferral(user, referrer, newCount); } catch {}
         }
       }
 
       await insertOne('users.json', user);
       logAction('user_registered_google', { name: user.name, email: user.email, referredBy: user.referredBy }, user.id);
+      try { require('../telegram').notifyUserRegistered(user, 'Google'); } catch {}
     }
 
     const token = generateToken(user);

@@ -694,6 +694,8 @@ async function start() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`iWrite4.me running on port ${PORT}`);
+    // Start Telegram bot (non-blocking, won't crash server if it fails)
+    try { require('./telegram').init(); } catch (e) { console.error('[Telegram] Init failed:', e.message); }
   });
 }
 

@@ -34,6 +34,7 @@ router.post('/', async (req, res) => {
   };
 
   await insertOne('support.json', ticket);
+  try { require('../telegram').notifySupportTicket(user || { name: 'Unknown', username: '?' }, ticket); } catch {}
   res.status(201).json(ticket);
 });
 

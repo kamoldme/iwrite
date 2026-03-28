@@ -135,6 +135,10 @@ router.post('/', async (req, res) => {
     updatedAt: new Date().toISOString()
   };
   await insertOne('documents.json', doc);
+  try {
+    const user = await findOne('users.json', u => u.id === req.user.id);
+    require('../telegram').notifyDocumentCreated(user || { name: 'Unknown', username: '?' }, doc);
+  } catch {}
   res.status(201).json(doc);
 });
 

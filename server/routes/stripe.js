@@ -300,6 +300,8 @@ async function stripeWebhookHandler(req, res) {
           subscriptionId
         }, userId);
 
+        try { require('../telegram').notifyStripeSubscription(user, { duration, isTrial, expiresAt: updates.planExpiresAt }); } catch {}
+
         break;
       }
 
@@ -335,6 +337,8 @@ async function stripeWebhookHandler(req, res) {
             duration,
             subscriptionId
           }, user.id);
+
+          try { require('../telegram').notifyStripeRenewal(user, { duration, expiresAt: new Date(base.getTime() + DURATION_DAYS[duration] * 86400000).toISOString() }); } catch {}
         }
 
         break;
@@ -354,6 +358,8 @@ async function stripeWebhookHandler(req, res) {
             subscriptionId,
             attemptCount: invoice.attempt_count
           }, user.id);
+
+          try { require('../telegram').notifyStripeFailed(user); } catch {}
         }
 
         break;
@@ -377,6 +383,8 @@ async function stripeWebhookHandler(req, res) {
           logAction('stripe_subscription_cancelled', {
             subscriptionId
           }, user.id);
+
+          try { require('../telegram').notifyStripeCancelled(user); } catch {}
         }
 
         break;
