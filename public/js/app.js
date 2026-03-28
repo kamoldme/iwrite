@@ -125,6 +125,8 @@ const App = {
         document.getElementById('app-view').style.display = 'block';
         document.querySelectorAll('.sidebar').forEach(s => s.style.display = 'none');
         document.querySelector('.main-content').style.marginLeft = '0';
+        const backBtn = document.getElementById('up-back-btn');
+        if (backBtn) backBtn.style.display = 'none';
         this.switchView('user-profile', { username: profileUsername });
         return;
       }
