@@ -27,17 +27,22 @@ router.post('/:id', authenticate, async (req, res) => {
       followers: [...(target.followers || []), req.user.id]
     });
 
-    // Create notification for target
-    await insertOne('notifications.json', {
-      id: uuid(),
-      userId: targetId,
-      type: 'new_follower',
-      fromUserId: req.user.id,
-      fromUserName: me.name || me.username,
-      text: `${me.name || me.username} started following you`,
-      read: false,
-      createdAt: new Date().toISOString()
-    });
+    // Create notification for target (own try/catch so follow still succeeds)
+    try {
+      await insertOne('notifications.json', {
+        id: uuid(),
+        userId: targetId,
+        type: 'new_follower',
+        fromUserId: req.user.id,
+        fromUserName: me.name || me.username,
+        text: `${me.name || me.username} started following you`,
+        read: false,
+        createdAt: new Date().toISOString()
+      });
+      console.log(`[Notif] new_follower → user ${targetId} from ${req.user.id}`);
+    } catch (notifErr) {
+      console.error('[Notif] Failed to create follow notification:', notifErr.message);
+    }
 
     res.json({
       success: true,

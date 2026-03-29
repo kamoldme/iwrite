@@ -638,43 +638,52 @@ router.post('/:id/comments', async (req, res) => {
 
     await insertOne('story-comments.json', comment);
 
-    // Create notification for the parent comment author (reply notification)
-    if (parentCommentId) {
-      const parentComment = await findOne('story-comments.json', c => c.id === parentCommentId);
-      if (parentComment && parentComment.userId !== req.user.id) {
-        await insertOne('notifications.json', {
-          id: uuid(),
-          userId: parentComment.userId,
-          type: 'comment_reply',
-          fromUserId: req.user.id,
-          fromUserName: user ? user.name : 'Unknown',
-          storyId: story.id,
-          storyTitle: story.title || 'Untitled',
-          commentId: comment.id,
-          parentCommentId,
-          text: text.substring(0, 100),
-          read: false,
-          createdAt: new Date().toISOString()
-        });
+    // Create notification (wrapped in own try/catch so comment still succeeds)
+    try {
+      if (parentCommentId) {
+        // Reply notification
+        const parentComment = await findOne('story-comments.json', c => c.id === parentCommentId);
+        if (parentComment && parentComment.userId !== req.user.id) {
+          await insertOne('notifications.json', {
+            id: uuid(),
+            userId: parentComment.userId,
+            type: 'comment_reply',
+            fromUserId: req.user.id,
+            fromUserName: user ? user.name : 'Unknown',
+            storyId: story.id,
+            storyTitle: story.title || 'Untitled',
+            commentId: comment.id,
+            parentCommentId,
+            text: text.substring(0, 100),
+            read: false,
+            createdAt: new Date().toISOString()
+          });
+          console.log(`[Notif] comment_reply → user ${parentComment.userId} from ${req.user.id}`);
+        }
+      } else {
+        // Top-level comment notification to story author
+        if (story.userId !== req.user.id) {
+          await insertOne('notifications.json', {
+            id: uuid(),
+            userId: story.userId,
+            type: 'story_comment',
+            fromUserId: req.user.id,
+            fromUserName: user ? user.name : 'Unknown',
+            storyId: story.id,
+            storyTitle: story.title || 'Untitled',
+            commentId: comment.id,
+            parentCommentId: null,
+            text: text.substring(0, 100),
+            read: false,
+            createdAt: new Date().toISOString()
+          });
+          console.log(`[Notif] story_comment → user ${story.userId} from ${req.user.id}`);
+        } else {
+          console.log(`[Notif] skipped — user commented on own story`);
+        }
       }
-    } else {
-      // Notify story author about new top-level comment
-      if (story.userId !== req.user.id) {
-        await insertOne('notifications.json', {
-          id: uuid(),
-          userId: story.userId,
-          type: 'story_comment',
-          fromUserId: req.user.id,
-          fromUserName: user ? user.name : 'Unknown',
-          storyId: story.id,
-          storyTitle: story.title || 'Untitled',
-          commentId: comment.id,
-          parentCommentId: null,
-          text: text.substring(0, 100),
-          read: false,
-          createdAt: new Date().toISOString()
-        });
-      }
+    } catch (notifErr) {
+      console.error('[Notif] Failed to create notification:', notifErr.message);
     }
 
     res.status(201).json({ ok: true, status: 'approved' });
