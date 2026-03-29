@@ -335,6 +335,47 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Notifications — MUST be above /:id to avoid Express treating "notifications" as an :id param
+router.get('/notifications', async (req, res) => {
+  try {
+    const notifications = await findMany('notifications.json', n => n.userId === req.user.id);
+    notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(notifications.slice(0, 50));
+  } catch (err) {
+    console.error('Notifications error:', err);
+    res.status(500).json({ error: 'Failed to load notifications' });
+  }
+});
+
+router.get('/notifications/unread-count', async (req, res) => {
+  try {
+    const unread = await findMany('notifications.json', n => n.userId === req.user.id && !n.read);
+    res.json({ count: unread.length });
+  } catch (err) {
+    res.json({ count: 0 });
+  }
+});
+
+router.post('/notifications/mark-read', async (req, res) => {
+  try {
+    const ids = req.body.ids || [];
+    if (ids.length === 0) {
+      const unread = await findMany('notifications.json', n => n.userId === req.user.id && !n.read);
+      for (const n of unread) {
+        await updateOne('notifications.json', nn => nn.id === n.id, { read: true });
+      }
+    } else {
+      for (const id of ids) {
+        await updateOne('notifications.json', n => n.id === id && n.userId === req.user.id, { read: true });
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Mark notifications read error:', err);
+    res.status(500).json({ error: 'Failed to mark notifications' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     let story = await findOne('stories.json', s => s.id === req.params.id);
@@ -753,48 +794,6 @@ router.post('/:id/comments/:commentId/like', async (req, res) => {
   } catch (err) {
     console.error('Like comment error:', err);
     res.status(500).json({ error: 'Failed to update comment like' });
-  }
-});
-
-// Notifications
-router.get('/notifications', async (req, res) => {
-  try {
-    const notifications = await findMany('notifications.json', n => n.userId === req.user.id);
-    notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    res.json(notifications.slice(0, 50));
-  } catch (err) {
-    console.error('Notifications error:', err);
-    res.status(500).json({ error: 'Failed to load notifications' });
-  }
-});
-
-router.get('/notifications/unread-count', async (req, res) => {
-  try {
-    const unread = await findMany('notifications.json', n => n.userId === req.user.id && !n.read);
-    res.json({ count: unread.length });
-  } catch (err) {
-    res.json({ count: 0 });
-  }
-});
-
-router.post('/notifications/mark-read', async (req, res) => {
-  try {
-    const ids = req.body.ids || [];
-    if (ids.length === 0) {
-      // Mark all as read
-      const unread = await findMany('notifications.json', n => n.userId === req.user.id && !n.read);
-      for (const n of unread) {
-        await updateOne('notifications.json', nn => nn.id === n.id, { read: true });
-      }
-    } else {
-      for (const id of ids) {
-        await updateOne('notifications.json', n => n.id === id && n.userId === req.user.id, { read: true });
-      }
-    }
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('Mark notifications read error:', err);
-    res.status(500).json({ error: 'Failed to mark notifications' });
   }
 });
 

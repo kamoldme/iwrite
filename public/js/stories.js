@@ -1520,10 +1520,15 @@
 
   async function openNotifDropdown() {
     const dropdown = document.getElementById('stories-notif-dropdown');
-    if (!dropdown) return;
+    if (!dropdown) { console.error('[Notif] dropdown element not found'); return; }
     try {
+      console.log('[Notif] fetching notifications...');
       _cachedNotifs = await API.getNotifications();
-    } catch { _cachedNotifs = []; }
+      console.log('[Notif] got', _cachedNotifs.length, 'notifications', _cachedNotifs);
+    } catch (err) {
+      console.error('[Notif] fetch failed:', err);
+      _cachedNotifs = [];
+    }
     renderNotifDropdown(_cachedNotifs);
     dropdown.style.display = 'block';
     _notifDropdownOpen = true;
