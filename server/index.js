@@ -457,7 +457,7 @@ app.get('/api/featured-story', async (req, res) => {
       featured: {
         storyId: story.id,
         title: story.title,
-        excerpt: story.excerpt || (story.content || '').replace(/<[^>]*>/g, '').slice(0, 200),
+        excerpt: story.excerpt || (story.content || '').replace(/<[^>]*>/g, '').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&amp;/g, '&').replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').slice(0, 200),
         readTimeMinutes: story.readTimeMinutes || 1,
         authorName: author ? author.name : 'Unknown',
         authorUsername: author ? (author.username || null) : null,
