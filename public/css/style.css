@@ -1530,6 +1530,10 @@
   border-color: rgba(195, 126, 63, 0.4);
   box-shadow: 0 0 0 3px rgba(195, 126, 63, 0.1);
 }
+/* Transparent-bg inputs must stay transparent in sepia */
+.sepia .editor-title-input,
+.sepia .editor-topic-input,
+.sepia .story-title-input-plain { background: transparent !important; }
 
 /* ── Sepia: duel cards — copper tones ── */
 .sepia .duel-history-card.won { border-left-color: #C37E3F; }
