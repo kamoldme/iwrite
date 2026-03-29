@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iWrite4.me — Instagram Carousel</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #111;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+
+  .page-title {
+    font-size: 14px; font-weight: 500; color: #666;
+    margin-bottom: 8px; letter-spacing: 2px; text-transform: uppercase;
+  }
+  .page-subtitle { font-size: 12px; color: #444; margin-bottom: 40px; }
+
+  .carousel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 1080px);
+    gap: 60px; justify-content: center;
+  }
+
+  .slide-wrapper { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .slide-label { font-size: 11px; color: #555; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+
+  /* ======== BASE SLIDE 1080x1080 ======== */
+  .slide {
+    width: 1080px; height: 1080px;
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
+    background-color: #060606;
+  }
+
+  .slide-top {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 48px 56px 0;
+  }
+  .slide-logo {
+    font-size: 24px; font-weight: 800; letter-spacing: -0.5px;
+    color: rgba(255,255,255,0.35);
+  }
+
+  .slide-bottom {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 56px 48px;
+  }
+  .dots { display: flex; gap: 10px; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+  .dot.active { width: 36px; border-radius: 7px; background: #4ade80; }
+
+  .swipe-hint {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 17px; font-weight: 500; color: rgba(255,255,255,0.25);
+  }
+  .swipe-arrow {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  .slide-content {
+    position: relative; z-index: 5; flex: 1;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 110px 72px;
+  }
+  .slide-tag {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 28px; border-radius: 100px;
+    font-size: 17px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 2px; width: fit-content; margin-bottom: 28px;
+  }
+  .slide-headline {
+    font-weight: 900; line-height: 1.0; letter-spacing: -4px; margin-bottom: 24px;
+  }
+  .slide-desc {
+    font-size: 26px; line-height: 1.55; font-weight: 400; max-width: 560px;
+  }
+
+  /* ======== BG decorations ======== */
+  .bg-glow { position: absolute; border-radius: 50%; filter: blur(120px); pointer-events: none; }
+  .bg-grid {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0.03;
+    background-image:
+      linear-gradient(rgba(255,255,255,1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  /* ================================================================
+     SLIDE 0: INTRO — BIG LOGO
+     ================================================================ */
+  .s-intro { background: #060606; }
+  .s-intro .bg-glow-1 { width: 700px; height: 700px; background: rgba(74,222,128,0.08); top: -120px; right: -120px; }
+  .s-intro .bg-glow-2 { width: 600px; height: 600px; background: rgba(74,222,128,0.05); bottom: -120px; left: -120px; }
+  .s-intro .intro-center {
+    position: relative; z-index: 5; flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 72px;
+    padding-top: 140px;
+  }
+  .s-intro .intro-logo-big {
+    font-size: 138px; font-weight: 900; letter-spacing: -6px;
+    color: #fff; margin-bottom: 20px; line-height: 1;
+  }
+  .s-intro .intro-logo-big .green { color: #4ade80; }
+  .s-intro .intro-tagline {
+    font-size: 48px; font-weight: 500; color: rgba(255,255,255,0.35);
+    line-height: 1.3; margin-bottom: 52px; letter-spacing: -1.5px;
+  }
+  .s-intro .intro-tagline span { color: rgba(255,255,255,0.6); font-weight: 600; }
+  .s-intro .intro-chips {
+    display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+    max-width: 680px;
+  }
+  .s-intro .intro-chip {
+    padding: 16px 30px; border-radius: 100px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+    font-size: 18px; font-weight: 500; color: rgba(255,255,255,0.45);
+  }
+
+  /* ================================================================
+     SLIDE 1: MODES — SPLIT DANGEROUS + NORMAL
+     ================================================================ */
+  .s-modes { background: #060606; position: relative; }
+  .s-modes .mode-half {
+    position: absolute; top: 0; width: 540px; height: 1080px;
+    overflow: hidden;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 90px 48px;
+  }
+  .s-modes .mode-half-danger {
+    left: 0;
+    background: linear-gradient(180deg, #0c0404 0%, #180808 50%, #0c0404 100%);
+  }
+  .s-modes .mode-half-normal {
+    left: 540px;
+    background: linear-gradient(180deg, #040804 0%, #081808 50%, #040804 100%);
+  }
+  .s-modes .mode-half .bg-glow { z-index: 0; }
+  .s-modes .mode-half-danger .bg-glow-1 {
+    width: 500px; height: 500px; background: rgba(239,68,68,0.1); top: -100px; right: -100px;
+  }
+  .s-modes .mode-half-normal .bg-glow-1 {
+    width: 500px; height: 500px; background: rgba(74,222,128,0.08); bottom: -100px; left: -100px;
+  }
+  .s-modes .mode-half .mode-content {
+    position: relative; z-index: 5; display: flex; flex-direction: column;
+  }
+  .s-modes .mode-tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px; border-radius: 100px;
+    font-size: 15px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 2px; width: fit-content; margin-bottom: 24px;
+  }
+  .s-modes .mode-tag-danger { background: rgba(239,68,68,0.12); color: #f87171; }
+  .s-modes .mode-tag-normal { background: rgba(74,222,128,0.12); color: #4ade80; }
+  .s-modes .mode-title {
+    font-size: 52px; font-weight: 900; letter-spacing: -2.5px;
+    line-height: 1.0; color: #fff; margin-bottom: 18px;
+  }
+  .s-modes .mode-title .red { color: #ef4444; }
+  .s-modes .mode-title .grn { color: #4ade80; }
+  .s-modes .mode-desc {
+    font-size: 18px; line-height: 1.6; color: rgba(255,255,255,0.35);
+    max-width: 400px; margin-bottom: 32px;
+  }
+
+  /* Danger timer ring */
+  .s-modes .danger-ring {
+    width: 140px; height: 140px; border-radius: 50%;
+    border: 3px solid rgba(239,68,68,0.25);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 2px;
+    box-shadow: 0 0 80px rgba(239,68,68,0.12);
+    animation: pulse-d 2.5s ease-in-out infinite;
+    align-self: center;
+  }
+  @keyframes pulse-d {
+    0%,100% { box-shadow: 0 0 60px rgba(239,68,68,0.1), 0 0 0 0 rgba(239,68,68,0.15); }
+    50% { box-shadow: 0 0 100px rgba(239,68,68,0.18), 0 0 0 20px rgba(239,68,68,0); }
+  }
+  .s-modes .danger-ring .dr-num {
+    font-size: 48px; font-weight: 900; color: #ef4444; letter-spacing: -2px;
+  }
+  .s-modes .danger-ring .dr-lbl {
+    font-size: 11px; font-weight: 700; color: rgba(239,68,68,0.5);
+    text-transform: uppercase; letter-spacing: 3px;
+  }
+  .s-modes .danger-cursor {
+    font-size: 15px; color: rgba(255,255,255,0.15); text-align: center; margin-top: 16px;
+    border-right: 2px solid #ef4444; padding-right: 2px;
+    display: inline-block; align-self: center;
+    animation: blink-c 1s step-end infinite;
+  }
+  @keyframes blink-c { 50% { border-color: transparent; } }
+
+  /* Normal editor mock */
+  .s-modes .editor-mini {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px; overflow: hidden; width: 100%;
+  }
+  .s-modes .em-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .s-modes .em-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .s-modes .em-r { background: #ef4444; opacity: 0.5; }
+  .s-modes .em-y { background: #eab308; opacity: 0.5; }
+  .s-modes .em-g { background: #22c55e; opacity: 0.5; }
+  .s-modes .em-body {
+    padding: 20px; font-size: 15px; line-height: 1.8;
+    color: rgba(255,255,255,0.2);
+  }
+  .s-modes .em-body .typed { color: rgba(255,255,255,0.55); }
+  .s-modes .em-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 18px;
+    background: rgba(74,222,128,0.04);
+    border-top: 1px solid rgba(74,222,128,0.08);
+    font-size: 13px; font-weight: 700; color: rgba(74,222,128,0.5);
+  }
+  .s-modes .dot.active { background: #ef4444; }
+  .s-modes .mode-divider {
+    position: absolute; top: 140px; bottom: 140px; left: 50%;
+    width: 1px; z-index: 8;
+    background: linear-gradient(180deg, transparent, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent);
+  }
+  .s-modes .mode-divider-label {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    z-index: 9; padding: 12px 20px; border-radius: 100px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+    font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.2);
+    text-transform: uppercase; letter-spacing: 3px;
+  }
+
+  /* ================================================================
+     SLIDE 2: DUELS
+     ================================================================ */
+  .s-duels { background: linear-gradient(160deg, #06060e 0%, #100820 50%, #06060e 100%); }
+  .s-duels .bg-glow-1 { width: 600px; height: 600px; background: rgba(139,92,246,0.08); top: -120px; left: -120px; }
+  .s-duels .bg-glow-2 { width: 500px; height: 500px; background: rgba(74,222,128,0.04); bottom: -80px; right: -80px; }
+  .s-duels .slide-tag { background: rgba(139,92,246,0.12); color: #a78bfa; }
+  .s-duels .dot.active { background: #a78bfa; }
+  .s-duels .slide-headline { font-size: 96px; color: #fff; }
+  .s-duels .slide-headline span { color: #a78bfa; }
+  .s-duels .slide-desc { color: rgba(255,255,255,0.4); }
+  .s-duels .duel-visual {
+    position: absolute; right: 50px; top: 50%; transform: translateY(-50%);
+    z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 34px;
+  }
+  .s-duels .duel-vs { display: flex; align-items: center; gap: 50px; }
+  .s-duels .duel-player { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .s-duels .duel-avatar {
+    width: 130px; height: 130px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 52px; font-weight: 900;
+  }
+  .s-duels .duel-player:first-child .duel-avatar {
+    background: rgba(74,222,128,0.1); border: 3px solid rgba(74,222,128,0.25); color: #4ade80;
+  }
+  .s-duels .duel-player:last-child .duel-avatar {
+    background: rgba(139,92,246,0.1); border: 3px solid rgba(139,92,246,0.25); color: #a78bfa;
+  }
+  .s-duels .duel-name { font-size: 20px; font-weight: 600; color: rgba(255,255,255,0.5); }
+  .s-duels .duel-wc { font-size: 48px; font-weight: 900; color: #fff; letter-spacing: -1px; }
+  .s-duels .duel-wc-label {
+    font-size: 14px; color: rgba(255,255,255,0.25); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px; margin-top: -8px;
+  }
+  .s-duels .duel-vs-badge { font-size: 42px; font-weight: 900; color: rgba(139,92,246,0.35); letter-spacing: 5px; }
+  .s-duels .duel-timer-bar { width: 380px; height: 10px; background: rgba(255,255,255,0.06); border-radius: 10px; overflow: hidden; }
+  .s-duels .duel-timer-fill { width: 65%; height: 100%; border-radius: 10px; background: linear-gradient(90deg, #a78bfa, #7c3aed); }
+  .s-duels .duel-timer-label { font-size: 17px; color: rgba(255,255,255,0.25); font-weight: 500; }
+
+  /* ================================================================
+     SLIDE 3: COMMUNITY
+     ================================================================ */
+  .s-community { background: linear-gradient(160deg, #060806 0%, #081208 50%, #060806 100%); }
+  .s-community .bg-glow-1 { width: 700px; height: 700px; background: rgba(74,222,128,0.06); top: -200px; right: -120px; }
+  .s-community .slide-tag { background: rgba(74,222,128,0.12); color: #4ade80; }
+  .s-community .slide-headline { font-size: 92px; color: #fff; }
+  .s-community .slide-headline span { color: #4ade80; }
+  .s-community .slide-desc { color: rgba(255,255,255,0.4); }
+  .s-community .feed-cards {
+    position: absolute; right: 32px; top: 50%; transform: translateY(-50%);
+    z-index: 6; display: flex; flex-direction: column; gap: 18px; width: 560px;
+  }
+  .s-community .feed-card {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .s-community .fc-header { display: flex; align-items: center; gap: 16px; }
+  .s-community .fc-avatar {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(74,222,128,0.1); display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 700; color: #4ade80; flex-shrink: 0;
+  }
+  .s-community .fc-name { font-size: 20px; font-weight: 600; color: rgba(255,255,255,0.8); }
+  .s-community .fc-time { font-size: 14px; color: rgba(255,255,255,0.2); }
+  .s-community .fc-title { font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.75); }
+  .s-community .fc-excerpt { font-size: 17px; color: rgba(255,255,255,0.25); line-height: 1.6; }
+  .s-community .fc-footer { display: flex; gap: 24px; font-size: 17px; color: rgba(255,255,255,0.25); font-weight: 500; }
+
+  /* ================================================================
+     SLIDE 4: XP + STREAKS
+     ================================================================ */
+  .s-xp { background: linear-gradient(160deg, #080804 0%, #161008 50%, #080804 100%); }
+  .s-xp .bg-glow-1 { width: 700px; height: 700px; background: rgba(250,204,21,0.07); top: -150px; right: -120px; }
+  .s-xp .slide-tag { background: rgba(250,204,21,0.12); color: #facc15; }
+  .s-xp .dot.active { background: #facc15; }
+  .s-xp .slide-headline { font-size: 92px; color: #fff; }
+  .s-xp .slide-headline span { color: #facc15; }
+  .s-xp .slide-desc { color: rgba(255,255,255,0.4); }
+  .s-xp .tree-visual {
+    position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
+    z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 40px;
+  }
+  .s-xp .tree-stages { display: flex; align-items: flex-end; gap: 28px; }
+  .s-xp .tree-stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .s-xp .tree-emoji { font-size: 64px; }
+  .s-xp .tree-day { font-size: 15px; color: rgba(255,255,255,0.2); font-weight: 600; }
+  .s-xp .xp-progress { width: 480px; display: flex; flex-direction: column; gap: 12px; }
+  .s-xp .xp-bar-bg { height: 16px; background: rgba(255,255,255,0.05); border-radius: 16px; overflow: hidden; }
+  .s-xp .xp-bar-fill { height: 100%; border-radius: 16px; background: linear-gradient(90deg, #facc15, #f59e0b); width: 68%; }
+  .s-xp .xp-labels { display: flex; justify-content: space-between; font-size: 17px; font-weight: 600; color: rgba(255,255,255,0.25); }
+  .s-xp .xp-labels span:last-child { color: #facc15; }
+
+  /* ================================================================
+     SLIDE 5: ANALYTICS
+     ================================================================ */
+  .s-analytics { background: linear-gradient(160deg, #040608 0%, #081020 50%, #040608 100%); }
+  .s-analytics .bg-glow-1 { width: 800px; height: 800px; background: rgba(56,189,248,0.06); top: -200px; right: -200px; }
+  .s-analytics .slide-tag { background: rgba(56,189,248,0.12); color: #38bdf8; }
+  .s-analytics .dot.active { background: #38bdf8; }
+  .s-analytics .slide-headline { font-size: 92px; color: #fff; }
+  .s-analytics .slide-headline span { color: #38bdf8; }
+  .s-analytics .slide-desc { color: rgba(255,255,255,0.4); }
+  .s-analytics .analytics-visual {
+    position: absolute; right: 32px; top: 50%; transform: translateY(-50%);
+    z-index: 6; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 580px;
+  }
+  .s-analytics .a-card {
+    background: rgba(56,189,248,0.04); border: 1px solid rgba(56,189,248,0.1);
+    border-radius: 20px; padding: 32px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .s-analytics .a-card .a-icon { font-size: 32px; }
+  .s-analytics .a-card .a-label {
+    font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.25);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .s-analytics .a-card .a-val { font-size: 40px; font-weight: 900; color: #38bdf8; letter-spacing: -1px; }
+  .s-analytics .a-card .a-sub { font-size: 14px; color: rgba(255,255,255,0.2); font-weight: 500; }
+  .s-analytics .pro-label {
+    position: absolute; bottom: 90px; right: 56px;
+    font-size: 14px; font-weight: 700; color: rgba(56,189,248,0.3);
+    text-transform: uppercase; letter-spacing: 2px; z-index: 10;
+  }
+
+  /* ================================================================
+     SLIDE 6: FRIENDS
+     ================================================================ */
+  .s-friends { background: linear-gradient(160deg, #080408 0%, #160820 50%, #080408 100%); }
+  .s-friends .bg-glow-1 { width: 600px; height: 600px; background: rgba(236,72,153,0.06); bottom: -120px; right: -120px; }
+  .s-friends .slide-tag { background: rgba(236,72,153,0.12); color: #f472b6; }
+  .s-friends .dot.active { background: #ec4899; }
+  .s-friends .slide-headline { font-size: 86px; color: #fff; }
+  .s-friends .slide-headline span { color: #f472b6; }
+  .s-friends .slide-desc { color: rgba(255,255,255,0.4); }
+  .s-friends .friends-visual {
+    position: absolute; right: 32px; top: 50%; transform: translateY(-50%);
+    z-index: 6; width: 560px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .s-friends .friend-item {
+    display: flex; align-items: center; gap: 20px;
+    background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 18px; padding: 24px 26px;
+  }
+  .s-friends .f-icon {
+    width: 62px; height: 62px; border-radius: 50%;
+    background: rgba(236,72,153,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; flex-shrink: 0;
+  }
+  .s-friends .f-text { font-size: 21px; color: rgba(255,255,255,0.4); line-height: 1.5; }
+  .s-friends .f-text strong { color: rgba(255,255,255,0.75); font-weight: 600; }
+  .s-friends .f-text .pink { color: #f472b6; font-weight: 600; }
+  .s-friends .f-time { font-size: 15px; color: rgba(255,255,255,0.15); margin-top: 2px; }
+
+  /* ================================================================
+     SLIDE 7: LEADERBOARD
+     ================================================================ */
+  .s-leaderboard { background: linear-gradient(160deg, #080804 0%, #181008 50%, #080804 100%); }
+  .s-leaderboard .bg-glow-1 { width: 700px; height: 700px; background: rgba(250,204,21,0.06); top: -200px; left: -120px; }
+  .s-leaderboard .slide-tag { background: rgba(245,158,11,0.12); color: #fbbf24; }
+  .s-leaderboard .dot.active { background: #f59e0b; }
+  .s-leaderboard .slide-headline { font-size: 96px; color: #fff; }
+  .s-leaderboard .slide-headline span { color: #fbbf24; }
+  .s-leaderboard .slide-desc { color: rgba(255,255,255,0.4); }
+  .s-leaderboard .podium-visual {
+    position: absolute; right: 50px; bottom: 110px; z-index: 6;
+    display: flex; align-items: flex-end; gap: 20px;
+  }
+  .s-leaderboard .podium-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .s-leaderboard .p-avatar {
+    width: 92px; height: 92px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 38px; font-weight: 900;
+  }
+  .s-leaderboard .p-name { font-size: 19px; font-weight: 600; color: rgba(255,255,255,0.5); }
+  .s-leaderboard .p-streak { font-size: 15px; color: rgba(255,255,255,0.25); font-weight: 500; }
+  .s-leaderboard .p-bar {
+    width: 140px; border-radius: 16px 16px 0 0;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 22px; font-size: 40px; font-weight: 900;
+  }
+  .s-leaderboard .col-1st .p-bar { height: 230px; background: linear-gradient(180deg, rgba(250,204,21,0.22), rgba(250,204,21,0.03)); color: #facc15; }
+  .s-leaderboard .col-2nd .p-bar { height: 165px; background: linear-gradient(180deg, rgba(192,192,192,0.18), rgba(192,192,192,0.03)); color: #c0c0c0; }
+  .s-leaderboard .col-3rd .p-bar { height: 120px; background: linear-gradient(180deg, rgba(205,127,50,0.18), rgba(205,127,50,0.03)); color: #cd7f32; }
+  .s-leaderboard .col-1st .p-avatar { background: rgba(250,204,21,0.12); border: 3px solid rgba(250,204,21,0.3); color: #facc15; }
+  .s-leaderboard .col-2nd .p-avatar { background: rgba(192,192,192,0.08); border: 3px solid rgba(192,192,192,0.22); color: #c0c0c0; }
+  .s-leaderboard .col-3rd .p-avatar { background: rgba(205,127,50,0.08); border: 3px solid rgba(205,127,50,0.22); color: #cd7f32; }
+
+  /* ================================================================
+     SLIDE 8: REFERRAL
+     ================================================================ */
+  .s-referral { background: linear-gradient(160deg, #060806 0%, #081808 50%, #060806 100%); }
+  .s-referral .bg-glow-1 { width: 600px; height: 600px; background: rgba(74,222,128,0.07); top: -120px; right: -120px; }
+  .s-referral .slide-tag { background: rgba(74,222,128,0.12); color: #4ade80; }
+  .s-referral .slide-headline { font-size: 92px; color: #fff; }
+  .s-referral .slide-headline span { color: #4ade80; }
+  .s-referral .slide-desc { color: rgba(255,255,255,0.4); }
+  .s-referral .ref-visual {
+    position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
+    z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 24px;
+  }
+  .s-referral .ref-dots { display: flex; align-items: center; gap: 10px; }
+  .s-referral .ref-dot {
+    width: 62px; height: 62px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 700;
+    border: 3px solid rgba(74,222,128,0.12); color: rgba(255,255,255,0.15);
+  }
+  .s-referral .ref-dot.filled {
+    background: rgba(74,222,128,0.1); border-color: rgba(74,222,128,0.35); color: #4ade80;
+  }
+  .s-referral .ref-line { width: 22px; height: 2px; background: rgba(255,255,255,0.06); }
+  .s-referral .ref-label { font-size: 18px; color: rgba(255,255,255,0.3); font-weight: 500; }
+  .s-referral .ref-label strong { color: #4ade80; }
+  .s-referral .ref-reward {
+    padding: 14px 32px; background: rgba(74,222,128,0.06);
+    border: 1px solid rgba(74,222,128,0.12); border-radius: 100px;
+    font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.35);
+  }
+
+  /* ================================================================
+     SLIDE 9: PRICING + CTA
+     ================================================================ */
+  .s-pricing { background: linear-gradient(160deg, #060806 0%, #0a1a0a 50%, #060806 100%); }
+  .s-pricing .bg-glow-1 { width: 700px; height: 700px; background: rgba(74,222,128,0.07); bottom: -200px; right: -120px; }
+  .s-pricing .slide-tag { background: rgba(74,222,128,0.12); color: #4ade80; }
+  .s-pricing .slide-headline { font-size: 86px; color: #fff; }
+  .s-pricing .slide-headline span { color: #4ade80; }
+  .s-pricing .slide-content {
+    justify-content: center; padding-right: 0;
+  }
+  .s-pricing .pricing-row {
+    position: relative; z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+    gap: 60px; padding: 0 56px;
+    flex: 1;
+  }
+  .s-pricing .pricing-left {
+    display: flex; flex-direction: column;
+  }
+  .s-pricing .pricing-cards {
+    display: flex; gap: 20px;
+  }
+  .s-pricing .price-card {
+    width: 270px; border-radius: 24px; padding: 36px 28px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .s-pricing .pc-free {
+    background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05);
+  }
+  .s-pricing .pc-pro {
+    background: rgba(245,158,11,0.05); border: 1px solid rgba(245,158,11,0.2);
+    position: relative;
+  }
+  .s-pricing .pc-pro .popular-tag {
+    position: absolute; top: -1px; right: 22px;
+    background: linear-gradient(135deg, #f59e0b, #f97316); color: #000;
+    font-size: 11px; font-weight: 800; padding: 6px 16px;
+    border-radius: 0 0 12px 12px; text-transform: uppercase; letter-spacing: 1.5px;
+  }
+  .s-pricing .pc-name { font-size: 19px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
+  .s-pricing .pc-free .pc-name { color: rgba(255,255,255,0.4); }
+  .s-pricing .pc-pro .pc-name { color: #f59e0b; }
+  .s-pricing .pc-price { font-size: 52px; font-weight: 900; color: #fff; letter-spacing: -2px; }
+  .s-pricing .pc-price .per { font-size: 19px; font-weight: 400; color: rgba(255,255,255,0.25); letter-spacing: 0; }
+  .s-pricing .pc-features { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .s-pricing .pc-features li {
+    font-size: 16px; color: rgba(255,255,255,0.35);
+    display: flex; align-items: center; gap: 10px; line-height: 1.4;
+  }
+  .s-pricing .pc-free .pc-features li .ck { color: #4ade80; font-size: 16px; flex-shrink: 0; }
+  .s-pricing .pc-pro .pc-features li .ck { color: #f59e0b; font-size: 16px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div class="page-title">iWrite4.me Carousel</div>
+<div class="page-subtitle">10 slides &mdash; 1080 &times; 1080px</div>
+
+<div class="carousel-grid">
+
+<!-- ============ SLIDE 1: INTRO ============ -->
+<div class="slide-wrapper">
+  <span class="slide-label">Slide 1 &mdash; Intro</span>
+  <div class="slide s-intro">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-grid"></div>
+    <div class="intro-center">
+      <div class="intro-logo-big">i<span class="green">Write</span>4.me</div>
+      <p class="intro-tagline"><span>Writing</span>, but make it fun.</p>
+      <div class="intro-chips">
+        <div class="intro-chip">&#9200; Timed Sessions</div>
+        <div class="intro-chip">&#9876;&#65039; Duels</div>
+        <div class="intro-chip">&#128293; Streaks</div>
+        <div class="intro-chip">&#128200; Analytics</div>
+        <div class="intro-chip">&#128101; Community</div>
+      </div>
+    </div>
+    <div class="slide-bottom">
+      <div class="dots">
+        <div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <div class="swipe-hint">Swipe <div class="swipe-arrow">&#8250;</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 2: WRITING MODES (SPLIT) ============ -->
+<div class="slide-wrapper">
+  <span class="slide-label">Slide 2 &mdash; Writing Modes</span>
+  <div class="slide s-modes">
+    <!-- Left: Dangerous -->
+    <div class="mode-half mode-half-danger">
+      <div class="bg-glow bg-glow-1"></div>
+      <div class="mode-content">
+        <div class="mode-tag mode-tag-danger">&#9888; Dangerous</div>
+        <div class="mode-title">Stop typing.<br><span class="red">Lose it all.</span></div>
+        <p class="mode-desc">Text fades and gets deleted if you pause. Screen edges glow red. No undo.</p>
+        <div class="danger-ring">
+          <div class="dr-num">5s</div>
+          <div class="dr-lbl">left</div>
+        </div>
+        <div class="danger-cursor">keep writing_</div>
+      </div>
+    </div>
+    <!-- Divider -->
+    <div class="mode-divider"></div>
+    <div class="mode-divider-label">OR</div>
+    <!-- Right: Normal -->
+    <div class="mode-half mode-half-normal">
+      <div class="bg-glow bg-glow-1"></div>
+      <div class="mode-content">
+        <div class="mode-tag mode-tag-normal">&#9998; Normal</div>
+        <div class="mode-title">Just you<br>and the <span class="grn">page.</span></div>
+        <p class="mode-desc">Auto-fullscreen. Set your timer. Hit your word target. Stay in the zone.</p>
+        <div class="editor-mini">
+          <div class="em-bar">
+            <div class="em-dot em-r"></div>
+            <div class="em-dot em-y"></div>
+            <div class="em-dot em-g"></div>
+          </div>
+          <div class="em-body">
+            <span class="typed">The morning light slipped through the blinds. She opened her notebook and began to write...</span>
+          </div>
+          <div class="em-footer">
+            <span>847 words</span>
+            <span>23:14 left</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Bottom bar -->
+    <div class="slide-bottom">
+      <div class="dots">
+        <div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <div class="swipe-hint">Swipe <div class="swipe-arrow">&#8250;</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 3: DUELS ============ -->
+<div class="slide-wrapper">
+  <span class="slide-label">Slide 3 &mdash; Duels</span>
+  <div class="slide s-duels">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-grid"></div>
+    <div class="slide-top"><div class="slide-logo">iWrite4.me</div></div>
+    <div class="slide-content" style="max-width:480px;">
+      <div class="slide-tag">&#9876;&#65039; Duels</div>
+      <div class="slide-headline">Challenge.<br><span>Outwrite.</span></div>
+      <p class="slide-desc">Timed head-to-head battles. Most words wins.</p>
+    </div>
+    <div class="duel-visual">
+      <div class="duel-vs">
+        <div class="duel-player">
+          <div class="duel-avatar">A</div>
+          <div class="duel-name">You</div>
+          <div class="duel-wc">842</div>
+          <div class="duel-wc-label">words</div>
+        </div>
+        <div class="duel-vs-badge">VS</div>
+        <div class="duel-player">
+          <div class="duel-avatar">K</div>
+          <div class="duel-name">Friend</div>
+          <div class="duel-wc">716</div>
+          <div class="duel-wc-label">words</div>
+        </div>
+      </div>
+      <div class="duel-timer-bar"><div class="duel-timer-fill"></div></div>
+      <div class="duel-timer-label">12:34 remaining</div>
+    </div>
+    <div class="slide-bottom">
+      <div class="dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <div class="swipe-hint">Swipe <div class="swipe-arrow">&#8250;</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 4: COMMUNITY ============ -->
+<div class="slide-wrapper">
+  <span class="slide-label">Slide 4 &mdash; Community</span>
+  <div class="slide s-community">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-grid"></div>
+    <div class="slide-top"><div class="slide-logo">iWrite4.me</div></div>
+    <div class="slide-content" style="max-width:500px;">
+      <div class="slide-tag">&#128101; Community</div>
+      <div class="slide-headline">Write it.<br><span>Share it.</span></div>
+      <p class="slide-desc">Publish your work. Get likes and comments from other writers.</p>
+    </div>
+    <div class="feed-cards">
+      <div class="feed-card">
+        <div class="fc-header">
+          <div class="fc-avatar">S</div>
+          <div>
+            <div class="fc-name">Sarah K.</div>
+            <div class="fc-time">2h ago &middot; 4 min read</div>
+          </div>
+        </div>
+        <div class="fc-title">The Morning I Stopped Waiting</div>
+        <div class="fc-excerpt">It wasn't a dramatic moment. Just a Tuesday where I decided that waiting was its own form of giving up...</div>
+        <div class="fc-footer">
+          <span>&#10084; 24</span>
+          <span>&#128172; 8</span>
+        </div>
+      </div>
+      <div class="feed-card" style="opacity:0.55;">
+        <div class="fc-header">
+          <div class="fc-avatar">M</div>
+          <div>
+            <div class="fc-name">Marcus T.</div>
+            <div class="fc-time">5h ago &middot; 6 min read</div>
+          </div>
+        </div>
+        <div class="fc-title">Letters to No One</div>
+        <div class="fc-excerpt">I wrote these at 3am with the rain loud enough to drown everything else...</div>
+        <div class="fc-footer">
+          <span>&#10084; 41</span>
+          <span>&#128172; 12</span>
+        </div>
+      </div>
+    </div>
+    <div class="slide-bottom">
+      <div class="dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <div class="swipe-hint">Swipe <div class="swipe-arrow">&#8250;</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 5: XP + STREAKS ============ -->
+<div class="slide-wrapper">
+  <span class="slide-label">Slide 5 &mdash; XP &amp; Streak Tree</span>
+  <div class="slide s-xp">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-grid"></div>
+    <div class="slide-top"><div class="slide-logo">iWrite4.me</div></div>
+    <div class="slide-content" style="max-width:500px;">
+      <div class="slide-tag">&#127942; XP &amp; Streaks</div>
+      <div class="slide-headline">Grow your<br><span>streak tree.</span></div>
+      <p class="slide-desc">Write daily. Watch your tree evolve from seed to forest in 30 days.</p>
+    </div>
+    <div class="tree-visual">
+      <div class="tree-stages">
+        <div class="tree-stage"><div class="tree-emoji">&#127793;</div><div class="tree-day">Day 1</div></div>
+        <div class="tree-stage"><div class="tree-emoji">&#127794;</div><div class="tree-day">Day 5</div></div>
+        <div class="tree-stage"><div class="tree-emoji">&#127795;</div><div class="tree-day">Day 11</div></div>
+        <div class="tree-stage"><div class="tree-emoji">&#127796;</div><div class="tree-day">Day 20</div></div>
+        <div class="tree-stage"><div class="tree-emoji">&#127807;</div><div class="tree-day">Day 27</div></div>
+        <div class="tree-stage"><div class="tree-emoji">&#127795;&#127795;&#127795;</div><div class="tree-day">Day 30</div></div>
+      </div>
+      <div class="xp-progress">
+        <div class="xp-bar-bg"><div class="xp-bar-fill"></div></div>
+        <div class="xp-labels"><span>Level 7</span><span>1,840 / 2,300 XP</span></div>
+      </div>
+    </div>
+    <div class="slide-bottom">
+      <div class="dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <div class="swipe-hint">Swipe <div class="swipe-arrow">&#8250;</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 6: ANALYTICS ============ -->
+<div class="slide-wrapper">
+  <span class="slide-label">Slide 6 &mdash; Analytics</span>
+  <div class="slide s-analytics">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-grid"></div>
+    <div class="slide-top"><div class="slide-logo">iWrite4.me</div></div>
+    <div class="slide-content" style="max-width:480px;">
+      <div class="slide-tag">&#128202; Analytics</div>
+      <div class="slide-headline">Know your<br><span>writing self.</span></div>
+      <p class="slide-desc">Best hours, personal records, survival rate, monthly trends.</p>
+    </div>
+    <div class="analytics-visual">
+      <div class="a-card">
+        <div class="a-icon">&#9200;</div>
+        <div class="a-label">Best Hour</div>
+        <div class="a-val">10 PM</div>
+        <div class="a-sub">Night Writer</div>
+      </div>
+      <div class="a-card">
+        <div class="a-icon">&#128293;</div>
+        <div class="a-label">Best Streak</div>
+        <div class="a-val">23 days</div>
+        <div class="a-sub">All-time record</div>
+      </div>
+      <div class="a-card">
+        <div class="a-icon">&#9876;&#65039;</div>
+        <div class="a-label">Survival Rate</div>
+        <div class="a-val">78%</div>
+        <div class="a-sub">Danger mode</div>
+      </div>
+      <div class="a-card">
+        <div class="a-icon">&#128200;</div>
+        <div class="a-label">This Month</div>
+        <div class="a-val">+32%</div>
+        <div class="a-sub">vs. last month</div>
+      </div>
+    </div>
+    <div class="pro-label">Pro Feature</div>
+    <div class="slide-bottom">
+      <div class="dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <div class="swipe-hint">Swipe <div class="swipe-arrow">&#8250;</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 7: FRIENDS ============ -->
+<div class="slide-wrapper">
+  <span class="slide-label">Slide 7 &mdash; Friends</span>
+  <div class="slide s-friends">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-grid"></div>
+    <div class="slide-top"><div class="slide-logo">iWrite4.me</div></div>
+    <div class="slide-content" style="max-width:480px;">
+      <div class="slide-tag">&#128101; Friends</div>
+      <div class="slide-headline">Write together.<br><span>Stay inspired.</span></div>
+      <p class="slide-desc">See friends' milestones and celebrate wins together.</p>
+    </div>
+    <div class="friends-visual">
+      <div class="friend-item">
+        <div class="f-icon">&#128170;</div>
+        <div>
+          <div class="f-text"><strong>Alex</strong> hit <span class="pink">10K words</span></div>
+          <div class="f-time">2 hours ago</div>
+        </div>
+      </div>
+      <div class="friend-item">
+        <div class="f-icon">&#128293;</div>
+        <div>
+          <div class="f-text"><strong>Maya</strong> reached a <span class="pink">30-day streak</span></div>
+          <div class="f-time">5 hours ago</div>
+        </div>
+      </div>
+      <div class="friend-item">
+        <div class="f-icon">&#11088;</div>
+        <div>
+          <div class="f-text"><strong>Jess</strong> leveled up to <span class="pink">Level 12</span></div>
+          <div class="f-time">Yesterday</div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-bottom">
+      <div class="dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <div class="swipe-hint">Swipe <div class="swipe-arrow">&#8250;</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 8: LEADERBOARD ============ -->
+<div class="slide-wrapper">
+  <span class="slide-label">Slide 8 &mdash; Leaderboard</span>
+  <div class="slide s-leaderboard">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-grid"></div>
+    <div class="slide-top"><div class="slide-logo">iWrite4.me</div></div>
+    <div class="slide-content">
+      <div class="slide-tag">&#127942; Leaderboard</div>
+      <div class="slide-headline">Climb the<br><span>ranks.</span></div>
+      <p class="slide-desc">Ranked by streak, then total words. Stay consistent to stay on top.</p>
+    </div>
+    <div class="podium-visual">
+      <div class="podium-col col-2nd">
+        <div class="p-avatar">M</div>
+        <div class="p-name">Maya</div>
+        <div class="p-streak">28-day streak</div>
+        <div class="p-bar">2</div>
+      </div>
+      <div class="podium-col col-1st">
+        <div class="p-avatar">A</div>
+        <div class="p-name">Alex</div>
+        <div class="p-streak">45-day streak</div>
+        <div class="p-bar">1</div>
+      </div>
+      <div class="podium-col col-3rd">
+        <div class="p-avatar">J</div>
+        <div class="p-name">Jess</div>
+        <div class="p-streak">21-day streak</div>
+        <div class="p-bar">3</div>
+      </div>
+    </div>
+    <div class="slide-bottom">
+      <div class="dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <div class="swipe-hint">Swipe <div class="swipe-arrow">&#8250;</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 9: REFERRAL ============ -->
+<div class="slide-wrapper">
+  <span class="slide-label">Slide 9 &mdash; Referrals</span>
+  <div class="slide s-referral">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-grid"></div>
+    <div class="slide-top"><div class="slide-logo">iWrite4.me</div></div>
+    <div class="slide-content" style="max-width:480px;">
+      <div class="slide-tag">&#127873; Referrals</div>
+      <div class="slide-headline">Invite friends.<br><span>Earn rewards.</span></div>
+      <p class="slide-desc">Every 5 friends who join unlocks a reward.</p>
+    </div>
+    <div class="ref-visual">
+      <div class="ref-dots">
+        <div class="ref-dot filled">&#10003;</div>
+        <div class="ref-line"></div>
+        <div class="ref-dot filled">&#10003;</div>
+        <div class="ref-line"></div>
+        <div class="ref-dot filled">&#10003;</div>
+        <div class="ref-line"></div>
+        <div class="ref-dot">4</div>
+        <div class="ref-line"></div>
+        <div class="ref-dot">5</div>
+      </div>
+      <div class="ref-label"><strong>3</strong> of 5 referred</div>
+      <div class="ref-reward">2 more to unlock reward &#127873;</div>
+    </div>
+    <div class="slide-bottom">
+      <div class="dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div>
+      </div>
+      <div class="swipe-hint">Swipe <div class="swipe-arrow">&#8250;</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 10: PRICING + CTA ============ -->
+<div class="slide-wrapper">
+  <span class="slide-label">Slide 10 &mdash; Pricing + CTA</span>
+  <div class="slide s-pricing">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-grid"></div>
+    <div class="slide-top"><div class="slide-logo">iWrite4.me</div></div>
+    <div class="pricing-row">
+      <div class="pricing-left">
+        <div class="slide-tag">&#128176; Pricing</div>
+        <div class="slide-headline" style="font-size:82px;">Built for<br>writers.<br><span>Priced<br>fairly.</span></div>
+      </div>
+      <div class="pricing-cards">
+        <div class="price-card pc-free">
+          <div class="pc-name">Free</div>
+          <div class="pc-price">$0 <span class="per">/forever</span></div>
+          <ul class="pc-features">
+            <li><span class="ck">&#10003;</span> Timed sessions</li>
+            <li><span class="ck">&#10003;</span> Dangerous mode</li>
+            <li><span class="ck">&#10003;</span> Streak tree &amp; XP</li>
+            <li><span class="ck">&#10003;</span> Friends &amp; duels</li>
+            <li><span class="ck">&#10003;</span> Community</li>
+            <li><span class="ck">&#10003;</span> Leaderboard</li>
+          </ul>
+        </div>
+        <div class="price-card pc-pro">
+          <div class="popular-tag">Popular</div>
+          <div class="pc-name">Pro</div>
+          <div class="pc-price">$1.99 <span class="per">/mo</span></div>
+          <ul class="pc-features">
+            <li><span class="ck">&#10003;</span> Everything in Free</li>
+            <li><span class="ck">&#10003;</span> Full analytics</li>
+            <li><span class="ck">&#10003;</span> Custom timers</li>
+            <li><span class="ck">&#10003;</span> Study music</li>
+            <li><span class="ck">&#10003;</span> PDF export</li>
+            <li><span class="ck">&#10003;</span> 7-day free trial</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="slide-bottom">
+      <div class="dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot active"></div>
+      </div>
+      <div class="swipe-hint" style="color:rgba(74,222,128,0.5); font-weight:700; font-size:18px;">iwrite4.me</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end grid -->
+
+<!-- Export controls -->
+<div id="export-controls" style="
+  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 12px; z-index: 100;
+  background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
+  padding: 14px 24px; border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  align-items: center;
+">
+  <button onclick="downloadAll()" id="btn-all" style="
+    background: #4ade80; color: #000; border: none;
+    padding: 14px 32px; border-radius: 12px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    font-family: Inter, sans-serif;
+  ">Download All (PNG)</button>
+  <span id="export-status" style="font-size:14px; color:rgba(255,255,255,0.4); font-weight:500; min-width:160px;"></span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+async function downloadAll() {
+  const slides = document.querySelectorAll('.slide');
+  const btn = document.getElementById('btn-all');
+  const status = document.getElementById('export-status');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.textContent = 'Exporting...';
+
+  // Create an offscreen container for clean rendering
+  const offscreen = document.createElement('div');
+  offscreen.style.cssText = 'position:fixed; top:0; left:0; width:1080px; height:1080px; z-index:-9999; overflow:hidden; pointer-events:none;';
+  document.body.appendChild(offscreen);
+
+  for (let i = 0; i < slides.length; i++) {
+    status.textContent = `Rendering ${i + 1} / ${slides.length}...`;
+    try {
+      // Clone the slide into the offscreen container
+      const clone = slides[i].cloneNode(true);
+      // Preserve the original class-based layout; only override position so it sits in the container
+      clone.style.position = 'relative';
+      clone.style.width = '1080px';
+      clone.style.height = '1080px';
+      clone.style.overflow = 'hidden';
+      offscreen.innerHTML = '';
+      offscreen.appendChild(clone);
+
+      // Wait for layout + animations to settle
+      await new Promise(r => setTimeout(r, 400));
+
+      const canvas = await html2canvas(clone, {
+        width: 1080,
+        height: 1080,
+        scale: 1,
+        useCORS: true,
+        backgroundColor: '#060606',
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const link = document.createElement('a');
+      const name = slides[i].closest('.slide-wrapper')
+        ?.querySelector('.slide-label')?.textContent
+        ?.replace(/^Slide \d+ — /, '')?.trim()?.toLowerCase()?.replace(/[^a-z0-9]+/g, '-') || `slide-${i+1}`;
+      link.download = `iwrite-${String(i+1).padStart(2,'0')}-${name}.png`;
+      link.href = canvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Delay between downloads so browser doesn't block
+      await new Promise(r => setTimeout(r, 800));
+    } catch(e) {
+      console.error(`Slide ${i+1} failed:`, e);
+      status.textContent = `Slide ${i+1} failed — check console`;
+    }
+  }
+
+  // Cleanup
+  document.body.removeChild(offscreen);
+
+  status.textContent = 'All done!';
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.textContent = 'Download All (PNG)';
+  setTimeout(() => { status.textContent = ''; }, 3000);
+}
+</script>
+
+</body>
+</html>

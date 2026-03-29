@@ -1752,7 +1752,7 @@
         const timeCol = d.failedAt || d.updatedAt;
         return `
         <tr>
-          <td><strong>${esc(d.title)}</strong></td>
+          <td><strong>${esc(d.title || '(untitled)')}</strong></td>
           <td>${esc(d.ownerName)}</td>
           <td>${d.wordCount || 0}</td>
           <td>${d.mode || 'normal'}</td>
@@ -1772,7 +1772,7 @@
     async function viewDoc(id) {
       try {
         const doc = await adminRequest(`/admin/documents/${id}`);
-        document.getElementById('doc-view-title').textContent = doc.title;
+        document.getElementById('doc-view-title').textContent = doc.title || '(untitled)';
         document.getElementById('doc-view-body').innerHTML = `
           <div class="user-detail-grid" style="margin-bottom:16px">
             <div class="user-detail-stat"><div class="label">Owner</div><div class="value" style="font-size:13px">${esc(doc.ownerName)}</div></div>

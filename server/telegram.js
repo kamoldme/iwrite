@@ -211,14 +211,31 @@ function notifyUserRegistered(user, method) {
   );
 }
 
-function notifyDocumentCreated(user, doc) {
+function notifySessionCompleted(user, doc, stats) {
   const mode = doc.mode === 'dangerous' ? '🔴 Dangerous' : '🟢 Normal';
+  const mins = Math.round((stats.duration || 0) / 60);
   send(
-    `📝 <b>New Document</b>\n\n` +
+    `✅ <b>Session Completed</b>\n\n` +
     `Writer: ${esc(user.name)} (@${esc(user.username)})\n` +
     `Title: ${esc(doc.title || 'Untitled')}\n` +
     `Mode: ${mode}\n` +
-    `Duration: ${doc.duration || '?'} min`
+    `Duration: ${mins} min\n` +
+    `Words: ${stats.wordCount || 0}\n` +
+    `XP: +${stats.xpEarned || 0}`
+  );
+}
+
+function notifySessionFailed(user, doc, stats) {
+  const mode = doc.mode === 'dangerous' ? '🔴 Dangerous' : '🟢 Normal';
+  const reasonMap = { typing_stopped: '⌨️ Stopped typing', tab_left: '🚪 Left the tab' };
+  const reasonText = reasonMap[stats.reason] || stats.reason || 'Unknown';
+  send(
+    `💀 <b>Session Failed</b>\n\n` +
+    `Writer: ${esc(user.name)} (@${esc(user.username)})\n` +
+    `Title: ${esc(doc.title || 'Untitled')}\n` +
+    `Mode: ${mode}\n` +
+    `Words: ${doc.wordCount || 0}\n` +
+    `Reason: ${reasonText}`
   );
 }
 
@@ -303,7 +320,8 @@ function notifyStorySubmitted(user, story) {
 module.exports = {
   init,
   notifyUserRegistered,
-  notifyDocumentCreated,
+  notifySessionCompleted,
+  notifySessionFailed,
   notifySupportTicket,
   notifyStripeSubscription,
   notifyStripeRenewal,

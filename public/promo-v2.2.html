@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1200,height=630">
+<title>iWrite4.me v2.2 Promo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1200px;
+    height: 630px;
+    overflow: hidden;
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0a0a0a;
+    color: #fff;
+    position: relative;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* Ambient glow blobs */
+  .glow-1 {
+    position: absolute;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 70%);
+    top: -150px; left: -100px;
+    pointer-events: none;
+  }
+  .glow-2 {
+    position: absolute;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+    bottom: -200px; right: -150px;
+    pointer-events: none;
+  }
+  .glow-3 {
+    position: absolute;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(168,85,247,0.08) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    padding: 48px 56px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 36px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 900;
+    color: #000;
+  }
+
+  .logo-text {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .version-pill {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #000;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 6px 16px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Main content */
+  .main {
+    flex: 1;
+    display: flex;
+    gap: 48px;
+  }
+
+  /* Left side - headline + features */
+  .left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .tagline {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: #f59e0b;
+    margin-bottom: 14px;
+  }
+
+  .headline {
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    margin-bottom: 10px;
+  }
+
+  .headline em {
+    font-style: normal;
+    background: linear-gradient(135deg, #f59e0b, #fb923c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 16px;
+    color: rgba(255,255,255,0.5);
+    font-weight: 400;
+    margin-bottom: 32px;
+    line-height: 1.5;
+  }
+
+  /* Feature pills */
+  .features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .feature-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    backdrop-filter: blur(8px);
+  }
+
+  .feature-pill .icon {
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .feature-pill.highlight {
+    background: rgba(245,158,11,0.1);
+    border-color: rgba(245,158,11,0.25);
+    color: #fbbf24;
+  }
+
+  /* Right side - visual cards */
+  .right {
+    width: 480px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .card-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .card-col.offset {
+    transform: translateY(-20px);
+  }
+
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 20px;
+    backdrop-filter: blur(8px);
+  }
+
+  .card-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  /* Share Card Preview */
+  .share-preview {
+    height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .tree-visual {
+    font-size: 48px;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 4px 12px rgba(34,197,94,0.3));
+  }
+
+  .share-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .share-stats span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .share-stats strong {
+    color: #fff;
+    font-weight: 700;
+  }
+
+  .pro-badge-card {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #000;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+
+  /* Analytics Card */
+  .analytics-preview {
+    height: 130px;
+  }
+
+  .rhythm-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 70px;
+    margin-top: 8px;
+  }
+
+  .rhythm-bar {
+    flex: 1;
+    border-radius: 3px 3px 0 0;
+    min-height: 8px;
+  }
+
+  .rhythm-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 9px;
+    color: rgba(255,255,255,0.25);
+  }
+
+  /* Death Timer Card */
+  .timer-preview {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .timer-display {
+    font-size: 40px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    color: #ef4444;
+    text-shadow: 0 0 30px rgba(239,68,68,0.4);
+  }
+
+  .timer-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    text-align: left;
+    line-height: 1.5;
+  }
+
+  .timer-label strong {
+    color: rgba(255,255,255,0.7);
+    font-weight: 600;
+  }
+
+  /* Streak Card */
+  .streak-preview {
+    height: 90px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .streak-fire {
+    font-size: 36px;
+    filter: drop-shadow(0 4px 12px rgba(245,158,11,0.4));
+  }
+
+  .streak-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .streak-count {
+    font-size: 28px;
+    font-weight: 900;
+    color: #f59e0b;
+  }
+
+  .streak-text {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    font-weight: 500;
+  }
+
+  /* Sidebar preview card */
+  .sidebar-preview {
+    height: 80px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .sidebar-avatar {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+  }
+
+  .sidebar-name {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .sidebar-level {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 2px;
+  }
+
+  /* Footer */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+
+  .footer-url {
+    font-size: 16px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.5px;
+  }
+
+  .footer-cta {
+    font-size: 13px;
+    color: rgba(255,255,255,0.3);
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div class="glow-1"></div>
+<div class="glow-2"></div>
+<div class="glow-3"></div>
+
+<div class="container">
+  <div class="header">
+    <div class="brand">
+      <div class="logo-icon">iW</div>
+      <span class="logo-text">iWrite4.me</span>
+    </div>
+    <div class="version-pill">v2.2 UPDATE</div>
+  </div>
+
+  <div class="main">
+    <div class="left">
+      <div class="tagline">What's New</div>
+      <h1 class="headline">Write. Share.<br><em>Show Off.</em></h1>
+      <p class="subtitle">Your writing journey deserves to be seen.<br>New ways to track, share, and flex your progress.</p>
+      <div class="features">
+        <div class="feature-pill highlight">
+          <span class="icon">🎨</span> Share My Progress Card
+        </div>
+        <div class="feature-pill highlight">
+          <span class="icon">⭐</span> PRO Badge
+        </div>
+        <div class="feature-pill">
+          <span class="icon">📊</span> Writing Analytics
+        </div>
+        <div class="feature-pill">
+          <span class="icon">⏱️</span> Fairer Death Timer
+        </div>
+        <div class="feature-pill">
+          <span class="icon">🔒</span> Anti-Tamper Security
+        </div>
+        <div class="feature-pill">
+          <span class="icon">👤</span> Personal Sidebar
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="card-col">
+        <div class="card share-preview">
+          <div class="card-label">Share Card</div>
+          <div class="pro-badge-card">PRO</div>
+          <div class="tree-visual">🌳</div>
+          <div class="share-stats">
+            <span>🔥 <strong>14</strong> day streak</span>
+            <span>✍️ <strong>12,480</strong> words</span>
+          </div>
+        </div>
+        <div class="card analytics-preview">
+          <div class="card-label">Writing Rhythm</div>
+          <div class="rhythm-bars">
+            <div class="rhythm-bar" style="height:25%;background:rgba(59,130,246,0.3)"></div>
+            <div class="rhythm-bar" style="height:40%;background:rgba(59,130,246,0.4)"></div>
+            <div class="rhythm-bar" style="height:65%;background:rgba(59,130,246,0.5)"></div>
+            <div class="rhythm-bar" style="height:90%;background:rgba(59,130,246,0.7)"></div>
+            <div class="rhythm-bar" style="height:100%;background:linear-gradient(to top,#3b82f6,#60a5fa)"></div>
+            <div class="rhythm-bar" style="height:75%;background:rgba(59,130,246,0.6)"></div>
+            <div class="rhythm-bar" style="height:50%;background:rgba(59,130,246,0.4)"></div>
+            <div class="rhythm-bar" style="height:35%;background:rgba(59,130,246,0.3)"></div>
+            <div class="rhythm-bar" style="height:55%;background:rgba(59,130,246,0.5)"></div>
+            <div class="rhythm-bar" style="height:80%;background:rgba(59,130,246,0.6)"></div>
+            <div class="rhythm-bar" style="height:45%;background:rgba(59,130,246,0.4)"></div>
+            <div class="rhythm-bar" style="height:30%;background:rgba(59,130,246,0.3)"></div>
+          </div>
+          <div class="rhythm-labels">
+            <span>Mon</span><span>Wed</span><span>Fri</span><span>Sun</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-col offset">
+        <div class="card timer-preview">
+          <div class="card-label">Death Timer</div>
+          <div class="timer-display">5s</div>
+          <div class="timer-label">
+            <strong>+1s hidden buffer</strong><br>
+            Fair. Unforgiving.<br>But not cruel.
+          </div>
+        </div>
+        <div class="card streak-preview">
+          <div class="card-label">Your Streak</div>
+          <div class="streak-fire">🔥</div>
+          <div class="streak-info">
+            <div class="streak-count">14 days</div>
+            <div class="streak-text">Keep it alive</div>
+          </div>
+        </div>
+        <div class="card sidebar-preview">
+          <div class="card-label">Personal Sidebar</div>
+          <div class="sidebar-avatar">K</div>
+          <div>
+            <div class="sidebar-name">Hey, Kamol</div>
+            <div class="sidebar-level">Level 8 &middot; Night Owl</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span class="footer-url">iwrite4.me</span>
+    <span class="footer-cta">Think for yourself. Write for yourself.</span>
+  </div>
+</div>
+
+</body>
+</html>

@@ -135,10 +135,6 @@ router.post('/', async (req, res) => {
     updatedAt: new Date().toISOString()
   };
   await insertOne('documents.json', doc);
-  try {
-    const user = await findOne('users.json', u => u.id === req.user.id);
-    require('../telegram').notifyDocumentCreated(user || { name: 'Unknown', username: '?' }, doc);
-  } catch {}
   res.status(201).json(doc);
 });
 
@@ -234,7 +230,7 @@ router.patch('/:id', async (req, res) => {
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
   const updates = {};
-  if (req.body.title !== undefined) updates.title = req.body.title;
+  if (req.body.title !== undefined) updates.title = req.body.title || 'Untitled';
   if (req.body.content !== undefined) {
     updates.content = req.body.content;
     updates.wordCount = req.body.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter(Boolean).length;
@@ -341,8 +337,16 @@ router.post('/:id/complete', async (req, res) => {
   } catch (e) { /* activity generation is non-critical */ }
 
   await logAction('session_completed', { docId: req.params.id, wordCount, duration, xpEarned }, req.user.id);
+  const completedDoc = await findOne('documents.json', d => d.id === req.params.id);
+  try {
+    require('../telegram').notifySessionCompleted(
+      updatedUser || { name: 'Unknown', username: '?' },
+      completedDoc,
+      { wordCount, duration, xpEarned }
+    );
+  } catch {}
   const { password: _, ...safeUser } = updatedUser;
-  res.json({ document: await findOne('documents.json', d => d.id === req.params.id), user: safeUser });
+  res.json({ document: completedDoc, user: safeUser });
 });
 
 router.get('/:id/comments', async (req, res) => {
@@ -402,6 +406,14 @@ router.post('/:id/abandon', async (req, res) => {
     updatedAt: new Date().toISOString()
   });
   await logAction('session_failed', { docId: req.params.id, reason: reason || 'unknown', title: doc.title, wordCount: doc.wordCount }, req.user.id);
+  try {
+    const user = await findOne('users.json', u => u.id === req.user.id);
+    require('../telegram').notifySessionFailed(
+      user || { name: 'Unknown', username: '?' },
+      doc,
+      { reason: reason || 'unknown' }
+    );
+  } catch {}
   res.json({ success: true, message: 'Document lost' });
 });
 

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #0a0a0a;
+  }
+  .badge-container {
+    width: 512px;
+    height: 512px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .glow {
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,140,50,0.15) 0%, transparent 70%);
+    filter: blur(40px);
+  }
+  .badge {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    border-radius: 40px;
+    background: linear-gradient(135deg, #ff8c32 0%, #f06820 40%, #e85d10 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+      0 4px 24px rgba(255,140,50,0.3),
+      0 1px 2px rgba(0,0,0,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  .badge::before {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border-radius: 38px;
+    border: 1px solid rgba(255,255,255,0.1);
+    pointer-events: none;
+  }
+  .pro-text {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    font-size: 72px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .iwrite-text {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.7);
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+  <div class="badge-container">
+    <div class="glow"></div>
+    <div class="badge">
+      <div class="pro-text">PRO</div>
+      <div class="iwrite-text">iWrite</div>
+    </div>
+  </div>
+</body>
+</html>
