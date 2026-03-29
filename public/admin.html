@@ -2382,13 +2382,15 @@
             </div>
             <div class="ticket-body">${esc(t.message)}</div>
             ${t.adminReply ? `<div style="padding:8px 12px;background:var(--accent-soft);border-radius:8px;font-size:13px;margin-bottom:8px"><strong>Your reply:</strong> ${esc(t.adminReply)}</div>` : ''}
-            <div class="ticket-reply-area">
-              <textarea id="reply-${t.id}" placeholder="Write a reply...">${t.adminReply || ''}</textarea>
+            ${!t.adminReply ? `<div class="ticket-reply-area">
+              <textarea id="reply-${t.id}" placeholder="Write a reply..."></textarea>
               <div style="display:flex;gap:6px;margin-top:6px">
                 <button class="admin-btn admin-btn-primary" onclick="replyTicket('${t.id}')">Reply & Mark Replied</button>
-                ${t.status !== 'closed' ? `<button class="admin-btn admin-btn-ghost" onclick="closeTicket('${t.id}')">Close</button>` : ''}
-                ${t.status === 'closed' ? `<button class="admin-btn admin-btn-success" onclick="reopenTicket('${t.id}')">Reopen</button>` : ''}
               </div>
+            </div>` : ''}
+            <div style="display:flex;gap:6px;margin-top:6px">
+              ${t.status !== 'closed' ? `<button class="admin-btn admin-btn-ghost" onclick="closeTicket('${t.id}')">Close</button>` : ''}
+              ${t.status === 'closed' ? `<button class="admin-btn admin-btn-success" onclick="reopenTicket('${t.id}')">Reopen</button>` : ''}
             </div>
           </div>
         `).join('');
