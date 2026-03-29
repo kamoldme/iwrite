@@ -36,15 +36,42 @@ function init(activeUsersMap) {
       bot.sendMessage(chatId, `✅ Bot is running\n📡 Chat ID: <code>${chatId}</code>\n⏰ ${new Date().toISOString()}`, { parse_mode: 'HTML' });
     });
 
-    // Handle inline button callbacks (moderation approve/reject)
+    // Handle inline button callbacks (moderation approve/reject/view)
     bot.on('callback_query', async (query) => {
       if (!query.data) return;
-      const [action, storyId] = query.data.split(':');
-      if (!storyId) return;
+      const [action, entityId] = query.data.split(':');
+      if (!entityId || action === 'noop') return;
 
       try {
         const { findOne, updateOne } = require('./utils/storage');
-        const story = await findOne('stories.json', s => s.id === storyId);
+
+        // VIEW full story content
+        if (action === 'view') {
+          const story = await findOne('stories.json', s => s.id === entityId);
+          if (!story) {
+            await bot.answerCallbackQuery(query.id, { text: 'Story not found' });
+            return;
+          }
+          const fullText = (story.content || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ')
+            .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n))
+            .replace(/&amp;/g, '&').replace(/&apos;/g, "'").replace(/&quot;/g, '"')
+            .replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+          // Telegram max message is 4096 chars
+          const chunks = [];
+          for (let i = 0; i < fullText.length; i += 4000) {
+            chunks.push(fullText.slice(i, i + 4000));
+          }
+          await bot.answerCallbackQuery(query.id, { text: 'Sending full story...' });
+          for (const chunk of chunks) {
+            await bot.sendMessage(query.message.chat.id, chunk, {
+              reply_to_message_id: query.message.message_id
+            });
+          }
+          return;
+        }
+
+        // Approve/Reject story
+        const story = await findOne('stories.json', s => s.id === entityId);
         if (!story) {
           await bot.answerCallbackQuery(query.id, { text: 'Story not found' });
           return;
@@ -57,7 +84,7 @@ function init(activeUsersMap) {
 
         if (action === 'approve') {
           const now = new Date().toISOString();
-          await updateOne('stories.json', s => s.id === storyId, {
+          await updateOne('stories.json', s => s.id === entityId, {
             status: 'published',
             publishedAt: story.publishedAt || now,
             reviewedAt: now,
@@ -69,7 +96,7 @@ function init(activeUsersMap) {
             message_id: query.message.message_id
           });
         } else if (action === 'reject') {
-          await updateOne('stories.json', s => s.id === storyId, {
+          await updateOne('stories.json', s => s.id === entityId, {
             status: 'rejected',
             reviewedAt: new Date().toISOString(),
             moderatedBy: 'telegram'
@@ -84,6 +111,70 @@ function init(activeUsersMap) {
         console.error('[Telegram] Callback error:', err.message);
         await bot.answerCallbackQuery(query.id, { text: 'Error processing' }).catch(() => {});
       }
+    });
+
+    // Handle replies to support ticket messages — auto-reply on the platform
+    bot.on('message', async (msg) => {
+      if (!msg.reply_to_message || !msg.text || msg.chat.id.toString() !== chatId) return;
+      // Check if the original message is a support ticket
+      const origText = msg.reply_to_message.text || '';
+      if (!origText.includes('New Support Ticket') && !origText.includes('🎫')) return;
+
+      // Extract ticket info from the original message by matching the ticket ID stored in the message
+      const ticketIdMatch = origText.match(/ticket:([a-f0-9-]+)/i);
+      if (!ticketIdMatch) {
+        // Fallback: find most recent open ticket from the mentioned user
+        const usernameMatch = origText.match(/@(\S+)/);
+        if (!usernameMatch) return;
+        const { findOne, findMany, updateOne } = require('./utils/storage');
+        const user = await findOne('users.json', u => u.username === usernameMatch[1]);
+        if (!user) {
+          bot.sendMessage(chatId, '⚠️ Could not find user', { reply_to_message_id: msg.message_id });
+          return;
+        }
+        const tickets = await findMany('support.json', t => t.userId === user.id && t.status === 'open');
+        if (!tickets.length) {
+          bot.sendMessage(chatId, '⚠️ No open tickets from this user', { reply_to_message_id: msg.message_id });
+          return;
+        }
+        // Match by subject in original message
+        const subjectMatch = origText.match(/Subject:\s*(.+)/);
+        let ticket = tickets[0]; // default to most recent
+        if (subjectMatch) {
+          const found = tickets.find(t => t.subject === subjectMatch[1].trim());
+          if (found) ticket = found;
+        }
+        await updateOne('support.json', t => t.id === ticket.id, {
+          adminReply: msg.text,
+          repliedAt: new Date().toISOString(),
+          status: 'replied',
+          updatedAt: new Date().toISOString()
+        });
+        bot.sendMessage(chatId, `✅ Reply sent to @${esc(user.username)} on ticket "${esc(ticket.subject)}"`, {
+          reply_to_message_id: msg.message_id,
+          parse_mode: 'HTML'
+        });
+        return;
+      }
+
+      // Direct ticket ID match
+      const { findOne, updateOne } = require('./utils/storage');
+      const ticket = await findOne('support.json', t => t.id === ticketIdMatch[1]);
+      if (!ticket) {
+        bot.sendMessage(chatId, '⚠️ Ticket not found', { reply_to_message_id: msg.message_id });
+        return;
+      }
+      await updateOne('support.json', t => t.id === ticket.id, {
+        adminReply: msg.text,
+        repliedAt: new Date().toISOString(),
+        status: 'replied',
+        updatedAt: new Date().toISOString()
+      });
+      const user = await findOne('users.json', u => u.id === ticket.userId);
+      bot.sendMessage(chatId, `✅ Reply sent to @${esc(user ? user.username : '?')} on ticket "${esc(ticket.subject)}"`, {
+        reply_to_message_id: msg.message_id,
+        parse_mode: 'HTML'
+      });
     });
 
     // Periodic stats card every 5 hours
@@ -246,7 +337,9 @@ function notifySupportTicket(user, ticket) {
     `From: ${esc(user.name)} (@${esc(user.username)})\n` +
     `Type: ${typeEmoji[ticket.type] || '📩'} ${esc(ticket.type)}\n` +
     `Subject: ${esc(ticket.subject)}\n` +
-    `Message: ${esc((ticket.message || '').slice(0, 300))}${ticket.message && ticket.message.length > 300 ? '...' : ''}`
+    `Message: ${esc((ticket.message || '').slice(0, 300))}${ticket.message && ticket.message.length > 300 ? '...' : ''}\n\n` +
+    `<i>Reply to this message to respond to the user</i>\n` +
+    `<code>ticket:${ticket.id}</code>`
   );
 }
 
@@ -307,6 +400,9 @@ function notifyStorySubmitted(user, story) {
     {
       reply_markup: {
         inline_keyboard: [
+          [
+            { text: '📖 VIEW FULL', callback_data: `view:${story.id}` }
+          ],
           [
             { text: '✅ Approve', callback_data: `approve:${story.id}` },
             { text: '❌ Reject', callback_data: `reject:${story.id}` }
