@@ -90,7 +90,11 @@ router.get('/stats', async (req, res) => {
     activeDocuments: docs.filter(d => !d.deleted).length,
     abandonedDocuments: docs.filter(d => d.deletedBySystem).length,
     totalWords: users.reduce((sum, u) => sum + (u.totalWords || 0), 0),
-    totalTimeMinutes: Math.round(docs.reduce((sum, d) => sum + (d.duration || 0), 0) / 60),
+    totalTimeMinutes: Math.round(docs.reduce((sum, d) => {
+      const actualSec = Number(d.duration) || 0;
+      const wordCapSec = ((d.wordCount || 0) / 3) * 60; // min 3 WPM
+      return sum + Math.min(actualSec, wordCapSec);
+    }, 0) / 60),
     premiumUsers: users.filter(u => u.plan === 'premium').length,
     openTickets: support.filter(t => t.status === 'open').length,
     totalLogs: logs.length,

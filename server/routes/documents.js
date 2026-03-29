@@ -489,7 +489,9 @@ router.get('/analytics/sessions', async (req, res) => {
   // Use user.totalSessions as source of truth (incremented on each completion)
   const totalSessions = user.totalSessions || completed.length;
   const totalWords = completed.reduce((s, d) => s + (d.wordCount || 0), 0);
-  const totalWritingTime = docs.filter(d => d.duration > 0).reduce((s, d) => s + (Number(d.duration) || 0), 0);
+  const MIN_WPM = 3; // anti-gaming: cap credited time by words written
+  const effectiveSec = (d) => Math.min(Number(d.duration) || 0, ((d.wordCount || 0) / MIN_WPM) * 60);
+  const totalWritingTime = docs.filter(d => d.duration > 0).reduce((s, d) => s + effectiveSec(d), 0);
 
   // ── Personal Records ──
   // Longest session (by duration)
@@ -604,8 +606,8 @@ router.get('/analytics/sessions', async (req, res) => {
     const lmWords = lastMonth.reduce((s, d) => s + (d.wordCount || 0), 0);
     const tmSessions = thisMonth.length;
     const lmSessions = lastMonth.length;
-    const tmTime = thisMonth.reduce((s, d) => s + (d.duration || 0), 0);
-    const lmTime = lastMonth.reduce((s, d) => s + (d.duration || 0), 0);
+    const tmTime = thisMonth.reduce((s, d) => s + effectiveSec(d), 0);
+    const lmTime = lastMonth.reduce((s, d) => s + effectiveSec(d), 0);
 
     const pctChange = (curr, prev) => prev > 0 ? Math.round(((curr - prev) / prev) * 100) : (curr > 0 ? 100 : 0);
 
@@ -637,7 +639,7 @@ router.get('/analytics/sessions', async (req, res) => {
   // Average time before fail (failed dangerous sessions)
   const dangerFailed = dangerSessions.filter(d => !d.xpEarned || d.xpEarned === 0);
   const avgTimeBeforeFail = dangerFailed.length > 0
-    ? Math.round(dangerFailed.reduce((s, d) => s + (d.duration || 0), 0) / dangerFailed.length)
+    ? Math.round(dangerFailed.reduce((s, d) => s + effectiveSec(d), 0) / dangerFailed.length)
     : null;
 
   const dangerReport = {
