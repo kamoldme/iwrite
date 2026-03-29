@@ -167,6 +167,20 @@ async function loadStoryComments(story, options = {}) {
   }
 
   const enriched = comments.map(comment => {
+    if (comment.deleted) {
+      return {
+        id: comment.id,
+        storyId: comment.storyId,
+        parentCommentId: comment.parentCommentId || null,
+        createdAt: comment.createdAt,
+        deleted: true,
+        authorName: null,
+        authorUsername: null,
+        text: '',
+        likeCount: 0,
+        likedByMe: false
+      };
+    }
     const author = userMap.get(comment.userId);
     const cLikes = likesByComment.get(comment.id) || [];
     return {
@@ -755,21 +769,45 @@ router.delete('/:id/comments/:commentId', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Delete the comment and all its replies recursively
-    async function deleteCommentTree(commentId) {
-      const replies = await findMany('story-comments.json', c => c.parentCommentId === commentId);
-      for (const reply of replies) {
-        await deleteCommentTree(reply.id);
-      }
-      // Delete comment likes
-      const cLikes = await findMany('story-comment-likes.json', l => l.commentId === commentId);
+    const children = await findMany('story-comments.json', c => c.parentCommentId === comment.id);
+
+    if (children.length > 0) {
+      // Soft-delete: keep the comment as a placeholder so child threads stay visible
+      await updateOne('story-comments.json', c => c.id === comment.id, {
+        deleted: true,
+        text: '',
+        userId: null,
+        authorName: null
+      });
+      // Delete likes on this comment
+      const cLikes = await findMany('story-comment-likes.json', l => l.commentId === comment.id);
       for (const like of cLikes) {
         await deleteOne('story-comment-likes.json', l => l.id === like.id);
       }
-      await deleteOne('story-comments.json', c => c.id === commentId);
+    } else {
+      // No children — hard-delete
+      const cLikes = await findMany('story-comment-likes.json', l => l.commentId === comment.id);
+      for (const like of cLikes) {
+        await deleteOne('story-comment-likes.json', l => l.id === like.id);
+      }
+      await deleteOne('story-comments.json', c => c.id === comment.id);
+
+      // If the parent was soft-deleted and now has no remaining children, clean it up too
+      if (comment.parentCommentId) {
+        const parent = await findOne('story-comments.json', c => c.id === comment.parentCommentId);
+        if (parent && parent.deleted) {
+          const siblings = await findMany('story-comments.json', c => c.parentCommentId === parent.id);
+          if (siblings.length === 0) {
+            const pLikes = await findMany('story-comment-likes.json', l => l.commentId === parent.id);
+            for (const like of pLikes) {
+              await deleteOne('story-comment-likes.json', l => l.id === like.id);
+            }
+            await deleteOne('story-comments.json', c => c.id === parent.id);
+          }
+        }
+      }
     }
 
-    await deleteCommentTree(comment.id);
     res.json({ ok: true });
   } catch (err) {
     console.error('Delete story comment error:', err);

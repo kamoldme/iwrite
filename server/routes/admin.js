@@ -707,28 +707,40 @@ router.delete('/story-comments/:id', async (req, res) => {
   const comment = await findOne('story-comments.json', c => c.id === req.params.id);
   if (!comment) return res.status(404).json({ error: 'Comment not found' });
 
-  // Recursively collect all descendant reply IDs
-  async function collectDescendants(parentId) {
-    const children = await findMany('story-comments.json', c => c.parentCommentId === parentId);
-    let ids = children.map(c => c.id);
-    for (const child of children) {
-      ids = ids.concat(await collectDescendants(child.id));
-    }
-    return ids;
-  }
+  const children = await findMany('story-comments.json', c => c.parentCommentId === comment.id);
 
-  const allIds = [req.params.id, ...(await collectDescendants(req.params.id))];
-
-  for (const id of allIds) {
-    // Delete likes on this comment
-    const likes = await findMany('story-comment-likes.json', l => l.commentId === id);
+  if (children.length > 0) {
+    // Soft-delete: keep placeholder so child threads stay visible
+    await updateOne('story-comments.json', c => c.id === comment.id, {
+      deleted: true,
+      text: '',
+      userId: null,
+      authorName: null
+    });
+    const likes = await findMany('story-comment-likes.json', l => l.commentId === comment.id);
     for (const l of likes) await deleteOne('story-comment-likes.json', ll => ll.id === l.id);
-    // Delete the comment itself
-    await deleteOne('story-comments.json', c => c.id === id);
+  } else {
+    // No children — hard-delete
+    const likes = await findMany('story-comment-likes.json', l => l.commentId === comment.id);
+    for (const l of likes) await deleteOne('story-comment-likes.json', ll => ll.id === l.id);
+    await deleteOne('story-comments.json', c => c.id === comment.id);
+
+    // Clean up soft-deleted parent if it now has no children
+    if (comment.parentCommentId) {
+      const parent = await findOne('story-comments.json', c => c.id === comment.parentCommentId);
+      if (parent && parent.deleted) {
+        const siblings = await findMany('story-comments.json', c => c.parentCommentId === parent.id);
+        if (siblings.length === 0) {
+          const pLikes = await findMany('story-comment-likes.json', l => l.commentId === parent.id);
+          for (const p of pLikes) await deleteOne('story-comment-likes.json', ll => ll.id === p.id);
+          await deleteOne('story-comments.json', c => c.id === parent.id);
+        }
+      }
+    }
   }
 
-  await logAction(req.user.id, 'admin_delete_comment', { commentId: req.params.id, totalDeleted: allIds.length });
-  res.json({ success: true, deleted: allIds.length });
+  await logAction(req.user.id, 'admin_delete_comment', { commentId: req.params.id });
+  res.json({ success: true });
 });
 
 // ===== STRIPE: SUBSCRIBER LIST =====

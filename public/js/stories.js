@@ -468,6 +468,33 @@
     renderStoryComment(comment, options = {}) {
       const depth = comment.depth || 0;
       const maxDepth = 3;
+
+      const replies = (comment.replies || []).map(reply => {
+        reply._parentAuthor = comment.deleted ? null : (comment.authorUsername || comment.authorName);
+        return this.renderStoryComment(reply, options);
+      }).join('');
+
+      const hasReplies = (comment.replies || []).length > 0;
+      const replyCount = this._countReplies(comment);
+
+      if (comment.deleted) {
+        return `
+        <div class="story-comment-thread${depth > 0 ? ' story-comment-nested' : ''}" data-comment-id="${comment.id}" data-depth="${depth}">
+          <div class="story-comment-card story-comment-deleted">
+            <p style="color:var(--text-muted);font-style:italic;margin:0;">This comment was deleted</p>
+          </div>
+          ${hasReplies ? `
+            <div class="comment-thread-controls">
+              <button class="comment-collapse-btn" data-collapse-thread="${comment.id}" aria-expanded="true" title="Collapse thread">
+                <span class="collapse-icon">−</span> ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}
+              </button>
+            </div>
+            <div class="comment-replies" id="replies-${comment.id}">
+              ${replies}
+            </div>` : ''}
+        </div>`;
+      }
+
       const canReply = options.commentsOpen && depth < maxDepth;
       const canDelete = options.ownerOrAdmin || comment.userId === this.user.id;
       const deleteButton = canDelete
@@ -477,14 +504,6 @@
       const replyingTo = comment.parentCommentId && comment._parentAuthor
         ? `<span class="comment-replying-to">↳ Replying to @${esc(comment._parentAuthor)}</span>`
         : '';
-
-      const replies = (comment.replies || []).map(reply => {
-        reply._parentAuthor = comment.authorUsername || comment.authorName;
-        return this.renderStoryComment(reply, options);
-      }).join('');
-
-      const hasReplies = (comment.replies || []).length > 0;
-      const replyCount = this._countReplies(comment);
 
       return `
         <div class="story-comment-thread${depth > 0 ? ' story-comment-nested' : ''}" data-comment-id="${comment.id}" data-depth="${depth}">
