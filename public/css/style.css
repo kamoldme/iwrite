@@ -4826,6 +4826,78 @@ body.public-profile .main-content { padding-top: 0; }
   flex-shrink: 0;
 }
 
+/* Stories notification dropdown */
+.stories-notif-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  max-height: 400px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  z-index: 9999;
+  overflow: hidden;
+}
+.stories-notif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.stories-notif-list {
+  overflow-y: auto;
+  max-height: 340px;
+  padding: 4px 0;
+}
+.stories-notif-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid rgba(128,128,128,0.08);
+}
+.stories-notif-item:hover { background: rgba(128,128,128,0.06); }
+.stories-notif-item.unread { background: rgba(74,222,128,0.04); }
+.stories-notif-item.unread:hover { background: rgba(74,222,128,0.08); }
+.stories-notif-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.stories-notif-icon.comment { background: rgba(59,130,246,0.12); color: #3b82f6; }
+.stories-notif-icon.reply { background: rgba(168,85,247,0.12); color: #a855f7; }
+.stories-notif-icon.follower { background: rgba(74,222,128,0.12); color: #4ade80; }
+.stories-notif-body { flex: 1; min-width: 0; }
+.stories-notif-text { font-size: 12px; line-height: 1.4; color: var(--text-primary); }
+.stories-notif-text strong { font-weight: 600; }
+.stories-notif-time { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.stories-notif-empty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.stories-notif-unread-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #3b82f6;
+  flex-shrink: 0; margin-top: 4px;
+}
+
+@media (max-width: 600px) {
+  .stories-notif-dropdown {
+    width: calc(100vw - 24px);
+    right: -60px;
+  }
+}
+
 .story-comment-locked {
   padding: 18px 18px 18px;
   color: var(--text-muted);

@@ -3904,17 +3904,21 @@ const App = {
       }
       this._lastDuelRequestCount = duelRequests.length;
 
-      // Notification badge (comment replies)
+      // Notification badge (comment replies + follows)
       try {
         const notifResult = await API.getUnreadNotifCount();
+        const count = notifResult.count || 0;
+        // Sidebar badge
         const notifBadge = document.getElementById('notif-badge');
         if (notifBadge) {
-          if (notifResult.count > 0) {
-            notifBadge.textContent = notifResult.count;
-            notifBadge.style.display = 'inline-flex';
-          } else {
-            notifBadge.style.display = 'none';
-          }
+          if (count > 0) { notifBadge.textContent = count; notifBadge.style.display = 'inline-flex'; }
+          else { notifBadge.style.display = 'none'; }
+        }
+        // Stories bell badge (keep in sync)
+        const bellBadge = document.getElementById('stories-notif-count');
+        if (bellBadge) {
+          if (count > 0) { bellBadge.textContent = count; bellBadge.style.display = 'inline-flex'; }
+          else { bellBadge.style.display = 'none'; }
         }
       } catch {}
 

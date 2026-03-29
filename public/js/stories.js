@@ -1440,4 +1440,149 @@
       if (dot) dot.style.display = 'none';
     }
   };
+
+  // ===== NOTIFICATION BELL (Community tab) =====
+  let _notifDropdownOpen = false;
+  let _cachedNotifs = [];
+
+  function timeAgo(dateStr) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return days + 'd ago';
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  function notifIcon(type) {
+    if (type === 'comment_reply') return '<div class="stories-notif-icon reply">💬</div>';
+    if (type === 'story_comment') return '<div class="stories-notif-icon comment">📝</div>';
+    if (type === 'new_follower') return '<div class="stories-notif-icon follower">👤</div>';
+    return '<div class="stories-notif-icon comment">🔔</div>';
+  }
+
+  function notifText(n) {
+    if (n.type === 'story_comment') {
+      return `<strong>${esc(n.fromUserName)}</strong> commented on your story <strong>${esc(n.storyTitle || '')}</strong>${n.text ? ': "' + esc(n.text) + '"' : ''}`;
+    }
+    if (n.type === 'comment_reply') {
+      return `<strong>${esc(n.fromUserName)}</strong> replied to your comment on <strong>${esc(n.storyTitle || '')}</strong>${n.text ? ': "' + esc(n.text) + '"' : ''}`;
+    }
+    if (n.type === 'new_follower') {
+      return `<strong>${esc(n.fromUserName)}</strong> started following you`;
+    }
+    return n.text || 'New notification';
+  }
+
+  function renderNotifDropdown(notifs) {
+    const list = document.getElementById('stories-notif-list');
+    if (!list) return;
+    if (!notifs.length) {
+      list.innerHTML = '<div class="stories-notif-empty">No notifications yet</div>';
+      return;
+    }
+    list.innerHTML = notifs.map(n => `
+      <div class="stories-notif-item ${n.read ? '' : 'unread'}" data-notif-id="${n.id}" data-story-id="${n.storyId || ''}">
+        ${notifIcon(n.type)}
+        <div class="stories-notif-body">
+          <div class="stories-notif-text">${notifText(n)}</div>
+          <div class="stories-notif-time">${timeAgo(n.createdAt)}</div>
+        </div>
+        ${n.read ? '' : '<div class="stories-notif-unread-dot"></div>'}
+      </div>
+    `).join('');
+
+    // Click a notification → mark read, navigate to story
+    list.querySelectorAll('.stories-notif-item').forEach(el => {
+      el.addEventListener('click', async () => {
+        const nid = el.dataset.notifId;
+        const storyId = el.dataset.storyId;
+        if (nid) {
+          try { await API.markNotifsRead([nid]); } catch {}
+          el.classList.remove('unread');
+          const dot = el.querySelector('.stories-notif-unread-dot');
+          if (dot) dot.remove();
+        }
+        if (storyId) {
+          closeNotifDropdown();
+          App.storySelectedId = storyId;
+          App.loadStoryDetail(storyId);
+        }
+        syncNotifBadges();
+      });
+    });
+  }
+
+  async function openNotifDropdown() {
+    const dropdown = document.getElementById('stories-notif-dropdown');
+    if (!dropdown) return;
+    try {
+      _cachedNotifs = await API.getNotifications();
+    } catch { _cachedNotifs = []; }
+    renderNotifDropdown(_cachedNotifs);
+    dropdown.style.display = 'block';
+    _notifDropdownOpen = true;
+  }
+
+  function closeNotifDropdown() {
+    const dropdown = document.getElementById('stories-notif-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    _notifDropdownOpen = false;
+  }
+
+  async function syncNotifBadges() {
+    try {
+      const result = await API.getUnreadNotifCount();
+      const count = result.count || 0;
+      // Stories bell badge
+      const bellBadge = document.getElementById('stories-notif-count');
+      if (bellBadge) {
+        if (count > 0) { bellBadge.textContent = count; bellBadge.style.display = 'inline-flex'; }
+        else { bellBadge.style.display = 'none'; }
+      }
+      // Sidebar badge (keep in sync)
+      const sidebarBadge = document.getElementById('notif-badge');
+      if (sidebarBadge) {
+        if (count > 0) { sidebarBadge.textContent = count; sidebarBadge.style.display = 'inline-flex'; }
+        else { sidebarBadge.style.display = 'none'; }
+      }
+    } catch {}
+  }
+
+  // Bind bell button
+  const notifBtn = document.getElementById('stories-notif-btn');
+  if (notifBtn) {
+    notifBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (_notifDropdownOpen) closeNotifDropdown();
+      else openNotifDropdown();
+    });
+  }
+
+  // Mark all read button
+  const markAllBtn = document.getElementById('stories-notif-mark-all');
+  if (markAllBtn) {
+    markAllBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try { await API.markNotifsRead([]); } catch {}
+      _cachedNotifs.forEach(n => n.read = true);
+      renderNotifDropdown(_cachedNotifs);
+      syncNotifBadges();
+    });
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (_notifDropdownOpen && !e.target.closest('.stories-notif-wrapper')) {
+      closeNotifDropdown();
+    }
+  });
+
+  // Stop propagation inside dropdown so it doesn't close
+  const dropdown = document.getElementById('stories-notif-dropdown');
+  if (dropdown) dropdown.addEventListener('click', (e) => e.stopPropagation());
+
 })();
