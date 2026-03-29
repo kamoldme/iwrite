@@ -255,6 +255,14 @@ async function sendStatsCard() {
 
     // Get active users count (passed in during init to avoid circular require)
     let onlineNow = _activeUsers ? _activeUsers.size : 0;
+    // Writing Now: users with writingAt within last 60s
+    let writingNow = 0;
+    if (_activeUsers) {
+      const writingCutoff = Date.now() - 60000;
+      for (const [, data] of _activeUsers) {
+        if (data.writingAt && data.writingAt > writingCutoff) writingNow++;
+      }
+    }
 
     // Leaderboard — top 3 by streak, top 3 by time
     // Must match liveStreak() in index.js exactly
@@ -298,6 +306,7 @@ async function sendStatsCard() {
       `📊 <b>iWrite Stats Card</b>\n` +
       `${now}\n\n` +
       `🟢 Online: <b>${onlineNow}</b>\n` +
+      `✏️ Writing Now: <b>${writingNow}</b>\n` +
       `👤 Users: <b>${totalUsers.toLocaleString()}</b>\n` +
       `📄 Documents: <b>${totalDocs.toLocaleString()}</b>\n` +
       `📝 Active Docs: <b>${activeDocs.toLocaleString()}</b>\n` +
