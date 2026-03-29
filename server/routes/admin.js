@@ -702,6 +702,35 @@ router.patch('/story-comments/:id', async (req, res) => {
   res.json(updated);
 });
 
+// Delete a story comment (and its replies + likes)
+router.delete('/story-comments/:id', async (req, res) => {
+  const comment = await findOne('story-comments.json', c => c.id === req.params.id);
+  if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+  // Recursively collect all descendant reply IDs
+  async function collectDescendants(parentId) {
+    const children = await findMany('story-comments.json', c => c.parentCommentId === parentId);
+    let ids = children.map(c => c.id);
+    for (const child of children) {
+      ids = ids.concat(await collectDescendants(child.id));
+    }
+    return ids;
+  }
+
+  const allIds = [req.params.id, ...(await collectDescendants(req.params.id))];
+
+  for (const id of allIds) {
+    // Delete likes on this comment
+    const likes = await findMany('story-comment-likes.json', l => l.commentId === id);
+    for (const l of likes) await deleteOne('story-comment-likes.json', ll => ll.id === l.id);
+    // Delete the comment itself
+    await deleteOne('story-comments.json', c => c.id === id);
+  }
+
+  await logAction(req.user.id, 'admin_delete_comment', { commentId: req.params.id, totalDeleted: allIds.length });
+  res.json({ success: true, deleted: allIds.length });
+});
+
 // ===== STRIPE: SUBSCRIBER LIST =====
 router.get('/subscribers', async (req, res) => {
   try {

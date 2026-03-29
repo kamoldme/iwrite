@@ -484,6 +484,28 @@
             </table>
             <div id="stories-pager" class="admin-pager"></div>
           </div>
+
+          <!-- Story Comments -->
+          <div class="admin-card" style="padding:20px;margin-top:20px">
+            <div class="admin-toolbar" style="margin-bottom:12px;align-items:center">
+              <h3 style="font-size:14px;font-weight:600;margin:0;white-space:nowrap">Comments</h3>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto">
+                <input class="admin-search" id="comments-search" placeholder="Search author or story..." style="max-width:220px;margin-bottom:0" oninput="renderStoryCommentsAdmin()">
+                <select id="comments-status-filter" class="admin-search" style="width:auto;max-width:160px;padding:6px 10px;margin-bottom:0" onchange="renderStoryCommentsAdmin()">
+                  <option value="all">All Statuses</option>
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="hidden">Hidden</option>
+                </select>
+              </div>
+            </div>
+            <table class="admin-table">
+              <thead><tr><th>Author</th><th>Story</th><th>Date</th><th>Status</th><th>Content</th><th>Actions</th></tr></thead>
+              <tbody id="story-comments-tbody"></tbody>
+            </table>
+            <div id="comments-pager" class="admin-pager"></div>
+          </div>
         </div>
 
         <!-- LOST FILES -->
@@ -1052,7 +1074,7 @@
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No matching documents</td></tr>';
       } else {
         tbody.innerHTML = docs.map(d => {
-          const title = d.title || '(untitled)';
+          const title = (d.title || '').trim() || '(untitled)';
           const preview = (d.content || '').replace(/<[^>]*>/g, '').slice(0, 120) || '(no content)';
           return `<tr>
             <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default" title="${esc(title)}\n\n${esc(preview)}${(d.content||'').length > 120 ? '...' : ''}\nWords: ${d.wordCount || 0}"><strong>${esc(title)}</strong></td>
@@ -1436,7 +1458,7 @@
                 <tbody>
                   ${u.documents.sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 30).map(d => {
                     const preview = (d.content || '').replace(/<[^>]*>/g, '').slice(0, 120) || '(no content)';
-                    const title = d.title || '(untitled)';
+                    const title = (d.title || '').trim() || '(untitled)';
                     return `
                     <tr>
                       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default" title="${esc(title)}&#10;&#10;${esc(preview)}${(d.content||'').length > 120 ? '...' : ''}&#10;Words: ${d.wordCount || 0}">${esc(title)}</td>
@@ -1483,7 +1505,7 @@
             <thead><tr><th>Title</th><th>Status</th><th>Format</th><th style="text-align:right">Likes</th><th style="text-align:right">Comments</th><th>Updated</th></tr></thead>
             <tbody>
               ${stories.map(s => {
-                const title = s.title || '(untitled)';
+                const title = (s.title || '').trim() || '(untitled)';
                 const status = (s.status || 'draft').replace(/_/g, ' ');
                 const color = statusColors[s.status] || '#a3a3a3';
                 const excerpt = (s.body || '').replace(/<[^>]*>/g, '').slice(0, 100);
@@ -1700,7 +1722,7 @@
         const color = statusColors[s.status] || '#a3a3a3';
         return `
         <tr>
-          <td><strong>${esc(s.title || '(untitled)')}</strong></td>
+          <td><strong>${esc((s.title || '').trim() || '(untitled)')}</strong></td>
           <td>${esc(s.authorName || 'Unknown')}${s.authorUsername ? `<div style="font-size:11px;color:var(--text-muted)">@${esc(s.authorUsername)}</div>` : ''}</td>
           <td><span style="color:${color};font-weight:600;font-size:11px;text-transform:capitalize">${status}</span></td>
           <td style="font-size:12px;color:var(--text-muted)">${s.format || 'post'}</td>
@@ -1752,7 +1774,7 @@
         const timeCol = d.failedAt || d.updatedAt;
         return `
         <tr>
-          <td><strong>${esc(d.title || '(untitled)')}</strong></td>
+          <td><strong>${esc((d.title || '').trim() || '(untitled)')}</strong></td>
           <td>${esc(d.ownerName)}</td>
           <td>${d.wordCount || 0}</td>
           <td>${d.mode || 'normal'}</td>
@@ -1772,7 +1794,7 @@
     async function viewDoc(id) {
       try {
         const doc = await adminRequest(`/admin/documents/${id}`);
-        document.getElementById('doc-view-title').textContent = doc.title || '(untitled)';
+        document.getElementById('doc-view-title').textContent = (doc.title || '').trim() || '(untitled)';
         document.getElementById('doc-view-body').innerHTML = `
           <div class="user-detail-grid" style="margin-bottom:16px">
             <div class="user-detail-stat"><div class="label">Owner</div><div class="value" style="font-size:13px">${esc(doc.ownerName)}</div></div>
@@ -1812,6 +1834,7 @@
         allStories = await adminRequest('/admin/stories');
         renderStoriesAdmin();
         loadFeaturedStory();
+        loadStoryCommentsAdmin();
       } catch {
         toast('Failed to load stories', 'error');
       }
@@ -1937,6 +1960,97 @@
       }).join('') : '<tr><td colspan="7" class="admin-empty">No published stories match this filter.</td></tr>';
     }
 
+    // ===== STORY COMMENTS MANAGEMENT =====
+    let allStoryComments = [];
+    let _commentsPage = 1;
+
+    async function loadStoryCommentsAdmin() {
+      try {
+        allStoryComments = await adminRequest('/admin/story-comments');
+        renderStoryCommentsAdmin();
+      } catch {
+        toast('Failed to load comments', 'error');
+      }
+    }
+
+    function getFilteredComments() {
+      const search = (document.getElementById('comments-search')?.value || '').trim().toLowerCase();
+      const statusFilter = document.getElementById('comments-status-filter')?.value || 'all';
+      let comments = allStoryComments.slice();
+      if (statusFilter !== 'all') {
+        comments = comments.filter(c => c.status === statusFilter);
+      }
+      if (search) {
+        comments = comments.filter(c => {
+          const haystack = [c.authorName || '', c.storyTitle || ''].join(' ').toLowerCase();
+          return haystack.includes(search);
+        });
+      }
+      return comments;
+    }
+
+    function goCommentsPage(p) { _commentsPage = p; renderStoryCommentsAdmin(); }
+
+    function renderStoryCommentsAdmin() {
+      const tbody = document.getElementById('story-comments-tbody');
+      if (!tbody) return;
+      const filtered = getFilteredComments();
+      const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+      if (_commentsPage > totalPages) _commentsPage = totalPages;
+      const paged = filtered.slice((_commentsPage - 1) * PAGE_SIZE, _commentsPage * PAGE_SIZE);
+      renderPager(document.getElementById('comments-pager'), _commentsPage, totalPages, filtered.length, 'goCommentsPage');
+
+      const statusBadge = (s) => {
+        const colors = { approved: '#4ade80', pending: '#f59e0b', rejected: '#ef4444', hidden: '#6b7280' };
+        return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:${(colors[s] || '#6b7280')}22;color:${colors[s] || '#6b7280'}">${s || 'unknown'}</span>`;
+      };
+
+      tbody.innerHTML = paged.length ? paged.map(c => `
+        <tr>
+          <td>${esc(c.authorName || 'Unknown')}</td>
+          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.storyTitle || 'Unknown')}</td>
+          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap">${c.createdAt ? new Date(c.createdAt).toLocaleString() : '—'}</td>
+          <td>${statusBadge(c.status)}</td>
+          <td>
+            <button class="admin-btn admin-btn-ghost" style="font-size:11px;padding:2px 8px" onclick="viewCommentContent(this, '${c.id}')">View Content</button>
+            <div id="cc-${c.id}" style="display:none;margin-top:6px;padding:8px 10px;background:var(--bg-main);border:1px solid var(--border);border-radius:6px;font-size:12px;line-height:1.5;max-width:300px;word-break:break-word"></div>
+          </td>
+          <td class="actions">
+            <button class="admin-btn admin-btn-danger" style="font-size:11px;padding:2px 8px" onclick="deleteStoryCommentAdmin('${c.id}')">Delete</button>
+          </td>
+        </tr>
+      `).join('') : '<tr><td colspan="6" class="admin-empty">No comments found.</td></tr>';
+    }
+
+    function viewCommentContent(btn, commentId) {
+      const div = document.getElementById('cc-' + commentId);
+      if (!div) return;
+      if (div.style.display === 'block') {
+        div.style.display = 'none';
+        btn.textContent = 'View Content';
+        return;
+      }
+      // Find comment text from already-loaded data
+      const comment = allStoryComments.find(c => c.id === commentId);
+      if (comment) {
+        div.textContent = comment.text || '(empty)';
+        div.style.display = 'block';
+        btn.textContent = 'Hide Content';
+      }
+    }
+
+    async function deleteStoryCommentAdmin(commentId) {
+      const ok = await adminConfirm('Delete this comment and all its replies?');
+      if (!ok) return;
+      try {
+        const result = await adminRequest(`/admin/story-comments/${commentId}`, { method: 'DELETE' });
+        toast(`Comment deleted (${result.deleted} total with replies)`, 'success');
+        loadStoryCommentsAdmin();
+      } catch (err) {
+        toast(err.message || 'Failed to delete comment', 'error');
+      }
+    }
+
     let _modNoteStoryId = null;
     let _modNoteStatus = null;
 
@@ -1998,7 +2112,7 @@
     async function viewStoryAdmin(id) {
       try {
         const story = await adminRequest(`/admin/stories/${id}`);
-        document.getElementById('story-view-title').textContent = story.title || '(untitled)';
+        document.getElementById('story-view-title').textContent = (story.title || '').trim() || '(untitled)';
         const statusColors = { published: '#22c55e', draft: '#a3a3a3', pending_review: '#f59e0b', changes_requested: '#f97316', rejected: '#ef4444', hidden: '#6b7280' };
         const statusLabel = (story.status || 'draft').replace(/_/g, ' ');
         const color = statusColors[story.status] || '#a3a3a3';
@@ -2128,7 +2242,7 @@
         const timeCol = d.failedAt || d.updatedAt;
         return `<tr>
           <td><input type="checkbox" class="lost-check" data-id="${d.id}"></td>
-          <td><strong>${esc(d.title || '(untitled)')}</strong></td>
+          <td><strong>${esc((d.title || '').trim() || '(untitled)')}</strong></td>
           <td>${esc(d.ownerName || '—')}</td>
           <td>${d.wordCount || 0}</td>
           <td>${d.mode || 'normal'}</td>

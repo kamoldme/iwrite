@@ -121,7 +121,7 @@ router.post('/', async (req, res) => {
   const doc = {
     id: uuid(),
     userId: req.user.id,
-    title: title || 'Untitled',
+    title: (title || '').trim() || 'Untitled',
     content: content || '',
     mode: mode || 'normal',
     prompt: prompt || '',
@@ -230,7 +230,7 @@ router.patch('/:id', async (req, res) => {
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
   const updates = {};
-  if (req.body.title !== undefined) updates.title = req.body.title || 'Untitled';
+  if (req.body.title !== undefined) updates.title = (req.body.title || '').trim() || 'Untitled';
   if (req.body.content !== undefined) {
     updates.content = req.body.content;
     updates.wordCount = req.body.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter(Boolean).length;
