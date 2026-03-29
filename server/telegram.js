@@ -20,25 +20,61 @@ function init(activeUsersMap) {
     bot = new TelegramBot(token, { polling: true });
     chatId = process.env.TELEGRAM_ADMIN_CHAT_ID || null;
 
-    // /start command — reveals chat ID for setup
-    bot.onText(/\/start/, (msg) => {
-      const id = msg.chat.id;
-      bot.sendMessage(id, `Your chat ID is: <code>${id}</code>\n\nSet this as <code>TELEGRAM_ADMIN_CHAT_ID</code> in Railway env vars to receive admin notifications.`, { parse_mode: 'HTML' });
-      if (!chatId) {
-        chatId = id.toString();
-        console.log(`[Telegram] Admin chat ID auto-set to ${chatId}`);
+    // /start command — requires access code to unlock
+    const accessCode = process.env.TELEGRAM_ACCESS_CODE || null;
+    const authorizedChats = new Set();
+    if (chatId) authorizedChats.add(chatId);
+
+    bot.onText(/\/start(.*)/, (msg, match) => {
+      const id = msg.chat.id.toString();
+      const code = (match[1] || '').trim();
+
+      // Already authorized
+      if (authorizedChats.has(id)) {
+        bot.sendMessage(id, `✅ You're authorized.\n\nChat ID: <code>${id}</code>\nCommands: /status, /stats`, { parse_mode: 'HTML' });
+        return;
+      }
+
+      // No access code set — reject everyone except pre-set admin
+      if (!accessCode) {
+        bot.sendMessage(id, '🔒 This bot is private.');
+        return;
+      }
+
+      // Check code
+      if (!code) {
+        bot.sendMessage(id, '🔒 This bot requires an access code.\n\nSend: <code>/start YOUR_CODE</code>', { parse_mode: 'HTML' });
+        return;
+      }
+
+      if (code === accessCode) {
+        authorizedChats.add(id);
+        if (!chatId) {
+          chatId = id;
+          console.log(`[Telegram] Admin chat ID set to ${chatId} via access code`);
+        }
+        bot.sendMessage(id, `✅ Access granted!\n\nChat ID: <code>${id}</code>\nCommands: /status, /stats`, { parse_mode: 'HTML' });
+        console.log(`[Telegram] Chat ${id} authorized via access code`);
+      } else {
+        bot.sendMessage(id, '❌ Wrong access code.');
+        console.log(`[Telegram] Failed auth attempt from chat ${id}`);
       }
     });
 
     // /status command — quick health check
     bot.onText(/\/status/, (msg) => {
-      if (msg.chat.id.toString() !== chatId) return;
+      if (!authorizedChats.has(msg.chat.id.toString())) return;
       bot.sendMessage(chatId, `✅ Bot is running\n📡 Chat ID: <code>${chatId}</code>\n⏰ ${new Date().toISOString()}`, { parse_mode: 'HTML' });
     });
 
     // Handle inline button callbacks (moderation approve/reject/view)
     bot.on('callback_query', async (query) => {
       if (!query.data) return;
+      // Only authorized users can press buttons
+      if (!authorizedChats.has(query.message.chat.id.toString())) {
+        await bot.answerCallbackQuery(query.id, { text: '🔒 Not authorized' });
+        return;
+      }
       const [action, entityId] = query.data.split(':');
       if (!entityId || action === 'noop') return;
 
@@ -115,7 +151,7 @@ function init(activeUsersMap) {
 
     // Handle replies to support ticket messages — auto-reply on the platform
     bot.on('message', async (msg) => {
-      if (!msg.reply_to_message || !msg.text || msg.chat.id.toString() !== chatId) return;
+      if (!msg.reply_to_message || !msg.text || !authorizedChats.has(msg.chat.id.toString())) return;
       // Check if the original message is a support ticket
       const origText = msg.reply_to_message.text || '';
       if (!origText.includes('New Support Ticket') && !origText.includes('🎫')) return;
@@ -184,7 +220,7 @@ function init(activeUsersMap) {
 
     // /stats command — manual stats card
     bot.onText(/\/stats/, (msg) => {
-      if (msg.chat.id.toString() !== chatId) return;
+      if (!authorizedChats.has(msg.chat.id.toString())) return;
       sendStatsCard();
     });
 
