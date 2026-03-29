@@ -1484,7 +1484,9 @@
       list.innerHTML = '<div class="stories-notif-empty">No notifications yet</div>';
       return;
     }
-    list.innerHTML = notifs.map(n => `
+    // Show last 10 (newest first, includes both read and unread)
+    const shown = notifs.slice(0, 10);
+    list.innerHTML = shown.map(n => `
       <div class="stories-notif-item ${n.read ? '' : 'unread'}" data-notif-id="${n.id}" data-story-id="${n.storyId || ''}">
         ${notifIcon(n.type)}
         <div class="stories-notif-body">
